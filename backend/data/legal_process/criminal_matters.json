@@ -1,0 +1,108 @@
+{
+  "_disclaimer": "This data is manually curated. Verify fees and procedures at the specific court registry before filing.",
+  "criminal_matters": {
+    "bail_application": {
+      "matter_type": "Regular Bail Application",
+      "applicable_law": "Code of Criminal Procedure, 1973",
+      "cpc_order": "Section 439 CrPC",
+      "documents_required": [
+        "Bail application in prescribed format",
+        "Copy of FIR",
+        "Copy of arrest memo",
+        "Medical reports if custodial torture alleged",
+        "Surety documents",
+        "Personal bond",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee for bail applications",
+      "limitation_period": "No limitation - can be filed anytime during incarceration",
+      "limitation_calculation": "Not applicable - bail is a right during trial",
+      "steps": [
+        "File bail application before sessions court",
+        "Court may grant interim bail",
+        "Hearing on regular bail",
+        "Public prosecutor opposes if required",
+        "Court decides based on prima facie case and custody period"
+      ],
+      "typical_timeline": "1-4 weeks for hearing",
+      "punjab_specific_notes": "Sessions courts in Punjab follow CrPC strictly. Anticipatory bail under Section 438 also available."
+    },
+    "anticipatory_bail": {
+      "matter_type": "Anticipatory Bail Application",
+      "applicable_law": "Code of Criminal Procedure, 1973 - Section 438",
+      "cpc_order": "Section 438 CrPC",
+      "documents_required": [
+        "Anticipatory bail application",
+        "Copy of FIR if already registered",
+        "Affidavit explaining apprehension of arrest",
+        "Personal bond",
+        "Surety documents",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee",
+      "limitation_period": "Before arrest, or immediately after FIR",
+      "limitation_calculation": "Must be filed before arrest is made",
+      "steps": [
+        "File application showing reasonable apprehension of arrest",
+        "Court considers likelihood of arrest",
+        "If granted, pre-arrest bail order issued",
+        "Conditions may be imposed"
+      ],
+      "typical_timeline": "1-2 weeks",
+      "punjab_specific_notes": "High courts in Punjab have been liberal in granting anticipatory bail in commercial matters."
+    },
+    "cheque_bounce": {
+      "matter_type": "Cheque Bounce Complaint (Section 138 NI Act)",
+      "applicable_law": "Negotiable Instruments Act, 1881 - Section 138",
+      "cpc_order": "Criminal Procedure Code + NI Act",
+      "documents_required": [
+        "Criminal complaint under Section 138",
+        "Cheque copy",
+        "Return memo from bank",
+        "Legal demand notice",
+        "Proof of service of notice",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "Court fee of ₹200-500 depending on cheque amount",
+      "limitation_period": "1 month from date of cause of action",
+      "limitation_calculation": "From date of receipt of statutory notice or expiry of 15 days from notice",
+      "steps": [
+        "Send legal demand notice within 30 days of return",
+        "File complaint within 1 month if unpaid",
+        "Court takes cognizance",
+        "Summons issued to accused",
+        "Evidence recording",
+        "Arguments and judgment"
+      ],
+      "typical_timeline": "6-18 months",
+      "punjab_specific_notes": "Magistrate courts handle up to ₹20 lakhs. Higher amounts go to sessions court."
+    },
+    "ndps_case": {
+      "matter_type": "NDPS Bail Application",
+      "applicable_law": "Narcotic Drugs and Psychotropic Substances Act, 1985",
+      "cpc_order": "Section 37 NDPS Act",
+      "documents_required": [
+        "Bail application under Section 439 CrPC read with Section 37 NDPS",
+        "Copy of FIR",
+        "Arrest memo",
+        "Recovery memo",
+        "Chemical analysis report",
+        "Personal bond",
+        "Two sureties",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee",
+      "limitation_period": "During incarceration period",
+      "limitation_calculation": "No limitation during trial",
+      "steps": [
+        "File bail application showing no prima facie case",
+        "Court considers quantity and nature of substance",
+        "Public prosecutor objects",
+        "Court applies triple test: prima facie case, custody necessity, public interest",
+        "Decision based on evidence"
+      ],
+      "typical_timeline": "2-8 weeks",
+      "punjab_specific_notes": "Stringent bail conditions in Punjab. Commercial quantity cases rarely get bail."
+    }
+  }
+}

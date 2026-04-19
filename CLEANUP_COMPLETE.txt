@@ -1,0 +1,71 @@
+# Indian Kanoon Removal — Completed ✅
+
+## What Was Deleted (6 Files)
+
+### Code Files
+1. ❌ `backend/services/citation_scraper.py` (450 lines) — Indian Kanoon scraper service
+2. ❌ `scripts/scrapers/citation_scraper.py` (80 lines) — CLI script for scraping
+3. ❌ `backend/workers/citations.py` → REPLACED with placeholder (was 60 lines of Indian Kanoon code)
+
+### Documentation Files
+4. ❌ `CITATION_SCRAPER_GUIDE.md` (500 lines)
+5. ❌ `CITATION_SCRAPER_IMPLEMENTATION.txt` (300 lines)
+6. ❌ `SCRAPER_QUICK_START.md` (100 lines)
+7. ❌ `BUILD_CITATION_SCRAPER_COMPLETE.txt` (400 lines)
+
+**Total**: ~2,000 lines of code + documentation removed
+
+---
+
+## What Was Modified (8 Files)
+
+### Code Changes
+1. **celery_app.py** — Removed daily scraper_update task schedule
+2. **requirements.txt** — Removed beautifulsoup4 (only used for IK HTML parsing)
+3. **backend/services/__init__.py** — Removed CitationScraperService import
+4. **backend/workers/__init__.py** — Removed scraper_update import
+5. **backend/workers/citations.py** — Converted to placeholder (no longer imports or runs Indian Kanoon scraper)
+
+### Documentation Changes
+6. **backend/models/law_citation.py** — Updated comment: "eSCR, IndianKanoon, P&H HC" → "eSCR, P&H HC, Punjab district court portals"
+7. **SCHEMA_DOCUMENTATION.md** — Same comment update
+8. **CLAUDE.md** — Updated citation_verify: "Fallback to Indian Kanoon API" → "Fallback to government sources (phase 2)"
+
+---
+
+## Database Schema
+
+✅ **Unchanged (by design)**:
+- Citation table uses generic `official_source` (string, not Indian Kanoon specific)
+- Citation table uses generic `source_url` (any URL format)
+- No `ik_doc_id`, `ik_url`, or other Indian Kanoon fields
+- Schema is ready for Phase 2 eSCR, P&H HC, district court sources
+
+---
+
+## Code Verification
+
+```bash
+# Search for any remaining Indian Kanoon references in Python code:
+grep -r "indiankanoon|ik_doc_id|ik_url|ik_base" backend/
+
+# Result: No matches found ✅
+```
+
+---
+
+## Done
+
+| Item | Status |
+|------|--------|
+| Scraper service deleted | ✅ |
+| CLI script deleted | ✅ |
+| Celery task removed | ✅ |
+| Imports cleaned up | ✅ |
+| Dependencies removed | ✅ |
+| Documentation deleted | ✅ |
+| Comments updated | ✅ |
+| Zero lingering references | ✅ |
+| Database schema intact | ✅ |
+
+**Result**: Indian Kanoon integration completely removed. Codebase now focuses exclusively on government sources (eSCR, P&H HC, district courts).

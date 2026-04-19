@@ -1,0 +1,135 @@
+{
+  "_disclaimer": "This data is manually curated. Verify fees and procedures at the specific court registry before filing.",
+  "matrimonial": {
+    "divorce_petition": {
+      "matter_type": "Divorce Petition",
+      "applicable_law": "Hindu Marriage Act, 1955 / Special Marriage Act, 1954",
+      "cpc_order": "Family Court Rules",
+      "documents_required": [
+        "Divorce petition under Section 13",
+        "Marriage certificate",
+        "Marriage photographs",
+        "Address proof",
+        "Income proof",
+        "Cruelty evidence",
+        "Mediation report",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "Court fee of ₹500-1000 depending on grounds",
+      "limitation_period": "No limitation for divorce",
+      "limitation_calculation": "Can be filed anytime during marriage",
+      "steps": [
+        "File divorce petition in family court",
+        "Court refers for mediation",
+        "If mediation fails, trial proceeds",
+        "Evidence recorded",
+        "Judgment for divorce or dismissal"
+      ],
+      "typical_timeline": "2-4 years",
+      "punjab_specific_notes": "Family courts established in all districts. Mediation mandatory before trial."
+    },
+    "maintenance_petition": {
+      "matter_type": "Maintenance Petition",
+      "applicable_law": "Section 125 CrPC / Hindu Adoption and Maintenance Act",
+      "cpc_order": "Criminal Procedure Code",
+      "documents_required": [
+        "Maintenance petition",
+        "Marriage certificate",
+        "Income proof of husband",
+        "Expense proof of wife/children",
+        "Children's school certificates",
+        "Medical bills if applicable",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee for maintenance",
+      "limitation_period": "No limitation",
+      "limitation_calculation": "Can be claimed anytime during marriage or after divorce",
+      "steps": [
+        "File maintenance petition in magistrate court",
+        "Notice to respondent",
+        "Evidence recorded",
+        "Court determines reasonable maintenance",
+        "Monthly allowance ordered"
+      ],
+      "typical_timeline": "3-9 months",
+      "punjab_specific_notes": "Magistrate courts handle up to ₹500/month. Higher amounts go to family court."
+    },
+    "custody_petition": {
+      "matter_type": "Child Custody Petition",
+      "applicable_law": "Hindu Minority and Guardianship Act / Guardians and Wards Act",
+      "cpc_order": "Family Court Rules",
+      "documents_required": [
+        "Custody petition",
+        "Birth certificate of child",
+        "School certificates",
+        "Medical records",
+        "Character certificates",
+        "Income proof of both parents",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "Court fee of ₹200-500",
+      "limitation_period": "No limitation for welfare matters",
+      "limitation_calculation": "Best interest of child paramount",
+      "steps": [
+        "File custody petition in family court",
+        "Court appoints guardian ad litem",
+        "Child's wishes considered if mature",
+        "Welfare report prepared",
+        "Custody awarded based on best interest"
+      ],
+      "typical_timeline": "6-18 months",
+      "punjab_specific_notes": "Family courts give paramount consideration to child's welfare and education."
+    },
+    "domestic_violence": {
+      "matter_type": "Domestic Violence Protection Order",
+      "applicable_law": "Protection of Women from Domestic Violence Act, 2005",
+      "cpc_order": "Domestic Violence Rules",
+      "documents_required": [
+        "Domestic violence complaint",
+        "Medical reports of injuries",
+        "Police reports",
+        "Witness statements",
+        "Residence proof",
+        "Income proof",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee",
+      "limitation_period": "3 years from violence",
+      "limitation_calculation": "From date of last incident",
+      "steps": [
+        "File complaint in magistrate court",
+        "Ex-parte protection order may be granted",
+        "Notice to respondent",
+        "Evidence recorded",
+        "Protection order/residence order/maintenance granted"
+      ],
+      "typical_timeline": "1-6 months",
+      "punjab_specific_notes": "Magistrate courts handle DV cases. Protection orders effective immediately."
+    },
+    "restraining_order": {
+      "matter_type": "Restraining Order in Matrimonial Disputes",
+      "applicable_law": "Section 12 Hindu Marriage Act / Domestic Violence Act",
+      "cpc_order": "Order 39 CPC",
+      "documents_required": [
+        "Application for restraining order",
+        "Marriage certificate",
+        "Evidence of harassment",
+        "Police reports",
+        "Medical reports",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "Fixed court fee ₹50-100",
+      "limitation_period": "During pendency of matrimonial proceedings",
+      "limitation_calculation": "Filed along with or during divorce proceedings",
+      "steps": [
+        "File application in matrimonial court",
+        "Prima facie case shown",
+        "Ex-parte order may be granted",
+        "Respondent heard",
+        "Final order passed"
+      ],
+      "typical_timeline": "1-3 months",
+      "punjab_specific_notes": "Common remedy to prevent alienation of assets or harassment during divorce."
+    }
+  }
+}

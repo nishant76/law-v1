@@ -1,0 +1,556 @@
+"""
+Search Service — unified semantic search over public judgments and own files
+Handles hybrid search (vector + keyword) using Azure AI Search
+Returns results clearly labeled by source type
+"""
+
+import asyncio
+import logging
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+from enum import Enum
+from urllib.parse import quote
+
+from sqlalchemy import select, and_, or_, func
+from sqlalchemy.ext.asyncio import AsyncSession
+import httpx
+
+from backend.models.law_citation import Citation
+from backend.services.llm_service import get_llm_service, ModelType
+from backend.services.rag_service import get_rag_service
+from backend.services.prompts.rag_synthesis import rag_synthesis_prompt
+from backend.core.config import settings
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class SearchResultType(str, Enum):
+    """Source of search result"""
+    PUBLIC_JUDGMENT = "public_judgment"
+    OWN_FILE = "own_file"
+
+
+class PublicJudgmentResult(Dict[str, Any]):
+    """Result from public judgment search"""
+    pass
+
+
+class OwnFileResult(Dict[str, Any]):
+    """Result from own files search"""
+    pass
+
+
+class SearchService:
+    """
+    Unified semantic search service
+    
+    Searches:
+    1. Public judgments in law.citations (hybrid: vector + keyword)
+    2. Own files in law.documents (hybrid: vector + keyword)
+    
+    Both via Azure AI Search
+    """
+    
+    # Azure AI Search indexes
+    PUBLIC_JUDGMENTS_INDEX = "public-judgments"
+    OWN_FILES_INDEX = "own-documents"
+    
+    def __init__(self, session: AsyncSession):
+        """
+        Initialize search service
+        
+        Args:
+            session: Database session for local queries
+        """
+        self.session = session
+        self.llm_service = get_llm_service()
+        self.rag_service = get_rag_service()
+    
+    async def embed_query(self, query: str) -> List[float]:
+        """
+        Convert search query to vector embedding
+        
+        Args:
+            query: Search query text
+            
+        Returns:
+            Vector embedding (1536 dimensions)
+        """
+        return await self.llm_service.embed_query(query)
+    
+    async def search_public_judgments(
+        self,
+        query: str,
+        _query_vector: List[float],
+        filters: Optional[Dict[str, Any]] = None,
+        firm_id: Optional[str] = None,
+        top: int = 10,
+    ) -> List[PublicJudgmentResult]:
+        """
+        Search public judgments (law.citations) using PostgreSQL full-text search.
+        Falls back to per-word ILIKE when FTS returns zero results.
+        Public judgments are NOT filtered by firm_id — they belong to everyone.
+
+        Args:
+            query: Search query text
+            _query_vector: Embedded query vector (unused until Azure AI Search is wired)
+            filters: Optional filters (outcome, court, year_from, year_to, matter_type)
+            firm_id: Used for logging only — never for filtering
+            top: Max results to return
+        """
+        try:
+            search_filters = self._build_search_filters(filters)
+
+            # Debug: log total rows available before filtering
+            count_result = await self.session.execute(
+                select(func.count()).select_from(Citation).where(Citation.deleted_at.is_(None))
+            )
+            total = count_result.scalar_one()
+            logger.info(
+                f"search_public_judgments: query='{query[:80]}' "
+                f"total_citations_in_db={total} firm={firm_id}"
+            )
+
+            results = await self._search_local_citations(
+                query=query,
+                filters=search_filters,
+                top=top,
+            )
+
+
+            logger.info(f"search_public_judgments: returning {len(results)} results")
+            return results
+
+        except Exception as e:
+            logger.error(f"Error searching public judgments: {e}", exc_info=True)
+            return []
+    
+    async def search_own_files(
+        self,
+        query: str,
+        query_vector: List[float],
+        firm_id: str,
+        top: int = 10,
+    ) -> List[OwnFileResult]:
+        """
+        Hybrid search over firm's indexed documents
+        
+        Args:
+            query: Search query text
+            query_vector: Embedded query vector
+            firm_id: Firm ID (required - searches only own firm's documents)
+            top: Number of results to return (default 10)
+            
+        Returns:
+            List of results with document_name, page, excerpt, score, confidence
+        """
+        try:
+            logger.info(f"Searching own files: {query[:100]}... (firm: {firm_id})")
+            
+            chunks = await self.rag_service.retrieve_chunks(
+                query=query,
+                firm_id=firm_id,
+                top_k=top,
+                query_vector=query_vector,
+            )
+            
+            results = [
+                {
+                    "document_name": chunk.get("document_name"),
+                    "page": chunk.get("page_number", 0),
+                    "excerpt": chunk.get("text", "")[:250],
+                    "score": chunk.get("score", 0.0),
+                    "document_id": chunk.get("document_id"),
+                    "chunk_index": chunk.get("chunk_index"),
+                    "result_type": SearchResultType.OWN_FILE,
+                }
+                for chunk in chunks
+            ]
+            
+            logger.info(f"Found {len(results)} own file results")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error searching own files: {e}", exc_info=True)
+            return []
+    
+    async def unified_search(
+        self,
+        query: str,
+        filters: Optional[Dict[str, Any]] = None,
+        firm_id: Optional[str] = None,
+        top_per_source: int = 10,
+    ) -> Dict[str, Any]:
+        """
+        Unified search over both sources simultaneously
+        Uses asyncio.gather to run both searches in parallel
+        
+        Args:
+            query: Search query text
+            filters: Filters for public judgments
+            firm_id: Firm ID
+            top_per_source: Results per source (default 10)
+            
+        Returns:
+            {
+                "success": bool,
+                "query": str,
+                "from_your_files": [List of OwnFileResult],
+                "from_public_judgments": [List of PublicJudgmentResult],
+                "total_results": int,
+                "duration_ms": float
+            }
+        """
+        start_time = datetime.utcnow()
+        
+        try:
+            logger.info(f"Unified search: {query[:100]}... (firm: {firm_id})")
+            
+            # Step 1: Embed query once
+            query_vector = await self.embed_query(query)
+            
+            # Step 2: Run both searches in parallel
+            own_files_task = self.search_own_files(
+                query=query,
+                query_vector=query_vector,
+                firm_id=firm_id or "",
+                top=top_per_source,
+            ) if firm_id else asyncio.sleep(0)
+            
+            public_judgments_task = self.search_public_judgments(
+                query=query,
+                _query_vector=query_vector,
+                filters=filters,
+                firm_id=firm_id,
+                top=top_per_source,
+            )
+            
+            # Gather results
+            results = await asyncio.gather(
+                own_files_task,
+                public_judgments_task,
+                return_exceptions=True
+            )
+            
+            own_file_results = results[0] if isinstance(results[0], list) else []
+            public_judgment_results = results[1] if isinstance(results[1], list) else []
+            
+            duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+            
+            response = {
+                "success": True,
+                "query": query,
+                "from_your_files": own_file_results,
+                "from_public_judgments": public_judgment_results,
+                "total_results": len(own_file_results) + len(public_judgment_results),
+                "duration_ms": duration_ms,
+            }
+            
+            logger.info(
+                f"Unified search completed: {len(own_file_results)} own files, "
+                f"{len(public_judgment_results)} public judgments in {duration_ms:.0f}ms"
+            )
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error in unified search: {e}", exc_info=True)
+            return {
+                "success": False,
+                "query": query,
+                "error": str(e),
+                "from_your_files": [],
+                "from_public_judgments": [],
+            }
+    
+    async def synthesise_answer(
+        self,
+        query: str,
+        chunks: List[Dict[str, Any]],
+        firm_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate synthesized answer from retrieved chunks using RAG
+        Calls GPT-4o-mini with rag_synthesis prompt
+        
+        Args:
+            query: Original search query
+            chunks: List of context chunks from search results
+            firm_id: Firm ID for token tracking
+            
+        Returns:
+            {
+                "answer": str,
+                "confidence": int (0-10),
+                "sources": [{"document": str, "page": int, "excerpt": str}],
+                "answer_found": bool
+            }
+        """
+        try:
+            logger.info(
+                f"Synthesizing answer from {len(chunks)} chunks (firm: {firm_id})"
+            )
+            
+            if not chunks:
+                return {
+                    "answer": "No relevant information found. Please provide more context or try a different search.",
+                    "confidence": 0,
+                    "sources": [],
+                    "answer_found": False,
+                }
+            
+            # Format chunks for RAG prompt
+            context_text = "\n\n".join([
+                f"[{chunk.get('source', 'Unknown')}] {chunk.get('text', '')}"
+                for chunk in chunks[:5]  # Use top 5 chunks
+            ])
+            
+            system_prompt = rag_synthesis_prompt.system_prompt
+            user_prompt = rag_synthesis_prompt.format_user_prompt(
+                query=query,
+                context_chunks=context_text,
+            )
+            
+            response_text = await self.llm_service.call_completion(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=ModelType(rag_synthesis_prompt.model.value),
+                temperature=0.0,
+                max_tokens=500,
+                firm_id=firm_id,
+            )
+            
+            # Parse response (simple parsing for MVP)
+            lines = response_text.split('\n')
+            answer = response_text[:300]  # First 300 chars
+            confidence = 5  # Default confidence
+            
+            # Try to extract confidence score
+            for line in lines:
+                if "confidence" in line.lower() and any(c.isdigit() for c in line):
+                    try:
+                        confidence = int(''.join(filter(str.isdigit, line.split(':')[-1])))
+                        confidence = max(0, min(10, confidence))  # Clamp 0-10
+                    except ValueError:
+                        pass
+            
+            # Build sources
+            sources = [
+                {
+                    "document": chunk.get("source", "Unknown"),
+                    "page": chunk.get("page", 0),
+                    "excerpt": chunk.get("text", "")[:100],
+                }
+                for chunk in chunks[:3]
+            ]
+            
+            result = {
+                "answer": answer,
+                "confidence": confidence,
+                "sources": sources,
+                "answer_found": confidence >= 4,
+            }
+            
+            # Warn if low confidence
+            if confidence < 4:
+                result["warning"] = "Upload more relevant documents to improve search quality"
+            
+            logger.info(f"Answer synthesized with confidence {confidence}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error synthesizing answer: {e}", exc_info=True)
+            return {
+                "answer": "Failed to generate answer. Please try again.",
+                "confidence": 0,
+                "sources": [],
+                "answer_found": False,
+                "error": str(e),
+            }
+    
+    # ===================
+    # Private helper methods
+    # ===================
+    
+    def _build_search_filters(self, filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Build filter dictionary for search"""
+        if not filters:
+            return {}
+        
+        search_filter = {}
+        
+        # Map outcome filter values
+        if "outcome" in filters:
+            outcome_map = {
+                "favour_petitioner": ["allowed", "granted", "accepted"],
+                "favour_respondent": ["dismissed", "rejected"],
+                "bail_granted": ["bail_granted"],
+                "bail_refused": ["bail_refused"],
+            }
+            mapped = outcome_map.get(filters["outcome"], [])
+            if mapped:
+                search_filter["outcome"] = mapped
+        
+        # Add other filters
+        if "court" in filters:
+            search_filter["court"] = filters["court"]
+        
+        if "matter_type" in filters:
+            search_filter["matter_type"] = filters["matter_type"]
+        
+        if "year_from" in filters:
+            search_filter["year_from"] = filters["year_from"]
+        
+        if "year_to" in filters:
+            search_filter["year_to"] = filters["year_to"]
+        
+        return search_filter
+    
+    async def _search_local_citations(
+        self,
+        query: str,
+        filters: Dict[str, Any],
+        top: int = 10,
+    ) -> List[PublicJudgmentResult]:
+        """
+        PostgreSQL full-text search over law.citations.
+        Public judgments are shared across all firms — no firm_id filter applied.
+
+        Strategy:
+          1. FTS via to_tsvector / plainto_tsquery across case_name, primary_citation,
+             matter_type, subject_tags, and court.
+          2. If FTS returns zero rows, fall back to per-word ILIKE across the same columns
+             so partial / non-English terms still match.
+        """
+        try:
+            # Base condition — never show soft-deleted rows
+            base = [Citation.deleted_at.is_(None)]
+
+            # Optional structured filters
+            if filters.get("outcome"):
+                base.append(Citation.outcome.in_(filters["outcome"]))
+            if filters.get("court"):
+                base.append(Citation.court == filters["court"])
+            if filters.get("matter_type"):
+                base.append(Citation.matter_type == filters["matter_type"])
+            if filters.get("year_from"):
+                base.append(Citation.year >= filters["year_from"])
+            if filters.get("year_to"):
+                base.append(Citation.year <= filters["year_to"])
+
+            citations: List[Citation] = []
+
+            if query:
+                # --- Pass 1: PostgreSQL full-text search ---
+                search_doc = func.to_tsvector(
+                    "english",
+                    Citation.case_name
+                    + " "
+                    + func.coalesce(Citation.primary_citation, "")
+                    + " "
+                    + func.coalesce(Citation.matter_type, "")
+                    + " "
+                    + func.coalesce(Citation.subject_tags, "")
+                    + " "
+                    + func.coalesce(Citation.court, ""),
+                )
+                fts_stmt = (
+                    select(Citation)
+                    .where(and_(*base, search_doc.op("@@")(func.plainto_tsquery("english", query))))
+                    .limit(top)
+                )
+                fts_rows = await self.session.execute(fts_stmt)
+                citations = list(fts_rows.scalars().all())
+                logger.info(f"_search_local_citations: FTS returned {len(citations)} rows for '{query[:60]}'")
+
+                # --- Pass 2: per-word ILIKE fallback ---
+                if not citations:
+                    words = [w for w in query.split() if len(w) > 1]
+                    word_clauses = [
+                        or_(
+                            Citation.case_name.ilike(f"%{w}%"),
+                            Citation.matter_type.ilike(f"%{w}%"),
+                            Citation.primary_citation.ilike(f"%{w}%"),
+                            Citation.subject_tags.ilike(f"%{w}%"),
+                            Citation.court.ilike(f"%{w}%"),
+                        )
+                        for w in words
+                    ]
+                    if word_clauses:
+                        like_stmt = (
+                            select(Citation)
+                            .where(and_(*base, or_(*word_clauses)))
+                            .limit(top)
+                        )
+                        like_rows = await self.session.execute(like_stmt)
+                        citations = list(like_rows.scalars().all())
+                        logger.info(
+                            f"_search_local_citations: ILIKE fallback returned {len(citations)} rows"
+                        )
+            else:
+                # No query text — return most recent citations
+                stmt = (
+                    select(Citation)
+                    .where(and_(*base))
+                    .order_by(Citation.year.desc())
+                    .limit(top)
+                )
+                rows = await self.session.execute(stmt)
+                citations = list(rows.scalars().all())
+
+            return [self._format_citation_result(c) for c in citations]
+
+        except Exception as e:
+            logger.error(f"Error in _search_local_citations: {e}", exc_info=True)
+            return []
+
+    def _format_citation_result(self, c: Citation) -> PublicJudgmentResult:
+        return {
+            "case_name": c.case_name,
+            "petitioner": c.petitioner,
+            "respondent": c.respondent,
+            "court": c.court,
+            "year": c.year,
+            "judgment_date": c.judgment_date.isoformat() if c.judgment_date else None,
+            "citation_key": c.citation_key,
+            "primary_citation": c.primary_citation,
+            "source_url": c.source_url,
+            "official_source": c.official_source,
+            "matter_type": c.matter_type,
+            "outcome": c.outcome,
+            "subject_tags": c.subject_tags,
+            "relevance_score": 0.95,
+            "result_type": SearchResultType.PUBLIC_JUDGMENT,
+        }
+    
+    async def _search_azure_ai_search(
+        self,
+        index_name: str,
+        query: str,
+        query_vector: List[float],
+        filters: Dict[str, Any],
+        top: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """
+        Search via Azure AI Search HTTP API
+        In MVP, returns empty (placeholder for full implementation)
+        """
+        try:
+            logger.debug(f"Searching Azure AI Search index: {index_name}")
+            
+            # TODO: Implement actual Azure AI Search HTTP call
+            # POST to AZURE_SEARCH_ENDPOINT/indexes/{index_name}/docs/search?api-version=2021-04-30-Preview
+            # With hybrid search: vector_search + text search
+            
+            # For MVP, return empty list
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error searching Azure AI Search: {e}", exc_info=True)
+            return []
+
+
+def get_search_service(session: AsyncSession) -> SearchService:
+    """Factory function to get search service instance"""
+    return SearchService(session)

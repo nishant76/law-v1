@@ -1,0 +1,82 @@
+{
+  "_disclaimer": "This data is manually curated. Verify fees and procedures at the specific court registry before filing.",
+  "civil_suits": {
+    "regular_civil_suit": {
+      "matter_type": "Regular Civil Suit",
+      "applicable_law": "Code of Civil Procedure, 1908",
+      "cpc_order": "Order IV (Institution of Suits)",
+      "documents_required": [
+        "Plaint in duplicate",
+        "Court fee stamps",
+        "Power of attorney (if through advocate)",
+        "List of witnesses",
+        "List of documents",
+        "Copies of documents to be relied upon",
+        "Affidavit of truth of plaint",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "Based on suit value: 1% of amount up to ₹15,000, then graduated scale up to ₹30 lakhs",
+      "limitation_period": "3 years from when cause of action arises",
+      "limitation_calculation": "From date of breach/contract/demand, depending on nature of suit",
+      "steps": [
+        "Draft and file plaint with court fee",
+        "Court issues summons to defendant",
+        "Written statement filed within 30 days",
+        "Replication and rejoinder if needed",
+        "Framing of issues",
+        "Recording of evidence",
+        "Arguments and judgment"
+      ],
+      "typical_timeline": "2-5 years depending on court backlog",
+      "punjab_specific_notes": "District courts follow Punjab Civil Courts Act. Filing through eCourts portal mandatory in most districts."
+    },
+    "summary_suit": {
+      "matter_type": "Summary Suit (Order 37)",
+      "applicable_law": "Code of Civil Procedure, 1908 - Order 37",
+      "cpc_order": "Order 37 (Summary Procedure)",
+      "documents_required": [
+        "Summary suit application",
+        "Court fee stamps (same as regular suit)",
+        "Evidence on affidavit",
+        "Power of attorney",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "Same as regular civil suit based on claim amount",
+      "limitation_period": "3 years from cause of action",
+      "limitation_calculation": "From date debt became due or contract breached",
+      "steps": [
+        "File summary suit with evidence on affidavit",
+        "Court may grant leave to defend or pass judgment",
+        "If leave granted, matter proceeds as regular suit",
+        "If no leave, judgment passed immediately"
+      ],
+      "typical_timeline": "6-12 months if no leave to defend",
+      "punjab_specific_notes": "Common for recovery of money on bills of exchange, hundis, promissory notes"
+    },
+    "injunction_suit": {
+      "matter_type": "Suit for Injunction",
+      "applicable_law": "Specific Relief Act, 1963 + CPC",
+      "cpc_order": "Order 39 (Temporary Injunctions)",
+      "documents_required": [
+        "Plaint for permanent injunction",
+        "Application for temporary injunction",
+        "Court fee stamps",
+        "Prima facie case documents",
+        "Balance of convenience proof",
+        "Irreparable loss evidence"
+      ],
+      "court_fees_formula": "Fixed court fee of ₹50-100 plus ad valorem if property involved",
+      "limitation_period": "3 years from infringement",
+      "limitation_calculation": "From date of first infringement or threat",
+      "steps": [
+        "File suit for permanent injunction",
+        "File application for temporary injunction",
+        "Court hears ex-parte or after notice",
+        "If temporary injunction granted, status quo maintained",
+        "Trial proceeds for permanent injunction"
+      ],
+      "typical_timeline": "1-3 years for final disposal",
+      "punjab_specific_notes": "District courts have jurisdiction up to ₹20 lakhs. Higher value goes to civil judge senior division."
+    }
+  }
+}

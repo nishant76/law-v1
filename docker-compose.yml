@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  # FastAPI backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nikhar-backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@postgres:5432/nikhar
+      - REDIS_URL=redis://redis:6379/0
+      - USE_AZURE_OPENAI=${USE_AZURE_OPENAI:-false}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_ORG_ID=${OPENAI_ORG_ID}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_VERSION=2024-10-21
+      - GPT4O_DEPLOYMENT=${GPT4O_DEPLOYMENT:-gpt-4o}
+      - GPT4O_MINI_DEPLOYMENT=${GPT4O_MINI_DEPLOYMENT:-gpt-4o-mini}
+      - EMBEDDING_DEPLOYMENT=${EMBEDDING_DEPLOYMENT:-text-embedding-ada-002}
+      - AZURE_SEARCH_ENDPOINT=${AZURE_SEARCH_ENDPOINT}
+      - AZURE_SEARCH_KEY=${AZURE_SEARCH_KEY}
+      - BLOB_CONNECTION_STRING=${BLOB_CONNECTION_STRING}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - WHATSAPP_API_TOKEN=${WHATSAPP_API_TOKEN}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - REFRESH_TOKEN_EXPIRE_DAYS=30
+      - APPLICATIONINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING}
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nikhar-network
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:16.1-alpine
+    container_name: nikhar-postgres
+    environment:
+      POSTGRES_USER: nikhar
+      POSTGRES_PASSWORD: nikhar
+      POSTGRES_DB: nikhar
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nikhar -d nikhar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nikhar-network
+
+  # Redis cache and Celery broker
+  redis:
+    image: redis:7.2.1-alpine
+    container_name: nikhar-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nikhar-network
+
+  # One-shot migration runner — exits after migrations complete
+  # Usage: docker-compose run --rm migrate
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m alembic -c backend/migrations/alembic.ini upgrade head
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@postgres:5432/nikhar
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nikhar-network
+
+  # Celery worker for background jobs
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nikhar-celery
+    command: celery -A celery_app:celery_app worker --loglevel=info
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@postgres:5432/nikhar
+      - REDIS_URL=redis://redis:6379/0
+      - USE_AZURE_OPENAI=${USE_AZURE_OPENAI:-false}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_ORG_ID=${OPENAI_ORG_ID}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_VERSION=2024-10-21
+      - GPT4O_DEPLOYMENT=${GPT4O_DEPLOYMENT:-gpt-4o}
+      - GPT4O_MINI_DEPLOYMENT=${GPT4O_MINI_DEPLOYMENT:-gpt-4o-mini}
+      - EMBEDDING_DEPLOYMENT=${EMBEDDING_DEPLOYMENT:-text-embedding-ada-002}
+      - AZURE_SEARCH_ENDPOINT=${AZURE_SEARCH_ENDPOINT}
+      - AZURE_SEARCH_KEY=${AZURE_SEARCH_KEY}
+      - BLOB_CONNECTION_STRING=${BLOB_CONNECTION_STRING}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - WHATSAPP_API_TOKEN=${WHATSAPP_API_TOKEN}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      - CELERY_WORKER=true
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - postgres
+      - backend
+    networks:
+      - nikhar-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  nikhar-network:
+    driver: bridge

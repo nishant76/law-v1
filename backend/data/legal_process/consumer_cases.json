@@ -1,0 +1,111 @@
+{
+  "_disclaimer": "This data is manually curated. Verify fees and procedures at the specific court registry before filing.",
+  "consumer_cases": {
+    "district_forum_complaint": {
+      "matter_type": "District Consumer Forum Complaint",
+      "applicable_law": "Consumer Protection Act, 2019",
+      "cpc_order": "Consumer Protection Rules, 2020",
+      "documents_required": [
+        "Consumer complaint in Form I",
+        "Purchase receipts/bills",
+        "Warranty documents",
+        "Correspondence with service provider",
+        "Expert opinion if technical",
+        "Medical reports if health related",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee for consumer complaints",
+      "limitation_period": "3 years from date of cause of action",
+      "limitation_calculation": "From date of purchase/service or when deficiency became known",
+      "steps": [
+        "File complaint in prescribed form",
+        "Forum president scrutinizes",
+        "Notice issued to opposite party",
+        "Written statement filed",
+        "Evidence recorded",
+        "Arguments heard",
+        "Order passed"
+      ],
+      "typical_timeline": "6-18 months",
+      "punjab_specific_notes": "District forums handle claims up to ₹1 crore. State commission for higher amounts."
+    },
+    "defective_product": {
+      "matter_type": "Defective Product Complaint",
+      "applicable_law": "Consumer Protection Act, 2019",
+      "cpc_order": "Section 2(10) - Defect in Product",
+      "documents_required": [
+        "Complaint in Form I",
+        "Purchase invoice",
+        "Product photographs",
+        "Technical reports",
+        "Medical reports if injury caused",
+        "Witness statements",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee",
+      "limitation_period": "2 years from date of purchase",
+      "limitation_calculation": "From date of purchase or when defect discovered",
+      "steps": [
+        "File complaint alleging manufacturing defect",
+        "Opposite party responds",
+        "Evidence of defect produced",
+        "Forum may appoint expert",
+        "Compensation awarded if proved"
+      ],
+      "typical_timeline": "9-24 months",
+      "punjab_specific_notes": "Common complaints against automobile manufacturers and electronic goods."
+    },
+    "medical_negligence": {
+      "matter_type": "Medical Negligence Complaint",
+      "applicable_law": "Consumer Protection Act, 2019",
+      "cpc_order": "Service Deficiency under Section 2(42)",
+      "documents_required": [
+        "Consumer complaint",
+        "Medical records",
+        "Discharge summary",
+        "Expert medical opinion",
+        "Bills and receipts",
+        "Disability certificate if applicable",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee",
+      "limitation_period": "2 years from negligence",
+      "limitation_calculation": "From date of treatment or when negligence discovered",
+      "steps": [
+        "File complaint with medical evidence",
+        "Medical expert appointed by forum",
+        "Expert report obtained",
+        "Arguments on medical negligence",
+        "Compensation determined"
+      ],
+      "typical_timeline": "12-36 months",
+      "punjab_specific_notes": "Requires expert medical evidence. High burden of proof on complainant."
+    },
+    "insurance_claim": {
+      "matter_type": "Insurance Claim Dispute",
+      "applicable_law": "Consumer Protection Act, 2019",
+      "cpc_order": "Insurance as Service",
+      "documents_required": [
+        "Consumer complaint",
+        "Insurance policy copy",
+        "Claim application",
+        "Repudiation letter",
+        "Surveyor report",
+        "Medical documents",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee",
+      "limitation_period": "3 years from repudiation",
+      "limitation_calculation": "From date of claim rejection",
+      "steps": [
+        "File complaint against repudiation",
+        "Insurance company responds",
+        "Evidence of policy terms",
+        "Forum examines claim validity",
+        "Order for claim settlement"
+      ],
+      "typical_timeline": "9-18 months",
+      "punjab_specific_notes": "Common disputes in vehicle insurance and health insurance claims."
+    }
+  }
+}

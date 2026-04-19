@@ -1,0 +1,114 @@
+{
+  "_disclaimer": "This data is manually curated. Verify fees and procedures at the specific court registry before filing.",
+  "property_disputes": {
+    "possession_suit": {
+      "matter_type": "Suit for Possession",
+      "applicable_law": "Code of Civil Procedure, 1908 + Transfer of Property Act",
+      "cpc_order": "Order IV CPC",
+      "documents_required": [
+        "Plaint for possession",
+        "Title documents",
+        "Chain of ownership documents",
+        "Revenue records (jamabandi)",
+        "Site plan",
+        "Court fee stamps",
+        "Power of attorney",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "Based on property value: 1% up to ₹15,000, graduated scale thereafter",
+      "limitation_period": "12 years from dispossession",
+      "limitation_calculation": "From date of wrongful dispossession",
+      "steps": [
+        "File suit for possession with title documents",
+        "Court issues summons",
+        "Written statement filed",
+        "Issues framed",
+        "Evidence recorded",
+        "Commission may be appointed for local inspection",
+        "Judgment delivered"
+      ],
+      "typical_timeline": "3-7 years",
+      "punjab_specific_notes": "District courts have jurisdiction. Revenue courts handle agricultural land disputes."
+    },
+    "injunction_property": {
+      "matter_type": "Property Injunction Suit",
+      "applicable_law": "Specific Relief Act, 1963 + CPC Order 39",
+      "cpc_order": "Order 39 CPC",
+      "documents_required": [
+        "Plaint for permanent injunction",
+        "Application for temporary injunction",
+        "Title documents",
+        "Possession proof",
+        "Prima facie case documents",
+        "Balance of convenience evidence",
+        "Court fee stamps",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "Fixed court fee ₹50-100 plus ad valorem",
+      "limitation_period": "3 years from infringement",
+      "limitation_calculation": "From date of first interference with property rights",
+      "steps": [
+        "File suit for permanent injunction",
+        "File application for temporary injunction",
+        "Ex-parte hearing or after notice",
+        "If granted, status quo maintained",
+        "Trial proceeds for permanent relief"
+      ],
+      "typical_timeline": "2-5 years",
+      "punjab_specific_notes": "Common in urban areas for boundary disputes and construction interference."
+    },
+    "revenue_court_mutation": {
+      "matter_type": "Revenue Court Mutation Appeal",
+      "applicable_law": "Punjab Land Revenue Act, 1887",
+      "cpc_order": "Revenue Court Rules",
+      "documents_required": [
+        "Appeal petition",
+        "Copy of mutation order",
+        "Revenue records",
+        "Identity proof",
+        "Succession documents",
+        "No court fee for revenue matters",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "No court fee in revenue courts",
+      "limitation_period": "30 days from mutation order",
+      "limitation_calculation": "From date of knowledge of mutation",
+      "steps": [
+        "File appeal before assistant collector",
+        "May go to collector, then commissioner",
+        "Evidence recorded",
+        "Local inspection if required",
+        "Order passed"
+      ],
+      "typical_timeline": "6-12 months",
+      "punjab_specific_notes": "Revenue courts handle land records. Appeals go through revenue hierarchy."
+    },
+    "partition_suit": {
+      "matter_type": "Partition Suit",
+      "applicable_law": "Partition Act, 1893 + CPC",
+      "cpc_order": "Order IV CPC",
+      "documents_required": [
+        "Partition suit",
+        "Title documents",
+        "Family tree",
+        "Revenue records",
+        "Site plan",
+        "Court fee stamps",
+        "Power of attorney",
+        "Vakalatnama"
+      ],
+      "court_fees_formula": "Based on property value",
+      "limitation_period": "No specific limitation, but reasonable time",
+      "limitation_calculation": "No fixed period, but laches may apply",
+      "steps": [
+        "File partition suit",
+        "Court appoints commissioner for partition",
+        "Preliminary decree passed",
+        "Final decree after partition",
+        "Separate possession given"
+      ],
+      "typical_timeline": "2-4 years",
+      "punjab_specific_notes": "Commissioner appointed for actual division. Common in joint Hindu family properties."
+    }
+  }
+}
