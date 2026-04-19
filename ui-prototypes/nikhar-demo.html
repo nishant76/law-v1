@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nikhar — Legal Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:       #1B2E4B;
+    --navy-dark:  #111E30;
+    --navy-mid:   #243D61;
+    --navy-light: #2E4E7A;
+    --gold:       #C9A84C;
+    --gold-light: #E2C270;
+    --gold-pale:  #FDF6E3;
+    --green:      #1A6B3C;
+    --green-bg:   #E8F5EE;
+    --amber:      #B8860B;
+    --amber-bg:   #FFF8E1;
+    --red:        #8B1A1A;
+    --red-bg:     #FDECEA;
+    --bg:         #F4F6F9;
+    --card:       #FFFFFF;
+    --border:     #DDE3EC;
+    --text:       #1E2A3A;
+    --text-mid:   #4A5568;
+    --text-light: #8A96A8;
+    --sidebar-w:  248px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Sora', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ─────────────────────────────────── */
+  .sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: var(--navy-dark);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sidebar::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .sidebar::after {
+    content: '';
+    position: absolute;
+    bottom: 60px; left: -60px;
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    color: var(--navy-dark);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: #fff;
+    letter-spacing: 0.3px;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+
+  .firm-badge {
+    margin: 16px 16px 8px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .firm-avatar {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--navy-light), var(--navy-mid));
+    border: 1px solid rgba(201,168,76,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+
+  .firm-info { flex: 1; min-width: 0; }
+  .firm-name { font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .firm-plan { font-size: 10px; color: var(--gold); margin-top: 1px; }
+
+  .nav {
+    padding: 12px 12px;
+    flex: 1;
+  }
+
+  .nav-section-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    padding: 12px 8px 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+    text-decoration: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+    font-weight: 500;
+    position: relative;
+  }
+
+  .nav-item:hover {
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.9);
+  }
+
+  .nav-item.active {
+    background: rgba(201,168,76,0.15);
+    color: #fff;
+  }
+
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 3px; height: 18px;
+    background: var(--gold);
+    border-radius: 0 3px 3px 0;
+  }
+
+  .nav-icon {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .nav-item.active .nav-icon { opacity: 1; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--red);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+  }
+
+  .nav-badge.gold {
+    background: rgba(201,168,76,0.2);
+    color: var(--gold);
+    border: 1px solid rgba(201,168,76,0.3);
+  }
+
+  .sidebar-footer {
+    padding: 12px 16px 20px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .user-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .user-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    color: var(--navy-dark);
+    flex-shrink: 0;
+  }
+
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 12px; font-weight: 600; color: #fff; }
+  .user-role { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+
+  /* ── MAIN CONTENT ────────────────────────────── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    height: 56px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .topbar-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    color: var(--navy);
+    flex: 1;
+  }
+
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .icon-btn {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-mid);
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .icon-btn:hover { background: var(--bg); color: var(--navy); }
+
+  .notif-dot {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 7px; height: 7px;
+    background: var(--red);
+    border-radius: 50%;
+    border: 2px solid white;
+  }
+
+  /* CONTENT AREA */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  /* ── SEARCH HERO ──────────────────────────────── */
+  .search-hero {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .search-hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%);
+  }
+
+  .search-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: 200px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+  }
+
+  .search-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    position: relative;
+  }
+
+  .search-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: #fff;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .search-box {
+    display: flex;
+    gap: 10px;
+    position: relative;
+  }
+
+  .search-input-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  .search-input {
+    width: 100%;
+    height: 48px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 0 16px 0 44px;
+    font-family: 'Sora', sans-serif;
+    font-size: 14px;
+    color: #fff;
+    outline: none;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+  }
+
+  .search-input::placeholder { color: rgba(255,255,255,0.45); }
+  .search-input:focus {
+    background: rgba(255,255,255,0.15);
+    border-color: var(--gold);
+  }
+
+  .search-icon-wrap {
+    position: absolute;
+    left: 14px; top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,0.5);
+  }
+
+  .search-btn {
+    height: 48px;
+    padding: 0 24px;
+    background: var(--gold);
+    border: none;
+    border-radius: 10px;
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--navy-dark);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .search-btn:hover { background: var(--gold-light); }
+
+  .search-filters {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+
+  .filter-chip {
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 5px;
+    transition: all 0.15s;
+  }
+
+  .filter-chip:hover, .filter-chip.active {
+    background: rgba(201,168,76,0.2);
+    border-color: rgba(201,168,76,0.4);
+    color: var(--gold-light);
+  }
+
+  /* ── STATS ROW ────────────────────────────────── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.15s;
+  }
+
+  .stat-card:hover {
+    box-shadow: 0 4px 16px rgba(27,46,75,0.1);
+  }
+
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .stat-card.navy::after { background: var(--navy); }
+  .stat-card.gold::after { background: var(--gold); }
+  .stat-card.green::after { background: var(--green); }
+  .stat-card.amber::after { background: var(--amber); }
+
+  .stat-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 12px;
+    font-size: 16px;
+  }
+
+  .stat-card.navy .stat-icon { background: rgba(27,46,75,0.08); }
+  .stat-card.gold .stat-icon { background: rgba(201,168,76,0.12); }
+  .stat-card.green .stat-icon { background: var(--green-bg); }
+  .stat-card.amber .stat-icon { background: var(--amber-bg); }
+
+  .stat-value {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-light);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .stat-change {
+    font-size: 11px;
+    color: var(--green);
+    font-weight: 600;
+    margin-top: 6px;
+  }
+
+  /* ── TWO COLUMN ───────────────────────────────── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  /* ── CARD ─────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gold);
+  }
+
+  .card-action {
+    font-size: 12px;
+    color: var(--navy);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+  }
+
+  .card-action:hover { opacity: 1; }
+  .card-body { padding: 0; }
+
+  /* ── SEARCH RESULTS ───────────────────────────── */
+  .results-section-label {
+    padding: 12px 20px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-light);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .results-section-count {
+    background: var(--navy);
+    color: white;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+
+  .result-item {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .result-item:hover { background: var(--bg); }
+  .result-item:last-child { border-bottom: none; }
+
+  .result-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .result-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--navy);
+    line-height: 1.4;
+  }
+
+  .citation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .citation-badge.verified {
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid rgba(26,107,60,0.2);
+  }
+
+  .citation-badge.unverified {
+    background: var(--amber-bg);
+    color: var(--amber);
+    border: 1px solid rgba(184,134,11,0.2);
+  }
+
+  .citation-badge.fabricated {
+    background: var(--red-bg);
+    color: var(--red);
+    border: 1px solid rgba(139,26,26,0.2);
+  }
+
+  .result-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .result-court {
+    font-size: 11px;
+    color: var(--text-light);
+    font-weight: 500;
+  }
+
+  .result-year {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-light);
+  }
+
+  .result-citation {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--navy);
+    background: rgba(27,46,75,0.06);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .result-excerpt {
+    font-size: 12px;
+    color: var(--text-mid);
+    line-height: 1.5;
+  }
+
+  .result-excerpt mark {
+    background: rgba(201,168,76,0.25);
+    color: var(--text);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  .result-source {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* ── DEADLINE ITEMS ───────────────────────────── */
+  .deadline-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .deadline-item:hover { background: var(--bg); }
+  .deadline-item:last-child { border-bottom: none; }
+
+  .deadline-date {
+    width: 44px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .deadline-day {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--navy);
+    line-height: 1;
+  }
+
+  .deadline-month {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .deadline-divider {
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .deadline-info { flex: 1; min-width: 0; }
+
+  .deadline-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .deadline-matter {
+    font-size: 11px;
+    color: var(--text-light);
+    margin-top: 2px;
+  }
+
+  .deadline-tag {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .deadline-tag.urgent {
+    background: var(--red-bg);
+    color: var(--red);
+    border: 1px solid rgba(139,26,26,0.15);
+  }
+
+  .deadline-tag.soon {
+    background: var(--amber-bg);
+    color: var(--amber);
+    border: 1px solid rgba(184,134,11,0.15);
+  }
+
+  .deadline-tag.ok {
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid rgba(26,107,60,0.15);
+  }
+
+  /* ── RECENT DRAFTS ────────────────────────────── */
+  .draft-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .draft-item:hover { background: var(--bg); }
+  .draft-item:last-child { border-bottom: none; }
+
+  .draft-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .draft-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .draft-score {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .score-bar {
+    width: 56px;
+    height: 5px;
+    background: var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .score-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.3s;
+  }
+
+  .score-fill.high { background: var(--green); }
+  .score-fill.mid { background: var(--amber); }
+  .score-fill.low { background: var(--red); }
+
+  .score-num {
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .score-num.high { color: var(--green); }
+  .score-num.mid { color: var(--amber); }
+  .score-num.low { color: var(--red); }
+
+  .draft-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .draft-type {
+    font-size: 11px;
+    color: var(--text-light);
+  }
+
+  .draft-time {
+    font-size: 11px;
+    color: var(--text-light);
+    margin-left: auto;
+  }
+
+  .draft-obj-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: rgba(27,46,75,0.07);
+    color: var(--navy);
+  }
+
+  /* ── QUICK ACTIONS ────────────────────────────── */
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .qa-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    text-align: left;
+  }
+
+  .qa-btn:hover {
+    border-color: var(--navy);
+    box-shadow: 0 4px 16px rgba(27,46,75,0.1);
+    transform: translateY(-1px);
+  }
+
+  .qa-icon {
+    width: 38px; height: 38px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .qa-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .qa-desc {
+    font-size: 10px;
+    color: var(--text-light);
+    margin-top: -6px;
+  }
+
+  /* ── CONFIDENCE SCORE ─────────────────────────── */
+  .confidence-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: rgba(26,107,60,0.04);
+    border-top: 1px solid rgba(26,107,60,0.12);
+  }
+
+  .confidence-label {
+    font-size: 11px;
+    color: var(--text-light);
+    font-weight: 500;
+  }
+
+  .confidence-dots {
+    display: flex;
+    gap: 3px;
+  }
+
+  .conf-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+
+  .conf-dot.filled { background: var(--green); }
+
+  .confidence-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--green);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── SCROLLBAR ────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  /* ── ANIMATIONS ───────────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .search-hero { animation: fadeUp 0.4s ease both; }
+  .stats-row   { animation: fadeUp 0.4s 0.08s ease both; }
+  .quick-actions { animation: fadeUp 0.4s 0.12s ease both; }
+  .two-col     { animation: fadeUp 0.4s 0.16s ease both; }
+
+  /* SVG icons inline */
+  svg { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ──────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">
+      <div class="logo-icon">N</div>
+      <div>
+        <div class="logo-text">Nikhar</div>
+        <div class="logo-sub">Legal Workspace</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="firm-badge">
+    <div class="firm-avatar">SS</div>
+    <div class="firm-info">
+      <div class="firm-name">Singh & Associates</div>
+      <div class="firm-plan">Small Firm Plan</div>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-section-label">Workspace</div>
+
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+      </svg>
+      Dashboard
+    </a>
+
+    <a class="nav-item active" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+      </svg>
+      Search
+      <span class="nav-badge gold">New</span>
+    </a>
+
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+      </svg>
+      Documents
+      <span class="nav-badge gold">47</span>
+    </a>
+
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+      </svg>
+      Drafts
+    </a>
+
+    <div class="nav-section-label" style="margin-top:8px">Tools</div>
+
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+      </svg>
+      Deadlines
+      <span class="nav-badge">3</span>
+    </a>
+
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3z"/><path d="M3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
+      </svg>
+      Legal Process
+    </a>
+
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+      </svg>
+      Judgments DB
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-row">
+      <div class="user-avatar">HS</div>
+      <div class="user-info">
+        <div class="user-name">Harpreet Singh</div>
+        <div class="user-role">Firm Admin</div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="rgba(255,255,255,0.3)">
+        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+      </svg>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ──────────────────────────────────────── -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-title">Search & Research</div>
+    <div class="topbar-actions">
+      <button class="icon-btn" title="Notifications">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+        </svg>
+        <span class="notif-dot"></span>
+      </button>
+      <button class="icon-btn" title="Help">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- SEARCH HERO -->
+    <div class="search-hero">
+      <div class="search-label">Unified Legal Search</div>
+      <div class="search-title">Search your files & 10,000+ verified judgments</div>
+      <div class="search-box">
+        <div class="search-input-wrap">
+          <div class="search-icon-wrap">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <input class="search-input" type="text" placeholder="e.g. section 138 partner liability favour..." value="NDPS bail Punjab anticipatory favour">
+        </div>
+        <button class="search-btn">Search</button>
+      </div>
+      <div class="search-filters">
+        <div class="filter-chip active">All Results</div>
+        <div class="filter-chip">Bail Granted ✓</div>
+        <div class="filter-chip">Bail Refused ✗</div>
+        <div class="filter-chip">P&H HC</div>
+        <div class="filter-chip">Supreme Court</div>
+        <div class="filter-chip">2020 – 2025</div>
+        <div class="filter-chip">NDPS</div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card navy">
+        <div class="stat-icon">📄</div>
+        <div class="stat-value">47</div>
+        <div class="stat-label">Documents Indexed</div>
+        <div class="stat-change">↑ 3 this week</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-icon">⚖️</div>
+        <div class="stat-value">12</div>
+        <div class="stat-label">Drafts Generated</div>
+        <div class="stat-change">↑ 4 this week</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon">✓</div>
+        <div class="stat-value">10,247</div>
+        <div class="stat-label">Public Judgments</div>
+        <div class="stat-change">↑ 38 today</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-icon">🗓️</div>
+        <div class="stat-value">3</div>
+        <div class="stat-label">Upcoming Deadlines</div>
+        <div class="stat-change" style="color:var(--amber)">⚠ 1 urgent</div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="quick-actions">
+      <button class="qa-btn">
+        <div class="qa-icon" style="background:rgba(27,46,75,0.08)">📝</div>
+        <div class="qa-label">New Filing Draft</div>
+        <div class="qa-desc">Strategic + verified</div>
+      </button>
+      <button class="qa-btn">
+        <div class="qa-icon" style="background:rgba(201,168,76,0.12)">📋</div>
+        <div class="qa-label">Case Synopsis</div>
+        <div class="qa-desc">Upload any judgment</div>
+      </button>
+      <button class="qa-btn">
+        <div class="qa-icon" style="background:var(--green-bg)">✉️</div>
+        <div class="qa-label">Reply to Notice</div>
+        <div class="qa-desc">Admit/deny per point</div>
+      </button>
+      <button class="qa-btn">
+        <div class="qa-icon" style="background:var(--amber-bg)">📤</div>
+        <div class="qa-label">Upload Document</div>
+        <div class="qa-desc">PDF, DOCX, images</div>
+      </button>
+    </div>
+
+    <!-- TWO COLUMN -->
+    <div class="two-col">
+
+      <!-- SEARCH RESULTS -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-title-dot"></div>
+            Search Results — "NDPS bail Punjab anticipatory favour"
+          </div>
+          <span class="card-action">10 results</span>
+        </div>
+        <div class="card-body">
+
+          <div class="results-section-label">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
+            From your files
+            <span class="results-section-count">2</span>
+          </div>
+
+          <div class="result-item">
+            <div class="result-top">
+              <div class="result-title">Sharma_v_State_anticipatory_bail_2023.pdf</div>
+              <span class="citation-badge verified">✓ Verified</span>
+            </div>
+            <div class="result-meta">
+              <span class="result-court">P&H HC, Chandigarh</span>
+              <span class="result-year">2023</span>
+            </div>
+            <div class="result-excerpt">
+              "...anticipatory bail under Section 438 CrPC was granted considering the applicant had <mark>no prior criminal record</mark> and was <mark>fully cooperating</mark> with the investigation in the NDPS matter..."
+            </div>
+            <div class="result-source">
+              📄 Page 4, Para 3 · Confidence: 9/10
+            </div>
+          </div>
+
+          <div class="result-item">
+            <div class="result-top">
+              <div class="result-title">Gurpreet_Singh_anticipatory_bail_application.docx</div>
+              <span class="citation-badge verified">✓ Verified</span>
+            </div>
+            <div class="result-meta">
+              <span class="result-court">Ludhiana Sessions Court</span>
+              <span class="result-year">2024</span>
+            </div>
+            <div class="result-excerpt">
+              "...twin conditions under NDPS Act Section 37 satisfied as accused is a <mark>first-time offender</mark> and there is reasonable ground to believe he is not guilty..."
+            </div>
+            <div class="result-source">
+              📄 Page 2, Para 1 · Confidence: 8/10
+            </div>
+          </div>
+
+          <div class="results-section-label">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+            From public judgments
+            <span class="results-section-count">8</span>
+          </div>
+
+          <div class="result-item">
+            <div class="result-top">
+              <div class="result-title">Union of India v. Ram Samujh & Ors.</div>
+              <span class="citation-badge verified">✓ Verified</span>
+            </div>
+            <div class="result-meta">
+              <span class="result-court">Supreme Court of India</span>
+              <span class="result-year">2018</span>
+              <span class="result-citation">(2018) 2 SCC 365</span>
+            </div>
+            <div class="result-excerpt">
+              "...Section 37 of NDPS Act imposes <mark>twin conditions</mark> for bail — court must be satisfied that there are reasonable grounds for believing accused is not guilty..."
+            </div>
+            <div class="result-source">
+              🔗 eSCR — main.sci.gov.in
+            </div>
+          </div>
+
+          <div class="result-item">
+            <div class="result-top">
+              <div class="result-title">Satender Kumar Antil v. Central Bureau of Investigation</div>
+              <span class="citation-badge verified">✓ Verified</span>
+            </div>
+            <div class="result-meta">
+              <span class="result-court">Supreme Court of India</span>
+              <span class="result-year">2022</span>
+              <span class="result-citation">(2022) 10 SCC 51</span>
+            </div>
+            <div class="result-excerpt">
+              "...courts should not <mark>mechanically refuse bail</mark>. Liberty of an individual is of utmost importance and should be curtailed only in exceptional circumstances..."
+            </div>
+            <div class="result-source">
+              🔗 eSCR — main.sci.gov.in
+            </div>
+          </div>
+
+          <div class="result-item">
+            <div class="result-top">
+              <div class="result-title">Arnesh Kumar v. State of Bihar</div>
+              <span class="citation-badge unverified">⚠ Verify</span>
+            </div>
+            <div class="result-meta">
+              <span class="result-court">Supreme Court of India</span>
+              <span class="result-year">2014</span>
+              <span class="result-citation">(2014) 8 SCC 273</span>
+            </div>
+            <div class="result-excerpt">
+              "...arrest should not be made in a <mark>mechanical and cavalier manner</mark>. The power of arrest is one of the most important powers given to police..."
+            </div>
+            <div class="result-source">
+              🔗 P&H HC — highcourtchd.gov.in
+            </div>
+          </div>
+
+          <div class="confidence-wrap">
+            <span class="confidence-label">Answer confidence</span>
+            <div class="confidence-dots">
+              <div class="conf-dot filled"></div>
+              <div class="conf-dot filled"></div>
+              <div class="conf-dot filled"></div>
+              <div class="conf-dot filled"></div>
+              <div class="conf-dot filled"></div>
+              <div class="conf-dot filled"></div>
+              <div class="conf-dot filled"></div>
+              <div class="conf-dot filled"></div>
+              <div class="conf-dot"></div>
+              <div class="conf-dot"></div>
+            </div>
+            <span class="confidence-num">8 / 10</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- DEADLINES -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <div class="card-title-dot" style="background:var(--red)"></div>
+              Upcoming Deadlines
+            </div>
+            <span class="card-action">View all</span>
+          </div>
+          <div class="card-body">
+
+            <div class="deadline-item">
+              <div class="deadline-date">
+                <div class="deadline-day">14</div>
+                <div class="deadline-month">Apr</div>
+              </div>
+              <div class="deadline-divider"></div>
+              <div class="deadline-info">
+                <div class="deadline-title">Bail Hearing — Gurnam Singh</div>
+                <div class="deadline-matter">P&H HC, Chandigarh · CWP 4521/2024</div>
+              </div>
+              <span class="deadline-tag urgent">2 days</span>
+            </div>
+
+            <div class="deadline-item">
+              <div class="deadline-date">
+                <div class="deadline-day">18</div>
+                <div class="deadline-month">Apr</div>
+              </div>
+              <div class="deadline-divider"></div>
+              <div class="deadline-info">
+                <div class="deadline-title">Reply to Notice — Sharma Property</div>
+                <div class="deadline-matter">Limitation: 30 days from notice</div>
+              </div>
+              <span class="deadline-tag soon">6 days</span>
+            </div>
+
+            <div class="deadline-item">
+              <div class="deadline-date">
+                <div class="deadline-day">25</div>
+                <div class="deadline-month">Apr</div>
+              </div>
+              <div class="deadline-divider"></div>
+              <div class="deadline-info">
+                <div class="deadline-title">Consumer Forum Filing</div>
+                <div class="deadline-matter">Ludhiana District Forum</div>
+              </div>
+              <span class="deadline-tag ok">13 days</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- RECENT DRAFTS -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <div class="card-title-dot" style="background:var(--gold)"></div>
+              Recent Drafts
+            </div>
+            <span class="card-action">View all</span>
+          </div>
+          <div class="card-body">
+
+            <div class="draft-item">
+              <div class="draft-top">
+                <div class="draft-title">Bail Application — NDPS S.21</div>
+                <div class="draft-score">
+                  <div class="score-bar"><div class="score-fill high" style="width:87%"></div></div>
+                  <span class="score-num high">87</span>
+                </div>
+              </div>
+              <div class="draft-meta">
+                <span class="draft-type">Anticipatory Bail</span>
+                <span class="draft-obj-badge">Win on Merits</span>
+                <span class="draft-time">2 hours ago</span>
+              </div>
+            </div>
+
+            <div class="draft-item">
+              <div class="draft-top">
+                <div class="draft-title">Reply to Legal Notice — Property</div>
+                <div class="draft-score">
+                  <div class="score-bar"><div class="score-fill mid" style="width:72%"></div></div>
+                  <span class="score-num mid">72</span>
+                </div>
+              </div>
+              <div class="draft-meta">
+                <span class="draft-type">Notice Reply</span>
+                <span class="draft-obj-badge">Deny + Contest</span>
+                <span class="draft-time">Yesterday</span>
+              </div>
+            </div>
+
+            <div class="draft-item">
+              <div class="draft-top">
+                <div class="draft-title">Writ Petition — Service Matter</div>
+                <div class="draft-score">
+                  <div class="score-bar"><div class="score-fill high" style="width:91%"></div></div>
+                  <span class="score-num high">91</span>
+                </div>
+              </div>
+              <div class="draft-meta">
+                <span class="draft-type">Writ Petition</span>
+                <span class="draft-obj-badge">Challenge Jurisdiction</span>
+                <span class="draft-time">2 days ago</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</main>
+
+</body>
+</html>

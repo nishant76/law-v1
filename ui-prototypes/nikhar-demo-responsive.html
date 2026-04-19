@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Nikhar — Legal Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:       #1c1409;
+  --ink-2:     #3a2c18;
+  --ink-3:     #6b5640;
+  --parch:     #f6f1e9;
+  --parch-2:   #eee6d4;
+  --parch-3:   #e2d8c4;
+  --parch-4:   #d4c8b0;
+  --gold:      #8c6e2f;
+  --gold-lt:   #b89248;
+  --gold-bg:   #f0e8d0;
+  --crimson:   #7a1a1a;
+  --green:     #1a5c2a;
+  --green-bg:  #e8f5ee;
+  --amber:     #b8860b;
+  --amber-bg:  #fff8e1;
+  --red:       #8b1a1a;
+  --red-bg:    #fdecea;
+  --border:    rgba(140,110,47,.18);
+  --border-s:  rgba(140,110,47,.38);
+  --shadow:    0 2px 12px rgba(28,20,9,.08);
+  --r:         8px;
+  --sidebar-w: 240px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Source Serif 4', Georgia, serif;
+  background: var(--parch);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── SHELL ─────────────────────────────────────── */
+#shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── SIDEBAR — desktop ─────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 200;
+  transition: transform 0.3s ease;
+}
+
+.sb-brand {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.sb-brand-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px; font-weight: 700;
+  color: #f0e8d0; letter-spacing: .02em;
+}
+.sb-brand-tag {
+  font-size: 10px; color: rgba(176,152,100,.7);
+  letter-spacing: .12em; text-transform: uppercase; margin-top: 2px;
+}
+
+.sb-firm {
+  margin: 12px 12px 4px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.sb-firm-avatar {
+  width: 32px; height: 32px; border-radius: 7px;
+  background: rgba(176,152,100,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 12px; font-weight: 700; color: var(--gold-lt);
+  flex-shrink: 0; border: 1px solid rgba(176,152,100,.25);
+}
+.sb-firm-name { font-size: 12px; font-weight: 600; color: rgba(240,232,208,.85); }
+.sb-firm-plan { font-size: 10px; color: rgba(176,152,100,.6); margin-top: 1px; }
+
+.sb-section {
+  padding: 14px 18px 5px;
+  font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
+  color: rgba(176,152,100,.5);
+}
+.sb-nav { flex: 1; padding: 4px 8px; overflow-y: auto; }
+.sb-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; cursor: pointer;
+  color: rgba(240,232,208,.6); font-size: 13px;
+  transition: background .15s, color .15s;
+  border-radius: 8px; margin-bottom: 2px;
+  border-left: 3px solid transparent;
+  user-select: none;
+}
+.sb-item:hover { background: rgba(255,255,255,.06); color: rgba(240,232,208,.9); }
+.sb-item.active {
+  background: rgba(176,152,100,.14);
+  color: #f0e8d0;
+  border-left-color: var(--gold-lt);
+}
+.sb-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+.sb-badge {
+  margin-left: auto;
+  background: var(--red);
+  color: white;
+  font-size: 9px; font-weight: 700;
+  padding: 2px 6px; border-radius: 10px;
+  min-width: 18px; text-align: center;
+}
+.sb-badge.gold {
+  background: rgba(176,152,100,.2);
+  color: var(--gold-lt);
+  border: 1px solid rgba(176,152,100,.3);
+}
+
+.sb-bottom {
+  padding: 12px; border-top: 1px solid rgba(255,255,255,.07);
+}
+.sb-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px; border-radius: 8px; cursor: pointer;
+}
+.sb-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(176,152,100,.18);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 13px; font-weight: 600; color: var(--gold-lt);
+  flex-shrink: 0; border: 1px solid rgba(176,152,100,.3);
+}
+.sb-uname { font-size: 12px; color: rgba(240,232,208,.8); }
+.sb-urole  { font-size: 10px; color: rgba(176,152,100,.55); }
+
+/* ── MAIN ──────────────────────────────────────── */
+#main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── TOPBAR ────────────────────────────────────── */
+.topbar {
+  height: 56px; flex-shrink: 0;
+  background: var(--parch);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 12px;
+}
+.topbar-menu-btn {
+  display: none;
+  width: 36px; height: 36px;
+  background: none; border: 1px solid var(--border-s);
+  border-radius: 8px; cursor: pointer;
+  align-items: center; justify-content: center;
+  color: var(--ink-2); flex-shrink: 0;
+  font-size: 18px;
+}
+.topbar-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px; font-weight: 600; color: var(--ink);
+  flex: 1;
+}
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.btn {
+  font-family: 'Source Serif 4', serif;
+  font-size: 12px; padding: 7px 14px;
+  border-radius: 7px; cursor: pointer;
+  transition: all .15s; border: 1px solid var(--border-s);
+  color: var(--ink-2); background: var(--parch-2);
+  white-space: nowrap;
+}
+.btn:hover { background: var(--parch-3); border-color: var(--gold); }
+.btn-gold {
+  background: var(--gold); color: #f6f1e9;
+  border-color: var(--gold); font-weight: 600;
+}
+.btn-gold:hover { background: var(--gold-lt); border-color: var(--gold-lt); }
+.btn-icon {
+  width: 36px; height: 36px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+
+/* ── CONTENT ───────────────────────────────────── */
+.content {
+  flex: 1; overflow-y: auto;
+  padding: 20px;
+}
+
+/* ── SCREENS ───────────────────────────────────── */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── SECTION LABEL ─────────────────────────────── */
+.sec-label {
+  font-family: 'Playfair Display', serif;
+  font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sec-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── CARDS ─────────────────────────────────────── */
+.card {
+  background: var(--parch-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.card-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  display: flex; align-items: center; gap: 7px;
+}
+.card-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+.card-action { font-size: 11px; color: var(--gold); font-weight: 600; cursor: pointer; }
+
+/* ── HOME ──────────────────────────────────────── */
+.greeting {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px; font-weight: 700; color: var(--ink);
+  margin-bottom: 3px;
+}
+.greeting-sub {
+  font-size: 12px; color: var(--ink-3);
+  font-style: italic; margin-bottom: 20px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px; margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--parch-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px; position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  border-radius: var(--r) var(--r) 0 0;
+}
+.stat-card.c1::before { background: var(--gold); }
+.stat-card.c2::before { background: var(--green); }
+.stat-card.c3::before { background: var(--amber); }
+.stat-card.c4::before { background: var(--red); }
+.stat-icon { font-size: 20px; margin-bottom: 8px; }
+.stat-val {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px; font-weight: 700; color: var(--ink);
+  line-height: 1; margin-bottom: 3px;
+}
+.stat-lbl { font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .5px; }
+.stat-chg { font-size: 11px; color: var(--green); margin-top: 4px; font-weight: 600; }
+
+.resume-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.resume-item {
+  background: var(--parch-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 13px 14px;
+  cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; gap: 12px;
+  position: relative; overflow: hidden;
+}
+.resume-item::before {
+  content: ''; position: absolute;
+  left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--gold); opacity: 0;
+  transition: opacity .15s;
+}
+.resume-item:hover { border-color: var(--gold); }
+.resume-item:hover::before { opacity: 1; }
+.resume-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
+  background: var(--gold-bg);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.resume-info { flex: 1; min-width: 0; }
+.resume-type { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-lt); margin-bottom: 2px; }
+.resume-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.resume-meta { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.resume-arrow { color: var(--gold); font-size: 16px; flex-shrink: 0; }
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px; margin-bottom: 20px;
+}
+.qa-btn {
+  background: var(--parch-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px 12px;
+  cursor: pointer; transition: all .15s;
+  display: flex; flex-direction: column;
+  align-items: flex-start; gap: 8px;
+  text-align: left;
+}
+.qa-btn:hover { border-color: var(--gold); background: var(--gold-bg); }
+.qa-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px; background: var(--gold-bg);
+  border: 1px solid var(--border-s);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.qa-label { font-size: 12px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+.qa-desc  { font-size: 10px; color: var(--ink-3); margin-top: -4px; }
+
+.time-saved {
+  background: rgba(140,110,47,.08);
+  border: 1px solid var(--border-s);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.time-saved-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 13px; font-weight: 700; color: var(--ink);
+}
+.time-saved-num span { color: var(--gold); }
+.time-saved-sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+/* ── SEARCH ────────────────────────────────────── */
+.search-hero {
+  background: linear-gradient(135deg, var(--ink) 0%, #2e3d55 100%);
+  border-radius: var(--r);
+  padding: 18px;
+  margin-bottom: 16px;
+  position: relative; overflow: hidden;
+}
+.search-hero::before {
+  content: ''; position: absolute;
+  top: -60px; right: -60px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(176,152,100,.15) 0%, transparent 70%);
+}
+.search-hero-label {
+  font-size: 10px; font-weight: 600; color: var(--gold-lt);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px;
+}
+.search-hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; color: #f0e8d0; margin-bottom: 14px;
+}
+.search-wrap { position: relative; }
+.search-icon {
+  position: absolute; left: 12px; top: 50%;
+  transform: translateY(-50%); color: rgba(240,232,208,.5);
+  font-size: 14px; pointer-events: none;
+}
+.search-input {
+  width: 100%; height: 44px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 8px;
+  padding: 0 44px 0 38px;
+  font-family: 'Source Serif 4', serif;
+  font-size: 14px; color: #fff;
+  outline: none; transition: all .2s;
+}
+.search-input::placeholder { color: rgba(255,255,255,.45); }
+.search-input:focus { background: rgba(255,255,255,.15); border-color: var(--gold-lt); }
+.search-go {
+  position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%);
+  background: var(--gold); border: none;
+  border-radius: 6px; width: 30px; height: 30px;
+  color: #f6f1e9; cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.filter-row {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;
+}
+.filter-chip {
+  font-size: 10px; padding: 4px 10px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 20px; color: rgba(255,255,255,.65);
+  cursor: pointer; background: rgba(255,255,255,.06);
+  transition: all .12s; white-space: nowrap;
+}
+.filter-chip:hover, .filter-chip.active {
+  background: rgba(176,152,100,.2);
+  border-color: rgba(176,152,100,.4);
+  color: var(--gold-lt);
+}
+
+.results-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--ink-3);
+  background: var(--parch-3);
+  padding: 8px 14px;
+  display: flex; align-items: center; gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.results-count {
+  background: var(--ink); color: white;
+  font-size: 9px; padding: 1px 5px; border-radius: 8px;
+}
+
+.result-item {
+  padding: 14px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .1s;
+}
+.result-item:hover { background: var(--gold-bg); }
+.result-item:last-child { border-bottom: none; }
+.result-top {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 10px; margin-bottom: 4px;
+}
+.result-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  line-height: 1.3;
+}
+.cit-badge {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 6px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.cit-badge.v { background: var(--green-bg); color: var(--green); border: 1px solid rgba(26,92,42,.2); }
+.cit-badge.u { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(184,134,11,.2); }
+.cit-badge.f { background: var(--red-bg); color: var(--red); border: 1px solid rgba(139,26,26,.2); }
+
+.result-meta {
+  font-size: 10px; color: var(--ink-3);
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 5px; flex-wrap: wrap;
+}
+.result-cit {
+  font-family: monospace; font-size: 10px;
+  background: rgba(28,20,9,.06); color: var(--ink-2);
+  padding: 1px 5px; border-radius: 3px;
+}
+.result-excerpt {
+  font-size: 12px; color: var(--ink-3); line-height: 1.55;
+}
+.result-excerpt mark {
+  background: rgba(176,152,100,.3); color: var(--ink-2);
+  padding: 0 2px; border-radius: 1px;
+}
+.result-source { font-size: 11px; color: var(--ink-3); margin-top: 5px; }
+
+/* ── DEADLINES ─────────────────────────────────── */
+.deadline-item {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer; transition: background .1s;
+}
+.deadline-item:hover { background: var(--gold-bg); }
+.deadline-item:last-child { border-bottom: none; }
+.dl-date { width: 42px; text-align: center; flex-shrink: 0; }
+.dl-day {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1;
+}
+.dl-month { font-size: 9px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; }
+.dl-divider { width: 1px; height: 36px; background: var(--border); flex-shrink: 0; }
+.dl-info { flex: 1; min-width: 0; }
+.dl-title {
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dl-sub { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.dl-tag {
+  padding: 3px 8px; border-radius: 6px;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+.dl-tag.urgent { background: var(--red-bg); color: var(--red); border: 1px solid rgba(139,26,26,.15); }
+.dl-tag.soon   { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(184,134,11,.15); }
+.dl-tag.ok     { background: var(--green-bg); color: var(--green); border: 1px solid rgba(26,92,42,.15); }
+
+/* ── DRAFT SCREEN ──────────────────────────────── */
+.filing-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin-bottom: 16px;
+}
+.filing-btn {
+  background: var(--parch-2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px 8px;
+  text-align: center; cursor: pointer; transition: all .15s;
+}
+.filing-btn:hover, .filing-btn.sel {
+  background: var(--gold-bg); border-color: var(--gold);
+}
+.filing-icon { font-size: 22px; margin-bottom: 6px; }
+.filing-lbl {
+  font-family: 'Playfair Display', serif;
+  font-size: 11px; font-weight: 700; color: var(--ink);
+}
+.filing-sub { font-size: 10px; color: var(--ink-3); margin-top: 2px; }
+
+.obj-row {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.obj-chip {
+  font-size: 11px; padding: 5px 10px;
+  border: 1px solid var(--border-s); border-radius: 20px;
+  color: var(--ink-3); cursor: pointer; background: var(--parch-2);
+  transition: all .12s;
+}
+.obj-chip:hover, .obj-chip.sel {
+  background: var(--gold-bg); border-color: var(--gold); color: var(--gold);
+}
+
+.form-row { margin-bottom: 12px; }
+.form-lbl { font-size: 11px; color: var(--ink-3); margin-bottom: 4px; letter-spacing: .04em; }
+.form-inp {
+  width: 100%; padding: 9px 11px;
+  border: 1px solid var(--border-s); border-radius: 7px;
+  background: var(--parch); color: var(--ink);
+  font-family: 'Source Serif 4', serif; font-size: 13px;
+  transition: border-color .15s; resize: none; outline: none;
+}
+.form-inp:focus { border-color: var(--gold); }
+.form-ta { min-height: 80px; }
+
+.prog-wrap { display: none; margin-bottom: 12px; }
+.prog-bar {
+  height: 4px; background: var(--parch-3);
+  border-radius: 4px; overflow: hidden; margin-bottom: 6px;
+}
+.prog-fill {
+  height: 100%; background: var(--gold); border-radius: 4px;
+  animation: prog 3s ease-out forwards;
+}
+@keyframes prog { from{width:0} to{width:100%} }
+.prog-msg { font-size: 11px; color: var(--ink-3); font-style: italic; }
+
+.draft-output-wrap {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px; margin-top: 14px;
+}
+.draft-output-header {
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 12px; font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.draft-output-actions { display: flex; gap: 6px; }
+.draft-text {
+  font-family: 'Source Serif 4', serif;
+  font-size: 12.5px; line-height: 1.8; color: var(--ink);
+}
+.draft-text h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 13px; font-weight: 700; text-align: center;
+  margin-bottom: 10px; text-decoration: underline;
+}
+.draft-text p { margin-bottom: 9px; text-align: justify; }
+.ai-para {
+  border-left: 3px solid var(--gold-lt);
+  padding-left: 8px;
+  background: rgba(176,152,100,.04);
+}
+.ai-badge {
+  font-size: 8px; background: var(--gold-bg);
+  color: var(--gold); border: 1px solid var(--border-s);
+  padding: 1px 5px; border-radius: 8px;
+  margin-left: 5px; vertical-align: middle;
+}
+.cit-chip {
+  display: inline-block; font-size: 10px;
+  background: rgba(122,26,26,.08); color: var(--crimson);
+  border: 1px solid rgba(122,26,26,.2);
+  padding: 1px 6px; border-radius: 8px;
+  cursor: pointer; margin-left: 3px;
+}
+
+/* ── LIBRARY ───────────────────────────────────── */
+.lib-search-wrap {
+  position: relative; margin-bottom: 12px;
+}
+.lib-search {
+  width: 100%; padding: 9px 11px 9px 35px;
+  border: 1px solid var(--border-s); border-radius: 7px;
+  background: var(--parch-2); color: var(--ink);
+  font-family: 'Source Serif 4', serif; font-size: 13px;
+  outline: none;
+}
+.lib-search:focus { border-color: var(--gold); }
+.lib-search-icon {
+  position: absolute; left: 11px; top: 50%;
+  transform: translateY(-50%); color: var(--ink-3); font-size: 14px;
+}
+.lib-item {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 11px;
+  cursor: pointer; transition: background .1s;
+}
+.lib-item:hover { background: var(--gold-bg); }
+.lib-item:last-child { border-bottom: none; }
+.lib-file-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 7px; background: var(--parch-3);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.lib-info { flex: 1; min-width: 0; }
+.lib-name {
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lib-meta { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.status-chip {
+  font-size: 10px; padding: 2px 7px; border-radius: 6px;
+  flex-shrink: 0; display: inline-block;
+}
+.status-chip.indexed { background: var(--green-bg); color: var(--green); border: 1px solid rgba(26,92,42,.2); }
+.status-chip.proc    { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(184,134,11,.2); }
+
+/* ── MOBILE BOTTOM NAV ─────────────────────────── */
+#bottom-nav {
+  display: none;
+  height: 60px; flex-shrink: 0;
+  background: var(--ink);
+  border-top: 1px solid rgba(255,255,255,.08);
+  align-items: stretch;
+}
+.bn-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  cursor: pointer; transition: background .15s;
+  color: rgba(240,232,208,.5);
+  border: none; background: none;
+  position: relative;
+}
+.bn-item.active { color: var(--gold-lt); }
+.bn-item::after {
+  content: ''; position: absolute;
+  top: 0; left: 20%; right: 20%; height: 2px;
+  background: var(--gold-lt); border-radius: 0 0 4px 4px;
+  opacity: 0; transition: opacity .15s;
+}
+.bn-item.active::after { opacity: 1; }
+.bn-icon { font-size: 18px; }
+.bn-label { font-size: 9px; letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
+.bn-dot {
+  position: absolute; top: 6px; right: calc(50% - 14px);
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--red); border: 2px solid var(--ink);
+}
+
+/* ── OVERLAY (mobile sidebar) ──────────────────── */
+#overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 150;
+}
+
+/* ── PDF SCREEN ────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border-s);
+  border-radius: var(--r); padding: 40px 20px;
+  text-align: center; cursor: pointer;
+  transition: all .15s; background: var(--parch-2);
+  margin-bottom: 14px;
+}
+.drop-zone:hover { border-color: var(--gold); background: var(--gold-bg); }
+.drop-icon { font-size: 36px; margin-bottom: 10px; }
+.drop-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 5px;
+}
+.drop-sub { font-size: 12px; color: var(--ink-3); }
+.recent-uploads { font-size: 12px; color: var(--ink-3); text-align: center; margin-bottom: 14px; }
+.recent-uploads span { color: var(--gold); cursor: pointer; }
+
+.extract-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.extract-table th {
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gold); padding: 6px 10px;
+  border-bottom: 1px solid var(--border-s); text-align: left; font-weight: 500;
+}
+.extract-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--ink-2); }
+.extract-table tr:nth-child(even) td { background: var(--parch-2); }
+
+.pdf-qa-wrap { margin-top: 12px; }
+.pdf-qa-inp {
+  width: 100%; padding: 9px 11px;
+  border: 1px solid var(--border-s); border-radius: 7px;
+  background: var(--parch-2); color: var(--ink);
+  font-family: 'Source Serif 4', serif; font-size: 13px; outline: none;
+}
+.pdf-qa-inp:focus { border-color: var(--gold); }
+.pdf-answer {
+  display: none; margin-top: 8px; padding: 10px 12px;
+  background: rgba(140,110,47,.07);
+  border-left: 3px solid var(--gold);
+  font-size: 12.5px; color: var(--ink-2); line-height: 1.6;
+  border-radius: 0 6px 6px 0;
+}
+
+/* ── TOAST ─────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: #f0e8d0;
+  font-size: 12px; padding: 9px 16px;
+  border-radius: 20px; opacity: 0;
+  transition: opacity .25s; pointer-events: none;
+  z-index: 500; white-space: nowrap;
+  border: 1px solid rgba(176,152,100,.3);
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+}
+
+/* ── SCROLLBAR ─────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--parch-4); border-radius: 4px; }
+
+/* ── ANIMATIONS ────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.screen.active > * {
+  animation: fadeUp .25s ease both;
+}
+.screen.active > *:nth-child(2) { animation-delay: .05s; }
+.screen.active > *:nth-child(3) { animation-delay: .1s; }
+.screen.active > *:nth-child(4) { animation-delay: .15s; }
+.screen.active > *:nth-child(5) { animation-delay: .18s; }
+
+/* ── RESPONSIVE ────────────────────────────────── */
+@media (max-width: 768px) {
+  #sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    transform: translateX(-100%);
+    z-index: 200;
+  }
+  #sidebar.open { transform: translateX(0); }
+  #overlay.show { display: block; }
+  .topbar-menu-btn { display: flex; }
+  #bottom-nav { display: flex; }
+  #toast { bottom: 70px; }
+
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .filing-grid { grid-template-columns: repeat(3, 1fr); }
+  .quick-grid  { grid-template-columns: repeat(2, 1fr); }
+
+  .content { padding: 16px; padding-bottom: 24px; }
+  .topbar { padding: 0 14px; }
+}
+
+@media (min-width: 769px) {
+  /* desktop: show sidebar, hide bottom nav */
+  #bottom-nav { display: none !important; }
+  #toast { bottom: 24px; }
+}
+
+@media (min-width: 1024px) {
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+  .quick-grid  { grid-template-columns: repeat(4, 1fr); }
+  .filing-grid { grid-template-columns: repeat(6, 1fr); }
+
+  /* Split layout for draft on desktop */
+  .draft-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+  .draft-left-panel {
+    background: var(--parch-2);
+    border-right: 1px solid var(--border);
+    padding: 20px;
+  }
+  .draft-right-panel {
+    background: #fff; padding: 20px;
+  }
+  .draft-output-wrap {
+    margin-top: 0; border: none; border-radius: 0; padding: 0;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="shell">
+
+<!-- ── SIDEBAR ──────────────────────────────────── -->
+<aside id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-brand-name">Nikhar</div>
+    <div class="sb-brand-tag">Legal Workspace</div>
+  </div>
+
+  <div class="sb-firm">
+    <div class="sb-firm-avatar">SS</div>
+    <div>
+      <div class="sb-firm-name">Singh &amp; Associates</div>
+      <div class="sb-firm-plan">Small Firm Plan</div>
+    </div>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-section">Workspace</div>
+    <div class="sb-item active" onclick="go('home')">
+      <span class="sb-icon">🏛</span> My Desk
+    </div>
+    <div class="sb-item" onclick="go('search')">
+      <span class="sb-icon">🔍</span> Search
+      <span class="sb-badge gold">New</span>
+    </div>
+    <div class="sb-item" onclick="go('library')">
+      <span class="sb-icon">📄</span> Documents
+      <span class="sb-badge gold">47</span>
+    </div>
+    <div class="sb-item" onclick="go('draft')">
+      <span class="sb-icon">✍️</span> Drafts
+    </div>
+    <div class="sb-section">Tools</div>
+    <div class="sb-item" onclick="go('deadlines')">
+      <span class="sb-icon">📅</span> Deadlines
+      <span class="sb-badge">3</span>
+    </div>
+    <div class="sb-item" onclick="go('pdf')">
+      <span class="sb-icon">📋</span> PDF Extractor
+    </div>
+    <div class="sb-item" onclick="toast('Legal Process Guide coming soon')">
+      <span class="sb-icon">📚</span> Legal Process
+    </div>
+  </nav>
+
+  <div class="sb-bottom">
+    <div class="sb-user">
+      <div class="sb-avatar">HS</div>
+      <div>
+        <div class="sb-uname">Harpreet Singh</div>
+        <div class="sb-urole">Firm Admin</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Overlay for mobile sidebar -->
+<div id="overlay" onclick="closeSidebar()"></div>
+
+<!-- ── MAIN ──────────────────────────────────────── -->
+<main id="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <button class="topbar-menu-btn" onclick="openSidebar()">☰</button>
+    <div class="topbar-title" id="tb-title">My Desk</div>
+    <div class="topbar-actions" id="tb-actions">
+      <button class="btn btn-gold" onclick="go('draft')">+ Draft</button>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ── HOME ──────────────────────────────────── -->
+    <div class="screen active" id="screen-home">
+
+      <p class="greeting">Good morning, Advocate Singh.</p>
+      <p class="greeting-sub">"Justice delayed is justice denied." — Pick up where you left off.</p>
+
+      <div class="stats-grid">
+        <div class="stat-card c1">
+          <div class="stat-icon">📄</div>
+          <div class="stat-val">47</div>
+          <div class="stat-lbl">Docs Indexed</div>
+          <div class="stat-chg">↑ 3 this week</div>
+        </div>
+        <div class="stat-card c2">
+          <div class="stat-icon">⚖️</div>
+          <div class="stat-val">12</div>
+          <div class="stat-lbl">Drafts Made</div>
+          <div class="stat-chg">↑ 4 this week</div>
+        </div>
+        <div class="stat-card c3">
+          <div class="stat-icon">🔖</div>
+          <div class="stat-val">10K+</div>
+          <div class="stat-lbl">Judgments DB</div>
+          <div class="stat-chg">↑ 38 today</div>
+        </div>
+        <div class="stat-card c4">
+          <div class="stat-icon">📅</div>
+          <div class="stat-val">3</div>
+          <div class="stat-lbl">Deadlines</div>
+          <div class="stat-chg" style="color:var(--red)">⚠ 1 urgent</div>
+        </div>
+      </div>
+
+      <div class="sec-label">Continue your work</div>
+      <div class="resume-list">
+        <div class="resume-item" onclick="go('draft')">
+          <div class="resume-icon">⚖️</div>
+          <div class="resume-info">
+            <div class="resume-type">Bail Application · Draft</div>
+            <div class="resume-title">Gurnam Singh v. State of Punjab</div>
+            <div class="resume-meta">Last edited 2 hours ago · NDPS S.21</div>
+          </div>
+          <div class="resume-arrow">→</div>
+        </div>
+        <div class="resume-item" onclick="go('draft')">
+          <div class="resume-icon">📜</div>
+          <div class="resume-info">
+            <div class="resume-type">Writ Petition · In Progress</div>
+            <div class="resume-title">Sharma v. Municipal Corporation</div>
+            <div class="resume-meta">Last edited yesterday · Art. 226</div>
+          </div>
+          <div class="resume-arrow">→</div>
+        </div>
+        <div class="resume-item" onclick="toast('Downloading .docx…')">
+          <div class="resume-icon">✅</div>
+          <div class="resume-info">
+            <div class="resume-type">Notice Reply · Complete</div>
+            <div class="resume-title">Kapoor v. Sharma — Property Notice</div>
+            <div class="resume-meta">Completed 3 days ago · Quality: 87/100</div>
+          </div>
+          <div class="resume-arrow">↓</div>
+        </div>
+      </div>
+
+      <div class="sec-label">Quick actions</div>
+      <div class="quick-grid">
+        <div class="qa-btn" onclick="go('draft')">
+          <div class="qa-icon">✍️</div>
+          <div class="qa-label">New Filing Draft</div>
+          <div class="qa-desc">Strategic + verified</div>
+        </div>
+        <div class="qa-btn" onclick="go('search')">
+          <div class="qa-icon">🔍</div>
+          <div class="qa-label">Search Cases</div>
+          <div class="qa-desc">Your files + judgments</div>
+        </div>
+        <div class="qa-btn" onclick="go('pdf')">
+          <div class="qa-icon">📋</div>
+          <div class="qa-label">Extract PDF</div>
+          <div class="qa-desc">Dates, parties, amounts</div>
+        </div>
+        <div class="qa-btn" onclick="go('library')">
+          <div class="qa-icon">📤</div>
+          <div class="qa-label">Upload Document</div>
+          <div class="qa-desc">PDF, DOCX, images</div>
+        </div>
+      </div>
+
+      <div class="time-saved">
+        <span style="font-size:24px">⏱</span>
+        <div>
+          <div class="time-saved-num">Last week Nikhar saved you <span>4.5 hours</span></div>
+          <div class="time-saved-sub">3 filings drafted · 11 searches · 2 PDFs analysed</div>
+        </div>
+      </div>
+
+      <div class="sec-label">Upcoming deadlines</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><div class="card-dot" style="background:var(--red)"></div>3 deadlines this week</div>
+          <span class="card-action" onclick="go('deadlines')">View all</span>
+        </div>
+        <div class="deadline-item">
+          <div class="dl-date"><div class="dl-day">14</div><div class="dl-month">Apr</div></div>
+          <div class="dl-divider"></div>
+          <div class="dl-info">
+            <div class="dl-title">Bail Hearing — Gurnam Singh</div>
+            <div class="dl-sub">P&H HC, Chandigarh · CWP 4521/2024</div>
+          </div>
+          <span class="dl-tag urgent">2 days</span>
+        </div>
+        <div class="deadline-item">
+          <div class="dl-date"><div class="dl-day">18</div><div class="dl-month">Apr</div></div>
+          <div class="dl-divider"></div>
+          <div class="dl-info">
+            <div class="dl-title">Reply to Notice — Sharma Property</div>
+            <div class="dl-sub">Limitation: 30 days from notice</div>
+          </div>
+          <span class="dl-tag soon">6 days</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── SEARCH ─────────────────────────────────── -->
+    <div class="screen" id="screen-search">
+
+      <div class="search-hero">
+        <div class="search-hero-label">Unified Search</div>
+        <div class="search-hero-title">Your files + 10,000+ verified judgments</div>
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" id="search-inp" type="text"
+            placeholder="e.g. NDPS bail Punjab favour…"
+            value="NDPS bail anticipatory Punjab favour"
+            onkeydown="if(event.key==='Enter')doSearch()">
+          <button class="search-go" onclick="doSearch()">→</button>
+        </div>
+        <div class="filter-row">
+          <span class="filter-chip active">All</span>
+          <span class="filter-chip" onclick="toggleChip(this)">Bail Granted ✓</span>
+          <span class="filter-chip" onclick="toggleChip(this)">P&H HC</span>
+          <span class="filter-chip" onclick="toggleChip(this)">Supreme Court</span>
+          <span class="filter-chip" onclick="toggleChip(this)">NDPS</span>
+          <span class="filter-chip" onclick="toggleChip(this)">2020–2025</span>
+        </div>
+      </div>
+
+      <div class="card" id="search-results-card">
+        <div class="results-label">
+          📁 From your files <span class="results-count">2</span>
+        </div>
+        <div class="result-item">
+          <div class="result-top">
+            <div class="result-title">Sharma_anticipatory_bail_2023.pdf</div>
+            <span class="cit-badge v">✓ Verified</span>
+          </div>
+          <div class="result-meta">
+            <span>P&H HC, Chandigarh</span><span>·</span><span>2023</span>
+          </div>
+          <div class="result-excerpt">
+            "…anticipatory bail granted — <mark>no prior criminal record</mark> and <mark>fully cooperating</mark> with NDPS investigation…"
+          </div>
+          <div class="result-source">📄 Page 4, Para 3 · Confidence: 9/10</div>
+        </div>
+        <div class="result-item">
+          <div class="result-top">
+            <div class="result-title">Gurpreet_anticipatory_bail_draft.docx</div>
+            <span class="cit-badge v">✓ Verified</span>
+          </div>
+          <div class="result-meta">
+            <span>Ludhiana Sessions Court</span><span>·</span><span>2024</span>
+          </div>
+          <div class="result-excerpt">
+            "…twin conditions under NDPS S.37 satisfied — <mark>first-time offender</mark>, reasonable grounds not guilty…"
+          </div>
+          <div class="result-source">📄 Page 2, Para 1 · Confidence: 8/10</div>
+        </div>
+
+        <div class="results-label">
+          🔗 From public judgments <span class="results-count">8</span>
+        </div>
+        <div class="result-item">
+          <div class="result-top">
+            <div class="result-title">Union of India v. Ram Samujh &amp; Ors.</div>
+            <span class="cit-badge v">✓ Verified</span>
+          </div>
+          <div class="result-meta">
+            <span>Supreme Court</span><span>·</span><span>2018</span>
+            <span class="result-cit">(2018) 2 SCC 365</span>
+          </div>
+          <div class="result-excerpt">
+            "…Section 37 NDPS — <mark>twin conditions</mark> for bail. Court must be satisfied accused is not guilty…"
+          </div>
+          <div class="result-source">🔗 eSCR — main.sci.gov.in</div>
+        </div>
+        <div class="result-item">
+          <div class="result-top">
+            <div class="result-title">Satender Kumar Antil v. CBI</div>
+            <span class="cit-badge v">✓ Verified</span>
+          </div>
+          <div class="result-meta">
+            <span>Supreme Court</span><span>·</span><span>2022</span>
+            <span class="result-cit">(2022) 10 SCC 51</span>
+          </div>
+          <div class="result-excerpt">
+            "…courts should not <mark>mechanically refuse bail</mark>. Liberty is paramount…"
+          </div>
+          <div class="result-source">🔗 eSCR — main.sci.gov.in</div>
+        </div>
+        <div class="result-item">
+          <div class="result-top">
+            <div class="result-title">Arnesh Kumar v. State of Bihar</div>
+            <span class="cit-badge u">⚠ Verify</span>
+          </div>
+          <div class="result-meta">
+            <span>Supreme Court</span><span>·</span><span>2014</span>
+            <span class="result-cit">(2014) 8 SCC 273</span>
+          </div>
+          <div class="result-excerpt">
+            "…arrest should not be <mark>mechanical or cavalier</mark>. Power of arrest — highest power given to police…"
+          </div>
+          <div class="result-source">🔗 P&H HC — highcourtchd.gov.in</div>
+        </div>
+
+        <div style="padding:12px 14px;background:rgba(140,110,47,.06);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:var(--ink-3)">Answer confidence</span>
+          <div style="display:flex;gap:2px;">
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--border-s)"></div>
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--border-s)"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:var(--green)">8/10</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── DRAFT ──────────────────────────────────── -->
+    <div class="screen" id="screen-draft">
+
+      <div class="sec-label">Filing type</div>
+      <div class="filing-grid">
+        <div class="filing-btn sel" onclick="selFiling(this)">
+          <div class="filing-icon">⚖️</div>
+          <div class="filing-lbl">Bail App</div>
+        </div>
+        <div class="filing-btn" onclick="selFiling(this)">
+          <div class="filing-icon">📜</div>
+          <div class="filing-lbl">Writ Petition</div>
+        </div>
+        <div class="filing-btn" onclick="selFiling(this)">
+          <div class="filing-icon">🏛</div>
+          <div class="filing-lbl">Civil Suit</div>
+        </div>
+        <div class="filing-btn" onclick="selFiling(this)">
+          <div class="filing-icon">⚡</div>
+          <div class="filing-lbl">Notice Reply</div>
+        </div>
+        <div class="filing-btn" onclick="selFiling(this)">
+          <div class="filing-icon">🔖</div>
+          <div class="filing-lbl">Criminal</div>
+        </div>
+        <div class="filing-btn" onclick="selFiling(this)">
+          <div class="filing-icon">🏢</div>
+          <div class="filing-lbl">IP / Corp</div>
+        </div>
+      </div>
+
+      <div class="sec-label">Filing objective</div>
+      <div class="obj-row">
+        <span class="obj-chip sel" onclick="selObj(this)">Win on merits</span>
+        <span class="obj-chip" onclick="selObj(this)">Delay proceedings</span>
+        <span class="obj-chip" onclick="selObj(this)">Challenge jurisdiction</span>
+        <span class="obj-chip" onclick="selObj(this)">Seek settlement</span>
+        <span class="obj-chip" onclick="selObj(this)">Preserve appeal</span>
+      </div>
+
+      <div class="draft-split">
+        <div class="draft-left-panel">
+          <div class="sec-label" style="margin-top:0">Case brief</div>
+          <div class="form-row">
+            <div class="form-lbl">Petitioner</div>
+            <input class="form-inp" type="text" value="Gurnam Singh">
+          </div>
+          <div class="form-row">
+            <div class="form-lbl">Respondent</div>
+            <input class="form-inp" type="text" value="State of Punjab">
+          </div>
+          <div class="form-row">
+            <div class="form-lbl">Court</div>
+            <input class="form-inp" type="text" value="P&H HC, Chandigarh">
+          </div>
+          <div class="form-row">
+            <div class="form-lbl">FIR / Case No.</div>
+            <input class="form-inp" type="text" value="FIR 234/2024, PS Civil Lines">
+          </div>
+          <div class="form-row">
+            <div class="form-lbl">Sections</div>
+            <input class="form-inp" type="text" value="NDPS Section 21 — Commercial Quantity">
+          </div>
+          <div class="form-row">
+            <div class="form-lbl">Key facts</div>
+            <textarea class="form-inp form-ta">First-time offender, 28 years old. No prior criminal record. Cooperating fully with investigation. Surrendered passport. Sole breadwinner for family of 4.</textarea>
+          </div>
+          <div class="prog-wrap" id="prog-wrap">
+            <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+            <div class="prog-msg" id="prog-msg">Drafting prayer clause…</div>
+          </div>
+          <button class="btn btn-gold" style="width:100%;padding:11px;margin-top:4px;font-size:13px" onclick="generateDraft()">Generate Draft →</button>
+        </div>
+        <div class="draft-right-panel">
+          <div class="draft-output-wrap">
+            <div class="draft-output-header">
+              AI Draft — Bail Application
+              <div class="draft-output-actions">
+                <button class="btn" style="font-size:10px;padding:4px 9px" onclick="toast('Copied!')">Copy</button>
+                <button class="btn btn-gold" style="font-size:10px;padding:4px 9px" onclick="toast('Downloading .docx…')">↓ .docx</button>
+              </div>
+            </div>
+            <div class="draft-text">
+              <h3>IN THE PUNJAB AND HARYANA HIGH COURT<br>AT CHANDIGARH</h3>
+              <p style="text-align:center;font-size:11px;margin-bottom:10px">
+                <em>In the matter of:</em><br>
+                <strong>Gurnam Singh</strong> … Petitioner<br>versus<br>
+                <strong>State of Punjab</strong> … Respondent<br>
+                <em>FIR No. 234/2024, PS Civil Lines</em>
+              </p>
+              <p class="ai-para"><strong>Petition for Anticipatory Bail u/s 438 CrPC</strong> <span class="ai-badge">AI</span></p>
+              <p class="ai-para">1. The petitioner, Gurnam Singh, aged 28 years, is a first-time offender with no prior criminal record and has been fully cooperating with the investigation. <span class="ai-badge">AI</span></p>
+              <p class="ai-para">2. That the petitioner has surrendered his passport and is the sole breadwinner for a family of four, demonstrating strong community ties and no flight risk. <span class="ai-badge">AI</span></p>
+              <p>3. That it is well settled that bail is the rule and jail the exception. The Hon'ble Supreme Court in <strong>Satender Kumar Antil v. CBI</strong> <span class="cit-chip" onclick="toast('(2022) 10 SCC 51 — eSCR Verified ✓')">2022 SCC 51 ✓</span> held that personal liberty must not be curtailed except in exceptional circumstances.</p>
+              <p class="ai-para">4. The twin conditions under Section 37 of the NDPS Act are satisfied as held in <strong>Union of India v. Ram Samujh</strong> <span class="cit-chip" onclick="toast('(2018) 2 SCC 365 — eSCR Verified ✓')">2018 SCC 365 ✓</span>. <span class="ai-badge">AI</span></p>
+              <p><strong>Prayer:</strong> That this Hon'ble Court may be pleased to grant anticipatory bail to the petitioner on such terms and conditions as deemed fit.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── DEADLINES ──────────────────────────────── -->
+    <div class="screen" id="screen-deadlines">
+
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn btn-gold" onclick="toast('Deadline added')">+ Add Deadline</button>
+        <button class="btn" onclick="toast('WhatsApp reminders configured')">📱 Configure WhatsApp</button>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-header">
+          <div class="card-title"><div class="card-dot" style="background:var(--red)"></div>Urgent — This Week</div>
+        </div>
+        <div class="deadline-item">
+          <div class="dl-date"><div class="dl-day">14</div><div class="dl-month">Apr</div></div>
+          <div class="dl-divider"></div>
+          <div class="dl-info">
+            <div class="dl-title">Bail Hearing — Gurnam Singh</div>
+            <div class="dl-sub">P&H HC, Chandigarh · CWP 4521/2024</div>
+          </div>
+          <span class="dl-tag urgent">2 days</span>
+        </div>
+        <div class="deadline-item">
+          <div class="dl-date"><div class="dl-day">15</div><div class="dl-month">Apr</div></div>
+          <div class="dl-divider"></div>
+          <div class="dl-info">
+            <div class="dl-title">Limitation — Cheque Bounce S.138</div>
+            <div class="dl-sub">File complaint before limitation expires</div>
+          </div>
+          <span class="dl-tag urgent">3 days</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-header">
+          <div class="card-title"><div class="card-dot" style="background:var(--amber)"></div>Coming Up</div>
+        </div>
+        <div class="deadline-item">
+          <div class="dl-date"><div class="dl-day">18</div><div class="dl-month">Apr</div></div>
+          <div class="dl-divider"></div>
+          <div class="dl-info">
+            <div class="dl-title">Reply to Notice — Sharma Property</div>
+            <div class="dl-sub">30-day limitation from notice date</div>
+          </div>
+          <span class="dl-tag soon">6 days</span>
+        </div>
+        <div class="deadline-item">
+          <div class="dl-date"><div class="dl-day">25</div><div class="dl-month">Apr</div></div>
+          <div class="dl-divider"></div>
+          <div class="dl-info">
+            <div class="dl-title">Consumer Forum Filing — Mehta</div>
+            <div class="dl-sub">Ludhiana District Consumer Forum</div>
+          </div>
+          <span class="dl-tag ok">13 days</span>
+        </div>
+      </div>
+
+      <div style="background:var(--amber-bg);border:1px solid rgba(184,134,11,.2);border-radius:var(--r);padding:14px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:6px;">⚠ Missed Deadline Detected</div>
+        <div style="font-size:12px;color:var(--ink-2);margin-bottom:10px;">Limitation for Kapoor civil suit may have lapsed on April 8, 2026.</div>
+        <button class="btn btn-gold" style="font-size:11px;padding:6px 12px" onclick="toast('Generating condonation of delay application…')">Draft Condonation Application →</button>
+      </div>
+
+    </div>
+
+    <!-- ── LIBRARY ─────────────────────────────────── -->
+    <div class="screen" id="screen-library">
+
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="btn btn-gold" onclick="toast('Select files to upload')">+ Upload</button>
+        <button class="btn" onclick="toast('Connect Google Drive')">☁ Google Drive</button>
+      </div>
+
+      <div class="lib-search-wrap">
+        <span class="lib-search-icon">🔍</span>
+        <input class="lib-search" type="text" placeholder="Filter by name or tag…" oninput="filterLib(this.value)">
+      </div>
+
+      <div class="card" id="lib-card">
+        <!-- rendered by JS -->
+      </div>
+
+      <div style="padding:10px 0;font-size:11px;color:var(--ink-3);text-align:center;" id="lib-footer">
+        Showing 8 of 47 files · 312 pages indexed
+      </div>
+
+    </div>
+
+    <!-- ── PDF SCREEN ──────────────────────────────── -->
+    <div class="screen" id="screen-pdf">
+
+      <div id="pdf-drop-zone">
+        <div class="drop-zone" onclick="loadPDF()">
+          <div class="drop-icon">📤</div>
+          <div class="drop-title">Drop your document here</div>
+          <div class="drop-sub">PDF, Word, scanned · up to 200 pages<br><span style="color:var(--gold)">or tap to browse files</span></div>
+        </div>
+        <div class="recent-uploads">
+          Recently uploaded:
+          <span onclick="loadPDF()">Kapoor_Lease_Agreement.pdf</span> ·
+          <span onclick="loadPDF()">HC_Order_Gurnam.pdf</span>
+        </div>
+      </div>
+
+      <div id="pdf-workspace" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-family:'Playfair Display',serif;font-size:14px;font-weight:600;color:var(--ink)">Kapoor_Lease_Agreement.pdf</div>
+            <div style="font-size:11px;color:var(--ink-3)">24 pages · Indexed · 15 Jan 2024</div>
+          </div>
+          <button class="btn" onclick="document.getElementById('pdf-drop-zone').style.display='block';document.getElementById('pdf-workspace').style.display='none'">← Back</button>
+        </div>
+
+        <div class="card" style="margin-bottom:12px;">
+          <div class="card-header">
+            <div class="card-title"><div class="card-dot"></div>Extracted Key Information</div>
+            <span class="card-action" onclick="toast('Copied to clipboard')">Copy table</span>
+          </div>
+          <div style="padding:14px;overflow-x:auto;">
+            <table class="extract-table">
+              <thead><tr><th>Field</th><th>Value</th><th>Conf.</th></tr></thead>
+              <tbody>
+                <tr><td>Agreement Date</td><td>15 January 2024</td><td style="color:var(--green)">99%</td></tr>
+                <tr><td>Lessor</td><td>Sh. Anil Kapoor</td><td style="color:var(--green)">97%</td></tr>
+                <tr><td>Lessee</td><td>M/s Sharma Enterprises</td><td style="color:var(--green)">97%</td></tr>
+                <tr><td>Lease Period</td><td>36 months</td><td style="color:var(--green)">98%</td></tr>
+                <tr><td>Monthly Rent</td><td>₹ 45,000/—</td><td style="color:var(--green)">99%</td></tr>
+                <tr><td>Security Deposit</td><td>₹ 2,70,000/—</td><td style="color:var(--green)">98%</td></tr>
+                <tr><td>Lease Ends</td><td>31 January 2027</td><td style="color:var(--green)">98%</td></tr>
+                <tr><td>Notice Period</td><td>90 days</td><td style="color:var(--green)">95%</td></tr>
+                <tr><td>Renewal Rate</td><td>Max 10% increase</td><td style="color:var(--amber)">74% ⚠</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><div class="card-dot"></div>Ask about this document</div>
+          </div>
+          <div style="padding:12px;">
+            <input class="pdf-qa-inp" id="pdf-q" type="text" placeholder="e.g. When does this lease expire?"
+              onkeydown="if(event.key==='Enter')answerPDF()">
+            <div class="pdf-answer" id="pdf-ans"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- BOTTOM NAV (mobile) -->
+  <div id="bottom-nav">
+    <button class="bn-item active" onclick="go('home')">
+      <span class="bn-icon">🏛</span>
+      <span class="bn-label">Desk</span>
+    </button>
+    <button class="bn-item" onclick="go('search')">
+      <span class="bn-icon">🔍</span>
+      <span class="bn-label">Search</span>
+    </button>
+    <button class="bn-item" onclick="go('draft')">
+      <span class="bn-icon">✍️</span>
+      <span class="bn-label">Draft</span>
+    </button>
+    <button class="bn-item" onclick="go('deadlines')">
+      <span class="bn-icon">📅</span>
+      <span class="bn-label">Deadlines</span>
+      <div class="bn-dot"></div>
+    </button>
+    <button class="bn-item" onclick="go('library')">
+      <span class="bn-icon">📄</span>
+      <span class="bn-label">Files</span>
+    </button>
+  </div>
+
+</main>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── NAV ─────────────────────────────────────────
+const SCREENS = ['home','search','draft','deadlines','library','pdf'];
+const TITLES  = {
+  home:'My Desk', search:'Search & Research',
+  draft:'Draft a Filing', deadlines:'Deadline Tracker',
+  library:'My Library', pdf:'PDF Extractor'
+};
+const ACTIONS = {
+  home: `<button class="btn btn-gold" onclick="go('draft')">+ Draft</button>`,
+  search: `<button class="btn btn-icon" onclick="toast('Filters')">⚙</button>`,
+  draft: `<button class="btn" onclick="toast('Draft saved')">Save</button>`,
+  deadlines: `<button class="btn btn-gold" onclick="toast('Deadline added')">+ Add</button>`,
+  library: `<button class="btn btn-gold" onclick="toast('Upload files')">Upload</button>`,
+  pdf: `<button class="btn" onclick="loadPDF()">Upload New</button>`,
+};
+
+function go(id) {
+  SCREENS.forEach(s => {
+    const el = document.getElementById('screen-' + s);
+    if (el) el.classList.toggle('active', s === id);
+  });
+  // sidebar items
+  document.querySelectorAll('.sb-item').forEach(el => {
+    el.classList.remove('active');
+    if (el.textContent.toLowerCase().includes(id.replace('draft','draft').replace('home','desk').replace('deadlines','dead').replace('library','lib').replace('search','search').replace('pdf','pdf').slice(0,4))) {
+      el.classList.add('active');
+    }
+  });
+  // bottom nav
+  document.querySelectorAll('.bn-item').forEach((el, i) => {
+    el.classList.toggle('active', SCREENS[i] === id);
+  });
+  document.getElementById('tb-title').textContent = TITLES[id] || id;
+  document.getElementById('tb-actions').innerHTML = ACTIONS[id] || '';
+  closeSidebar();
+}
+
+// Better sidebar active state
+function setSidebarActive(id) {
+  const map = {home:0, search:1, library:2, draft:3, deadlines:4};
+  document.querySelectorAll('.sb-item').forEach((el, i) => el.classList.remove('active'));
+  const items = document.querySelectorAll('.sb-item');
+  const idx = map[id];
+  if (idx !== undefined && items[idx]) items[idx].classList.add('active');
+}
+
+// Override go to fix sidebar
+const _go = go;
+window.go = function(id) {
+  _go(id);
+  setSidebarActive(id);
+}
+
+// ── SIDEBAR ─────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('overlay').classList.add('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+// ── FILING TYPE ──────────────────────────────────
+function selFiling(el) {
+  document.querySelectorAll('.filing-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function selObj(el) {
+  document.querySelectorAll('.obj-chip').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+// ── DRAFT ────────────────────────────────────────
+const msgs = ['Analysing case facts…','Writing opening paragraph…','Drafting prayer clause…','Adding case citations…','Formatting for P&H HC…'];
+let genTimer;
+function generateDraft() {
+  const wrap = document.getElementById('prog-wrap');
+  const fill = document.getElementById('prog-fill');
+  const msg  = document.getElementById('prog-msg');
+  wrap.style.display = 'block';
+  fill.style.animation = 'none';
+  fill.offsetHeight; // reflow
+  fill.style.animation = 'prog 3.5s ease-out forwards';
+  let i = 0;
+  clearInterval(genTimer);
+  genTimer = setInterval(() => {
+    if (i < msgs.length) msg.textContent = msgs[i++];
+    else {
+      clearInterval(genTimer);
+      wrap.style.display = 'none';
+      toast('Draft generated — review citations before filing');
+    }
+  }, 700);
+}
+
+// ── SEARCH ───────────────────────────────────────
+function doSearch() {
+  toast('Searching your files + 10,247 public judgments…');
+}
+function toggleChip(el) {
+  el.classList.toggle('active');
+}
+
+// ── PDF ──────────────────────────────────────────
+function loadPDF() {
+  document.getElementById('pdf-drop-zone').style.display = 'none';
+  document.getElementById('pdf-workspace').style.display = 'block';
+}
+const pdfA = {
+  expire: 'Lease expires <strong>31 January 2027</strong> (Page 2, Clause 1). Either party can terminate with 90 days\' written notice. Non-payment for 2 months allows immediate termination.',
+  rent: 'Monthly rent is <strong>₹45,000/—</strong> payable by the 5th of each month (Page 2, Clause 2). Security deposit is ₹2,70,000/—.',
+  deposit: 'Security deposit is <strong>₹2,70,000/—</strong> (six months\' rent), refundable on lease end subject to no dues.',
+  notice: 'Either party may terminate with <strong>90 days\' written notice</strong>. Non-payment for 2 consecutive months = immediate termination without notice.',
+};
+function answerPDF() {
+  const q = document.getElementById('pdf-q').value.toLowerCase();
+  const el = document.getElementById('pdf-ans');
+  let a = 'This document does not mention that specifically. Try: expire, rent, deposit, or notice.';
+  for (const k in pdfA) { if (q.includes(k)) { a = pdfA[k]; break; } }
+  el.innerHTML = a; el.style.display = 'block';
+}
+
+// ── LIBRARY ──────────────────────────────────────
+const libData = [
+  {name:'Gurnam_anticipatory_bail_2024.pdf', area:'Criminal', date:'10 Apr 2026', pages:12, status:'indexed'},
+  {name:'Sharma_property_suit.pdf',          area:'Civil',    date:'09 Apr 2026', pages:24, status:'indexed'},
+  {name:'HC_Order_Mehta_v_MCD.pdf',          area:'Constitutional', date:'07 Apr 2026', pages:8, status:'indexed'},
+  {name:'Kapoor_Lease_Agreement.pdf',        area:'Commercial', date:'05 Apr 2026', pages:18, status:'indexed'},
+  {name:'NDPS_Bail_Precedents_2022.pdf',     area:'Criminal', date:'01 Apr 2026', pages:64, status:'indexed'},
+  {name:'Property_Dispute_Research.pdf',     area:'Civil',    date:'28 Mar 2026', pages:41, status:'indexed'},
+  {name:'Cheque_Bounce_NI_Act_Guide.pdf',    area:'Criminal', date:'25 Mar 2026', pages:33, status:'indexed'},
+  {name:'Witness_Statements_FIR234.pdf',     area:'Criminal', date:'10 Apr 2026', pages:7, status:'proc'},
+];
+function renderLib(data) {
+  const card = document.getElementById('lib-card');
+  if (!data.length) {
+    card.innerHTML = '<div style="padding:24px;text-align:center;color:var(--ink-3);font-size:13px;">No documents match your search.</div>';
+    return;
+  }
+  card.innerHTML = data.map(f => `
+    <div class="lib-item" onclick="toast('Opening: ${f.name}')">
+      <div class="lib-file-icon">📄</div>
+      <div class="lib-info">
+        <div class="lib-name">${f.name}</div>
+        <div class="lib-meta">${f.area} · ${f.date} · ${f.pages} pages</div>
+      </div>
+      <span class="status-chip ${f.status}">${f.status === 'indexed' ? 'Indexed' : 'Processing…'}</span>
+    </div>
+  `).join('');
+}
+function filterLib(q) {
+  const filtered = libData.filter(f =>
+    f.name.toLowerCase().includes(q.toLowerCase()) ||
+    f.area.toLowerCase().includes(q.toLowerCase())
+  );
+  renderLib(filtered);
+  document.getElementById('lib-footer').textContent =
+    `Showing ${filtered.length} of ${libData.length} files`;
+}
+renderLib(libData);
+
+// ── TOAST ────────────────────────────────────────
+let toastT;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.opacity = '1';
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.style.opacity = '0', 2600);
+}
+
+// Init
+setSidebarActive('home');
+</script>
+</body>
+</html>
