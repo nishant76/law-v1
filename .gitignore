@@ -1,0 +1,36 @@
+# Environment — NEVER commit these
+.env
+.env.local
+.env.production
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Docker volumes
+postgres_data/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Alembic — keep versions but not cache
+backend/migrations/__pycache__/
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
