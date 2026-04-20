@@ -133,3 +133,78 @@ class SynthesisResponse(BaseModel):
         description="Warning if confidence low (e.g. 'upload more relevant documents')"
     )
     duration_ms: float = Field(..., description="Processing duration")
+
+
+# ---------------------------------------------------------------------------
+# Enriched search schemas (added for unified search v2)
+# ---------------------------------------------------------------------------
+
+class CitationEnrichment(BaseModel):
+    """AI-generated metadata for a single public judgment (cached in DB)."""
+
+    facts: Optional[str] = Field(None, description="2-sentence summary of key facts")
+    issue: Optional[str] = Field(None, description="Core legal question decided")
+    reasoning: Optional[str] = Field(None, description="Court's key reasoning in 2 sentences")
+    ratio: Optional[str] = Field(None, description="Binding legal principle established")
+    relevance: Optional[str] = Field(None, description="Why this case matches the search query")
+
+
+class EnrichedJudgmentResult(BaseModel):
+    """Public judgment result with optional AI enrichment."""
+
+    id: str = Field(..., description="Citation UUID")
+    case_name: str = Field(..., description="Full case name")
+    petitioner: Optional[str] = Field(None, description="Petitioner/plaintiff name")
+    respondent: Optional[str] = Field(None, description="Respondent/defendant name")
+    court: str = Field(..., description="Court name")
+    year: int = Field(..., description="Judgment year")
+    judgment_date: Optional[str] = Field(None, description="ISO date string")
+    citation_key: str = Field(..., description="Citation e.g. 2024 SCC 123")
+    matter_type: Optional[str] = Field(None, description="Matter type")
+    outcome: Optional[str] = Field(None, description="Judgment outcome")
+    source_url: Optional[str] = Field(None, description="URL to full text")
+    official_source: Optional[str] = Field(None, description="Source: escr, panhc, district_court")
+    relevance_score: float = Field(..., ge=0.0, le=1.0, description="Search relevance (0-1)")
+    result_type: str = Field("public_judgment", description="Result source type")
+    enrichment: Optional[CitationEnrichment] = Field(
+        None,
+        description="AI-generated metadata. null = background enrichment scheduled.",
+    )
+
+
+class SearchAnalysis(BaseModel):
+    """Overall AI analysis across all public judgment results for a query."""
+
+    trend: Optional[str] = Field(None, description="Pattern these cases show overall")
+    winning_factors: List[str] = Field(default_factory=list, description="Factors that help the lawyer's position")
+    risk_factors: List[str] = Field(default_factory=list, description="Factors that hurt the lawyer's position")
+    strongest_case: Optional[str] = Field(None, description="Single case that best supports the query and why")
+    practical_advice: Optional[str] = Field(None, description="One actionable insight for the lawyer")
+
+
+class UnifiedSearchResponse(BaseModel):
+    """
+    Unified search response — v2.
+
+    Extends SearchResponse with:
+    - EnrichedJudgmentResult (enrichment field per result)
+    - overall_analysis (SearchAnalysis | null)
+    """
+
+    success: bool = Field(..., description="Request success status")
+    query: str = Field(..., description="Original search query")
+    from_your_files: List[OwnFileResult] = Field(
+        default_factory=list,
+        description="Results from lawyer's indexed documents",
+    )
+    from_public_judgments: List[EnrichedJudgmentResult] = Field(
+        default_factory=list,
+        description="Results from public judgment database with AI enrichment",
+    )
+    overall_analysis: Optional[SearchAnalysis] = Field(
+        None,
+        description="AI analysis across all results. null when fewer than 3 public results.",
+    )
+    total_results: int = Field(..., description="Total results across all sources")
+    duration_ms: float = Field(..., description="Query duration in milliseconds")
+    error: Optional[str] = Field(None, description="Error message if success=False")

@@ -6,8 +6,10 @@ No commercial data is scraped.
 """
 
 import asyncio
+import json
 import logging
 from celery import shared_task
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -43,6 +45,99 @@ def scraper_update(self):
         logger.error(f"Error in scraper_update task: {e}", exc_info=True)
         # Retry after 1 minute
         raise self.retry(exc=e, countdown=60, max_retries=2)
+
+
+@shared_task(name="citations.enrich_citation", bind=True, max_retries=3, time_limit=120)
+def enrich_citation_task(self, citation_id: str, query: str):
+    """
+    Background task: enrich a single citation with AI-generated metadata.
+    Thin wrapper — all logic lives in _enrich_citation (services pattern).
+
+    Triggered by search_service when a result has no cached enrichment.
+    Result saved to law.citations.enrichment JSONB — generate once, reuse forever.
+    """
+    try:
+        result = asyncio.run(_enrich_citation(citation_id, query))
+        logger.info(f"enrich_citation_task completed: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in enrich_citation_task {citation_id}: {e}", exc_info=True)
+        raise self.retry(exc=e, countdown=30, max_retries=3)
+
+
+async def _enrich_citation(citation_id: str, query: str) -> dict:
+    """
+    Load citation, call GPT-4o-mini for enrichment, save to DB.
+    All business logic lives here — worker is a thin wrapper above.
+    """
+    from backend.models.law_citation import Citation
+    from backend.services.llm_service import get_llm_service, ModelType
+    from backend.services.prompts.search_enrichment import citation_enrichment_prompt
+    from backend.core.sanitiser import sanitise_text
+
+    engine = create_async_engine(settings.DATABASE_URL, echo=False, pool_pre_ping=True)
+    async_session = sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False,
+        autocommit=False, autoflush=False,
+    )
+
+    try:
+        async with async_session() as session:
+            stmt = select(Citation).where(Citation.id == citation_id)
+            result = await session.execute(stmt)
+            citation = result.scalar_one_or_none()
+
+            if not citation:
+                logger.warning(f"_enrich_citation: citation {citation_id} not found")
+                return {"success": False, "reason": "not_found"}
+
+            if citation.enrichment:
+                logger.info(f"_enrich_citation: {citation_id} already enriched, skipping")
+                return {"success": True, "reason": "already_enriched"}
+
+            # Sanitise before sending to LLM (GAP-001)
+            raw_text = citation.judgment_text or citation.summary or ""
+            document_text = sanitise_text(raw_text)[:3000]
+
+            user_prompt = citation_enrichment_prompt.format_user_prompt(
+                case_name=citation.case_name,
+                court=citation.court,
+                year=citation.year,
+                document_text=document_text,
+                query=query,
+            )
+
+            llm_service = get_llm_service()
+            response_text = await llm_service.call_completion(
+                system_prompt=citation_enrichment_prompt.system_prompt,
+                user_prompt=user_prompt,
+                model=ModelType(citation_enrichment_prompt.model.value),
+                temperature=0.0,
+                max_tokens=citation_enrichment_prompt.max_tokens,
+            )
+
+            # Strip markdown fences if model wraps output
+            cleaned = response_text.strip()
+            if cleaned.startswith("```"):
+                parts = cleaned.split("```")
+                cleaned = parts[1].lstrip("json").strip() if len(parts) > 1 else cleaned
+
+            enrichment = json.loads(cleaned)
+
+            citation.enrichment = enrichment
+            await session.commit()
+
+            logger.info(f"_enrich_citation: {citation_id} enriched successfully")
+            return {"success": True, "citation_id": citation_id}
+
+    except json.JSONDecodeError as e:
+        logger.error(f"_enrich_citation: JSON parse error for {citation_id}: {e}")
+        return {"success": False, "reason": "parse_error"}
+    except Exception as e:
+        logger.error(f"_enrich_citation: unexpected error for {citation_id}: {e}", exc_info=True)
+        raise
+    finally:
+        await engine.dispose()
 
 
 async def _run_scrapers():

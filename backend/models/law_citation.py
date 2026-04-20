@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import String, UUID, ForeignKey, DateTime, Text, Integer, Boolean, Index
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from .base import BaseModel
@@ -57,6 +58,10 @@ class Citation(BaseModel):
 
     # Embedding for semantic search
     embedding_vector: Mapped[Optional[str]] = mapped_column(String(10000), nullable=True)  # JSON array or string representation
+
+    # AI-generated enrichment — cached per citation, generated once via Celery background task
+    # Structure: {facts, issue, reasoning, ratio, relevance}
+    enrichment: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Timestamps
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

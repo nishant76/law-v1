@@ -4,11 +4,11 @@ GET /api/v1/search/unified — unified search over both sources
 """
 
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, Request
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps import get_db, get_current_user
-from backend.schemas.search import SearchRequest, SearchResponse
+from backend.schemas.search import SearchRequest, UnifiedSearchResponse
 from backend.services.search_service import get_search_service
 from backend.core.logger import get_logger
 
@@ -17,13 +17,12 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/search", tags=["search"])
 
 
-@router.post("/unified", response_model=SearchResponse)
+@router.post("/unified", response_model=UnifiedSearchResponse)
 async def unified_search(
-    request: Request,
     search_request: SearchRequest,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
-) -> SearchResponse:
+) -> UnifiedSearchResponse:
     """
     Unified search over both public judgments and own files
     
@@ -80,11 +79,12 @@ async def unified_search(
             )
         
         # Transform to response schema
-        response = SearchResponse(
+        response = UnifiedSearchResponse(
             success=True,
             query=query,
             from_your_files=result.get("from_your_files", []),
             from_public_judgments=result.get("from_public_judgments", []),
+            overall_analysis=result.get("overall_analysis"),
             total_results=result.get("total_results", 0),
             duration_ms=result.get("duration_ms", 0),
         )

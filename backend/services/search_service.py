@@ -5,6 +5,7 @@ Returns results clearly labeled by source type
 """
 
 import asyncio
+import json
 import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -19,6 +20,7 @@ from backend.models.law_citation import Citation
 from backend.services.llm_service import get_llm_service, ModelType
 from backend.services.rag_service import get_rag_service
 from backend.services.prompts.rag_synthesis import rag_synthesis_prompt
+from backend.services.prompts.search_enrichment import search_analysis_prompt
 from backend.core.config import settings
 from backend.core.logger import get_logger
 
@@ -235,23 +237,37 @@ class SearchService:
             
             own_file_results = results[0] if isinstance(results[0], list) else []
             public_judgment_results = results[1] if isinstance(results[1], list) else []
-            
+
+            # Step 3: For each public judgment, return cached enrichment or schedule background task
+            for result in public_judgment_results:
+                result["enrichment"] = self.enrich_search_result(result, query)
+
+            # Step 4: Generate overall analysis when >= 3 public results (fresh per search)
+            overall_analysis = await self.synthesise_search_analysis(
+                query=query,
+                results=public_judgment_results,
+                firm_id=firm_id,
+            )
+
             duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
-            
+
             response = {
                 "success": True,
                 "query": query,
                 "from_your_files": own_file_results,
                 "from_public_judgments": public_judgment_results,
+                "overall_analysis": overall_analysis,
                 "total_results": len(own_file_results) + len(public_judgment_results),
                 "duration_ms": duration_ms,
             }
-            
+
             logger.info(
                 f"Unified search completed: {len(own_file_results)} own files, "
-                f"{len(public_judgment_results)} public judgments in {duration_ms:.0f}ms"
+                f"{len(public_judgment_results)} public judgments, "
+                f"analysis={'yes' if overall_analysis else 'no (<3 results)'} "
+                f"in {duration_ms:.0f}ms"
             )
-            
+
             return response
             
         except Exception as e:
@@ -507,6 +523,7 @@ class SearchService:
 
     def _format_citation_result(self, c: Citation) -> PublicJudgmentResult:
         return {
+            "id": str(c.id),
             "case_name": c.case_name,
             "petitioner": c.petitioner,
             "respondent": c.respondent,
@@ -522,7 +539,99 @@ class SearchService:
             "subject_tags": c.subject_tags,
             "relevance_score": 0.95,
             "result_type": SearchResultType.PUBLIC_JUDGMENT,
+            "enrichment": c.enrichment,  # None if not yet enriched — Celery will fill it
         }
+
+    def enrich_search_result(
+        self,
+        result: Dict[str, Any],
+        query: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Return cached enrichment for a result, or schedule background enrichment.
+
+        If enrichment is already present in the formatted result (loaded from DB),
+        return it immediately. Otherwise dispatch a Celery task so the next search
+        for this citation will hit the cache.
+
+        Args:
+            result: Formatted citation dict (from _format_citation_result)
+            query:  The original search query (used by worker to set relevance)
+
+        Returns:
+            Enrichment dict if cached, None if background task was scheduled.
+        """
+        if result.get("enrichment"):
+            return result["enrichment"]
+
+        citation_id = result.get("id")
+        if citation_id:
+            from backend.workers.citations import enrich_citation_task
+            enrich_citation_task.delay(citation_id, query)
+            logger.debug(f"Scheduled background enrichment for citation {citation_id}")
+
+        return None
+
+    async def synthesise_search_analysis(
+        self,
+        query: str,
+        results: List[PublicJudgmentResult],
+        firm_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Generate an overall AI analysis across all public judgment results.
+        Fresh per search — never cached (it is query-specific).
+        Only called when >= 3 public judgment results are returned.
+
+        Args:
+            query:   The original search query
+            results: Public judgment result dicts (must have case_name + enrichment)
+            firm_id: Firm ID for token tracking
+
+        Returns:
+            SearchAnalysis dict or None if fewer than 3 results.
+        """
+        if len(results) < 3:
+            return None
+
+        # Build the case summary fed to the prompt: case name + ratio if available
+        case_lines = []
+        for r in results:
+            enrichment = r.get("enrichment") or {}
+            ratio = enrichment.get("ratio") or "ratio not yet available"
+            case_lines.append(f"- {r['case_name']} ({r.get('year', '?')}): {ratio}")
+        cases_summary = "\n".join(case_lines)
+
+        user_prompt = search_analysis_prompt.format_user_prompt(
+            query=query,
+            cases_summary=cases_summary,
+        )
+
+        try:
+            response_text = await self.llm_service.call_completion(
+                system_prompt=search_analysis_prompt.system_prompt,
+                user_prompt=user_prompt,
+                model=ModelType(search_analysis_prompt.model.value),
+                temperature=0.0,
+                max_tokens=search_analysis_prompt.max_tokens,
+                firm_id=firm_id,
+            )
+            return self._parse_json_response(response_text)
+        except Exception as e:
+            logger.error(f"synthesise_search_analysis failed: {e}", exc_info=True)
+            return None
+
+    def _parse_json_response(self, text: str) -> Optional[Dict[str, Any]]:
+        """Strip optional markdown fences then parse JSON."""
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            parts = cleaned.split("```")
+            cleaned = parts[1].lstrip("json").strip() if len(parts) > 1 else cleaned
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            logger.error(f"_parse_json_response: JSON parse error: {e} — raw: {text[:200]}")
+            return None
     
     async def _search_azure_ai_search(
         self,
