@@ -65,7 +65,20 @@ export default function DraftPage() {
 
   const searchMutation = useMutation({
     mutationFn: (q: string) => unifiedSearch(q),
-    onSuccess: ({ data }) => setSearchResults(data.data.public_judgments),
+    onSuccess: ({ data }) => setSearchResults(
+      data.from_public_judgments.map((r) => ({
+        id: r.id,
+        case_name: r.case_name,
+        court: r.court,
+        year: r.year,
+        citation: r.primary_citation,
+        source_url: r.source_url,
+        excerpt: r.summary ?? '',
+        score: r.relevance_score,
+        source: 'public_judgment' as const,
+        verified: !!r.primary_citation,
+      }))
+    ),
   })
 
   const exportMutation = useMutation({
