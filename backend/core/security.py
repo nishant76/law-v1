@@ -1,6 +1,6 @@
 """
 Security module — JWT token creation, validation, and blacklist management
-Implements RS256 (asymmetric) JWT tokens with Redis-backed blacklist
+Implements HS256 (symmetric) JWT tokens with Redis-backed blacklist
 """
 
 import json
@@ -102,13 +102,13 @@ def create_access_token(
         Signed JWT token string
         
     Security:
-    - Algorithm: RS256
+    - Algorithm: HS256
     - Expiry: 60 minutes default
     - Token does NOT contain sensitive data (no password, no secrets)
     """
     
     if expires_delta is None:
-        expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expires_delta = timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     
     now = datetime.now(timezone.utc)
     expire = now + expires_delta
@@ -162,7 +162,7 @@ def create_refresh_token(
     """
     
     if expires_delta is None:
-        expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        expires_delta = timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     
     now = datetime.now(timezone.utc)
     expire = now + expires_delta
