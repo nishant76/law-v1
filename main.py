@@ -2,6 +2,7 @@
 Nikhar backend — FastAPI application
 Main entry point for all API routes and middleware
 """
+import os
 from fastapi import FastAPI
 from fastapi.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -23,19 +24,24 @@ from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Base allowed origins
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:4173",
+]
+
+# Add production frontend URL from environment
+frontend_url = os.environ.get("FRONTEND_URL", "")
+if frontend_url:
+    ALLOWED_ORIGINS.append(frontend_url)
+    ALLOWED_ORIGINS.append(frontend_url.rstrip("/"))
+
 # Middleware stack in correct order
 # 1. GZipMiddleware (compress responses)
-# 2. CORSMiddleware (cross-origin requests)
-# 3. RequestLoggingMiddleware (log all requests)
+# 2. RequestLoggingMiddleware (log all requests)
 middleware = [
     Middleware(GZipMiddleware, minimum_size=1000),
-    Middleware(
-        CORSMiddleware,
-        allow_origins=["https://law.nikhar.ai"] if settings.ENVIRONMENT == "production" else ["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    ),
 ]
 
 # Create FastAPI app
@@ -44,6 +50,14 @@ app = FastAPI(
     version="0.1.0",
     description="AI-powered legal workspace for solo lawyers in Punjab, Haryana, and Chandigarh",
     middleware=middleware,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Add request logging middleware after FastAPI app initialization
@@ -76,7 +90,6 @@ async def shutdown_event():
 
 
 if __name__ == "__main__":
-    import os
     import uvicorn
 
     port = int(os.environ.get("PORT", 8000))
