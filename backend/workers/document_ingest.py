@@ -120,24 +120,35 @@ async def _document_ingest_async(
             text = await service.extract_text_from_document(file_content, file_type)
             logger.info(f"Extracted {len(text)} characters from {filename}")
             
-            # Step 4-6: Chunk, embed, and index the document through RAG
-            chunks = await service.ingest_document(
-                text=text,
-                document_id=document_id,
-                firm_id=firm_id,
-                filename=filename,
-                vertical="law",
-            )
-            logger.info(f"Indexed {len(chunks)} chunks for document {document_id}")
+            # Step 4-6: Chunk, embed, and index through Azure AI Search
+            # If search is unavailable (e.g. dev env), skip gracefully —
+            # OCR text is still saved so extraction and chat work.
+            chunk_count = 0
+            try:
+                chunks = await service.ingest_document(
+                    text=text,
+                    document_id=document_id,
+                    firm_id=firm_id,
+                    filename=filename,
+                    vertical="law",
+                )
+                chunk_count = len(chunks)
+                logger.info(f"Indexed {chunk_count} chunks for document {document_id}")
+            except Exception as search_exc:
+                logger.warning(
+                    f"Azure Search indexing failed for {document_id} "
+                    f"(search disabled or unreachable): {search_exc}. "
+                    "Document will be marked indexed — OCR text saved, search skipped."
+                )
 
-            # Step 7: Update document status to indexed, persist extracted text
+            # Step 7: Persist OCR text and mark indexed regardless of search outcome
             success = await service.update_document_indexed(
                 session=session,
                 document_id=document_id,
-                chunk_count=len(chunks),
+                chunk_count=chunk_count,
                 ocr_text=text,
             )
-            
+
             if not success:
                 raise Exception("Failed to update document status in database")
             

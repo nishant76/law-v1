@@ -293,6 +293,10 @@ class RAGService:
         if not firm_id:
             return []
 
+        if not self.search_endpoint or "<" in self.search_endpoint:
+            logger.warning("Azure Search not configured — skipping own-files search")
+            return []
+
         index_name = self._get_index_name(firm_id)
         if query_vector is None:
             query_vector = await self.llm_service.embed_query(query)

@@ -19,11 +19,17 @@ class Settings:
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Nikhar"
     
-    # Database
-    DATABASE_URL: str = os.getenv(
+    # Database — accept Neon/Railway postgres:// and postgresql:// connection strings
+    _db_url_raw: str = os.getenv(
         "DATABASE_URL",
         "postgresql+asyncpg://nikhar:nikhar@localhost:5432/nikhar"
     )
+    if _db_url_raw.startswith("postgres://"):
+        DATABASE_URL: str = _db_url_raw.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif _db_url_raw.startswith("postgresql://") and "+asyncpg" not in _db_url_raw:
+        DATABASE_URL: str = _db_url_raw.replace("postgresql://", "postgresql+asyncpg://", 1)
+    else:
+        DATABASE_URL: str = _db_url_raw
     
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -43,6 +49,7 @@ class Settings:
     AZURE_OPENAI_API_VERSION: str = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
     GPT4O_DEPLOYMENT: str = os.getenv("GPT4O_DEPLOYMENT", "gpt-4o")
     GPT4O_MINI_DEPLOYMENT: str = os.getenv("GPT4O_MINI_DEPLOYMENT", "gpt-4o-mini")
+    GPT52_DEPLOYMENT: str = os.getenv("GPT52_DEPLOYMENT", "gpt-5.2")
     EMBEDDING_DEPLOYMENT: str = os.getenv("EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
     
     # Azure Search

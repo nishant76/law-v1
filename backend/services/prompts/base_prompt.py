@@ -14,6 +14,8 @@ class ModelType(str, Enum):
     """Supported LLM models"""
     GPT4O = "gpt-4o"
     GPT4O_MINI = "gpt-4o-mini"
+    GPT52 = "gpt-5.2"
+    GPT5_2 = "gpt-5.2"
 
 
 class PromptTemplate:

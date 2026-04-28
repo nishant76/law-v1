@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Bash(cp law-temp/* law/)",
+      "Bash(cp -r law-temp/src law/src)",
+      "Bash(cp -r law-temp/public law/public)",
+      "Bash(cp law-temp/.gitignore law/)",
+      "Bash(cp law-temp/README.md law/)",
+      "Bash(cp law-temp/eslint.config.js law/)",
+      "Bash(cp law-temp/index.html law/)",
+      "Bash(cp law-temp/package.json law/)",
+      "Bash(cp law-temp/tsconfig.app.json law/)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(echo \"EXIT_CODE:$?\")",
+      "Bash(curl -s -X POST \"http://localhost:8000/api/v1/search\" -H \"Content-Type: application/json\" -d \"{\\\\\"query\\\\\": \\\\\"bail\\\\\", \\\\\"limit\\\\\": 5}\")",
+      "Bash(curl -s -X POST \"http://localhost:8000/api/v1/search/unified\" -H \"Content-Type: application/json\" -d \"{\\\\\"query\\\\\": \\\\\"bail\\\\\", \\\\\"limit\\\\\": 5}\")",
+      "Bash(curl -s http://localhost:8000/api/v1/health)",
+      "Bash(python -c ' *)"
+    ]
+  }
+}

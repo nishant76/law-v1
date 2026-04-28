@@ -532,6 +532,7 @@ class SearchService:
             "judgment_date": c.judgment_date.isoformat() if c.judgment_date else None,
             "citation_key": c.citation_key,
             "primary_citation": c.primary_citation,
+            "summary": c.summary,
             "source_url": c.source_url,
             "official_source": c.official_source,
             "matter_type": c.matter_type,
@@ -566,9 +567,14 @@ class SearchService:
 
         citation_id = result.get("id")
         if citation_id:
-            from backend.workers.citations import enrich_citation_task
-            enrich_citation_task.delay(citation_id, query)
-            logger.debug(f"Scheduled background enrichment for citation {citation_id}")
+            # DEMO MODE: .delay() requires Redis — skip enrichment if Celery unavailable.
+            # TODO: restore .delay() before production deployment (Redis required).
+            try:
+                from backend.workers.citations import enrich_citation_task
+                enrich_citation_task.delay(citation_id, query)
+                logger.debug(f"Scheduled background enrichment for citation {citation_id}")
+            except Exception as e:
+                logger.debug(f"Celery unavailable — citation enrichment skipped: {e}")
 
         return None
 

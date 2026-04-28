@@ -23,6 +23,7 @@ class ModelType(str, Enum):
     """Available models"""
     GPT4O = "gpt-4o"
     GPT4O_MINI = "gpt-4o-mini"
+    GPT52 = "gpt-5.2"
     EMBEDDING = "text-embedding-ada-002"
 
 
@@ -110,6 +111,7 @@ class LLMService:
             response = await self.client.embeddings.create(
                 input=query,
                 model=embedding_model,
+                encoding_format="float",
             )
             
             # Extract embedding vector
@@ -139,6 +141,7 @@ class LLMService:
             response = await self.client.embeddings.create(
                 input=texts,
                 model=embedding_model,
+                encoding_format="float",
             )
             embeddings = [item.embedding for item in response.data]
             logger.debug(f"Embedded {len(embeddings)} texts")
@@ -199,16 +202,20 @@ class LLMService:
         # Get model name / deployment name based on provider
         if self.use_azure:
             # Azure OpenAI uses deployment names
-            model_name = (
-                settings.GPT4O_DEPLOYMENT if model == ModelType.GPT4O
-                else settings.GPT4O_MINI_DEPLOYMENT
-            )
+            if model == ModelType.GPT4O:
+                model_name = settings.GPT4O_DEPLOYMENT
+            elif model == ModelType.GPT52:
+                model_name = settings.GPT52_DEPLOYMENT
+            else:
+                model_name = settings.GPT4O_MINI_DEPLOYMENT
         else:
             # Direct OpenAI uses model names
-            model_name = (
-                "gpt-4o" if model == ModelType.GPT4O
-                else "gpt-4o-mini"
-            )
+            if model == ModelType.GPT4O:
+                model_name = "gpt-4o"
+            elif model == ModelType.GPT52:
+                model_name = "gpt-5.2"
+            else:
+                model_name = "gpt-4o-mini"
         
         # Retry logic: RateLimitError (3x), InternalServerError (3x)
         max_retries = 3
@@ -216,8 +223,21 @@ class LLMService:
         
         for attempt in range(max_retries + 1):
             try:
-                response = await asyncio.wait_for(
-                    self.client.chat.completions.create(
+                # gpt-5.2 uses max_completion_tokens (via extra_body to support
+                # older SDK versions); all other models use max_tokens directly.
+                if model == ModelType.GPT52:
+                    create_kwargs = dict(
+                        model=model_name,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        temperature=temperature,
+                        top_p=1.0,
+                        extra_body={"max_completion_tokens": max_tokens} if max_tokens else {},
+                    )
+                else:
+                    create_kwargs = dict(
                         model=model_name,
                         messages=[
                             {"role": "system", "content": system_prompt},
@@ -226,7 +246,9 @@ class LLMService:
                         temperature=temperature,
                         max_tokens=max_tokens,
                         top_p=1.0,
-                    ),
+                    )
+                response = await asyncio.wait_for(
+                    self.client.chat.completions.create(**create_kwargs),
                     timeout=timeout
                 )
                 
@@ -310,6 +332,108 @@ class LLMService:
         
         raise LLMError("Unknown error in completion call")
     
+    async def call_chat_completion(
+        self,
+        system_prompt: str,
+        messages: List[Dict[str, str]],
+        model: ModelType = ModelType.GPT52,
+        temperature: float = 0.0,
+        max_tokens: Optional[int] = None,
+        firm_id: Optional[str] = None,
+        timeout: int = 60,
+    ) -> str:
+        """
+        Multi-turn chat completion. Accepts full conversation history.
+        messages: list of {"role": "user"|"assistant", "content": "..."}
+        """
+        combined_text = system_prompt + " ".join(m.get("content", "") for m in messages)
+        estimated_tokens = self._estimate_tokens(combined_text)
+
+        if estimated_tokens > 10_000:
+            logger.warning(f"Large chat request ({estimated_tokens} tokens) from firm {firm_id}")
+
+        if firm_id:
+            await self._check_firm_token_limit(firm_id, estimated_tokens)
+
+        if self.use_azure:
+            if model == ModelType.GPT4O:
+                model_name = settings.GPT4O_DEPLOYMENT
+            elif model == ModelType.GPT52:
+                model_name = settings.GPT52_DEPLOYMENT
+            else:
+                model_name = settings.GPT4O_MINI_DEPLOYMENT
+        else:
+            if model == ModelType.GPT4O:
+                model_name = "gpt-4o"
+            elif model == ModelType.GPT52:
+                model_name = "gpt-5.2"
+            else:
+                model_name = "gpt-4o-mini"
+
+        full_messages = [{"role": "system", "content": system_prompt}] + messages
+
+        max_retries = 3
+        backoff_seconds = [1, 2, 4]
+
+        for attempt in range(max_retries + 1):
+            try:
+                if model == ModelType.GPT52:
+                    create_kwargs = dict(
+                        model=model_name,
+                        messages=full_messages,
+                        temperature=temperature,
+                        top_p=1.0,
+                        extra_body={"max_completion_tokens": max_tokens} if max_tokens else {},
+                    )
+                else:
+                    create_kwargs = dict(
+                        model=model_name,
+                        messages=full_messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        top_p=1.0,
+                    )
+
+                response = await asyncio.wait_for(
+                    self.client.chat.completions.create(**create_kwargs),
+                    timeout=timeout,
+                )
+
+                if firm_id:
+                    await self._track_firm_tokens(firm_id, response.usage.total_tokens)
+
+                return response.choices[0].message.content
+
+            except RateLimitError as e:
+                if attempt < max_retries:
+                    await asyncio.sleep(backoff_seconds[attempt])
+                else:
+                    raise LLMRateLimitError(f"Rate limit exceeded: {e}")
+            except InternalServerError as e:
+                if attempt < max_retries:
+                    await asyncio.sleep(backoff_seconds[attempt])
+                else:
+                    raise LLMError("Service temporarily unavailable.")
+            except APIError as e:
+                error_str = str(e).lower()
+                if "content_filter" in error_str or "content blocked" in error_str:
+                    raise LLMContentFilterError("Content filter triggered.")
+                if "token" in error_str and "exceed" in error_str:
+                    raise LLMTokenLimitError("Request too large.")
+                if attempt < max_retries:
+                    await asyncio.sleep(backoff_seconds[attempt])
+                else:
+                    raise LLMError(f"API error: {e}")
+            except asyncio.TimeoutError:
+                if attempt < max_retries:
+                    await asyncio.sleep(backoff_seconds[attempt])
+                else:
+                    raise LLMError("Request timed out.")
+            except Exception as e:
+                raise LLMError(f"Failed to generate response: {e}")
+
+        raise LLMError("Unknown error in chat completion")
+
     def _estimate_tokens(self, text: str) -> int:
         """
         Rough estimation of token count

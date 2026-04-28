@@ -164,6 +164,7 @@ class EnrichedJudgmentResult(BaseModel):
     outcome: Optional[str] = Field(None, description="Judgment outcome")
     source_url: Optional[str] = Field(None, description="URL to full text")
     official_source: Optional[str] = Field(None, description="Source: escr, panhc, district_court")
+    summary: Optional[str] = Field(None, description="Editorial summary of the judgment")
     relevance_score: float = Field(..., ge=0.0, le=1.0, description="Search relevance (0-1)")
     result_type: str = Field("public_judgment", description="Result source type")
     enrichment: Optional[CitationEnrichment] = Field(

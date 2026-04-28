@@ -133,6 +133,8 @@ async def upload_document(
             logger.warning(f"Failed to cache file in Redis: {e}")
 
         # Step 4: Enqueue background job
+        # DEMO MODE: .delay() requires Redis — fails gracefully if unavailable.
+        # TODO: restore .delay() before production deployment (Redis required).
         try:
             task = document_ingest_task.delay(
                 document_id=str(document.id),
@@ -142,10 +144,8 @@ async def upload_document(
             )
             logger.info(f"Enqueued document_ingest task: {task.id} for document {document.id}")
         except Exception as e:
-            error_msg = f"Failed to enqueue processing: {str(e)}"
-            logger.error(error_msg)
-            # Don't fail the upload, just log the error
-            # User can retry processing later
+            logger.warning(f"Celery unavailable — document saved but not yet processed: {e}")
+            # Upload succeeds; document status stays 'pending' until Celery is available
         
         # Step 5: Return immediately
         document_response = DocumentResponse(

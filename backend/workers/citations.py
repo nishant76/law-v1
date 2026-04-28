@@ -73,7 +73,7 @@ async def _enrich_citation(citation_id: str, query: str) -> dict:
     from backend.models.law_citation import Citation
     from backend.services.llm_service import get_llm_service, ModelType
     from backend.services.prompts.search_enrichment import citation_enrichment_prompt
-    from backend.core.sanitiser import sanitise_text
+    from backend.core.sanitiser import sanitise_document_text as sanitise_text
 
     engine = create_async_engine(settings.DATABASE_URL, echo=False, pool_pre_ping=True)
     async_session = sessionmaker(
