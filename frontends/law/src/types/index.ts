@@ -112,7 +112,7 @@ export interface Draft {
 }
 
 export interface ExtractionIdentityField {
-  value: string | string[] | null
+  value: string | string[] | Record<string, unknown> | null
   confidence: number
 }
 
@@ -151,6 +151,15 @@ export interface ExtractionCitation {
   confidence: number
 }
 
+export interface ExtractionCaseNarrative {
+  background: string | null
+  petitioner_arguments: string[]
+  respondent_arguments: string[]
+  key_legal_question: string | null
+  court_reasoning: string[]
+  key_takeaway: string | null
+}
+
 export interface UniversalExtraction {
   document_id: string
   document_type: {
@@ -161,6 +170,7 @@ export interface UniversalExtraction {
   identity_fields: Record<string, ExtractionIdentityField>
   summary: { value: string | null; confidence: number }
   primary_objective: { value: string | null; confidence: number }
+  case_narrative?: ExtractionCaseNarrative | null
   key_stakeholders: ExtractionStakeholder[]
   critical_deadlines: ExtractionDeadline[]
   constraints_and_risks: ExtractionConstraint[]

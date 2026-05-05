@@ -6,6 +6,7 @@ import { extractFromUpload, chatWithDocument } from '@/api/extract'
 import { toast } from '@/store/toastStore'
 import type {
   UniversalExtraction,
+  ExtractionCaseNarrative,
   ExtractionIdentityField,
   ExtractionStakeholder,
   ExtractionDeadline,
@@ -80,17 +81,18 @@ function isAmber(confidence: number) {
   return confidence > 0 && confidence < AMBER
 }
 
+function isLegalDocument(extraction: UniversalExtraction) {
+  return extraction.document_type?.category === 'Legal'
+}
+
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function ConfBadge({ confidence }: { confidence: number }) {
-  if (!confidence) return null
-  const amber = isAmber(confidence)
+// Only shown for amber (low confidence) — not for every green field
+function AmberBadge({ confidence }: { confidence: number }) {
+  if (!isAmber(confidence)) return null
   return (
-    <span className={[
-      'text-[9px] font-bold px-[5px] py-[1px] rounded-[4px] ml-[6px] flex-shrink-0',
-      amber ? 'bg-amber-bg text-amber' : 'bg-green-bg text-green',
-    ].join(' ')}>
-      {confidence}%{amber ? ' ⚠' : ''}
+    <span className="text-[9px] font-bold px-[5px] py-[1px] rounded-[4px] ml-[6px] flex-shrink-0 bg-amber-bg text-amber">
+      {confidence}% ⚠
     </span>
   )
 }
@@ -136,25 +138,170 @@ function PriorityBadge({ priority }: { priority: string }) {
   )
 }
 
+// ── Case Narrative (NEW — replaces dense summary for legal docs) ──────────────
+
+function BulletList({ items }: { items: string[] | null | undefined }) {
+  if (!items?.length) return null
+  return (
+    <ul className="space-y-[4px] mt-[5px]">
+      {items.map((item, i) => (
+        <li key={i} className="flex gap-[8px] text-[12px] text-text-1 leading-[1.5]">
+          <span className="text-text-3 flex-shrink-0 mt-[1px]">•</span>
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function CaseNarrativeSection({ narrative, summaryValue }: {
+  narrative: ExtractionCaseNarrative
+  summaryValue?: string | null
+}) {
+  const hasBackground = narrative.background
+  const hasPetArgs = (narrative.petitioner_arguments?.length ?? 0) > 0
+  const hasRespArgs = (narrative.respondent_arguments?.length ?? 0) > 0
+  const hasQuestion = narrative.key_legal_question
+  const hasReasoning = (narrative.court_reasoning?.length ?? 0) > 0
+  const hasTakeaway = narrative.key_takeaway
+
+  if (!hasBackground && !hasPetArgs && !hasReasoning && !hasTakeaway) return null
+
+  return (
+    <div className="px-4 py-3 border-b border-border-1">
+      <SectionTitle>Case Story</SectionTitle>
+      <div className="space-y-[14px]">
+
+        {/* Background */}
+        {hasBackground && (
+          <div>
+            <div className="text-[10px] font-semibold text-text-3 uppercase tracking-[0.5px] mb-[4px]">Background</div>
+            <p className="text-[12px] text-text-1 leading-[1.6]">{narrative.background}</p>
+          </div>
+        )}
+
+        {/* Arguments — side by side when both present */}
+        {(hasPetArgs || hasRespArgs) && (
+          <div className={`grid gap-[10px] ${hasPetArgs && hasRespArgs ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {hasPetArgs && (
+              <div className="bg-surface-2 rounded-sm px-[10px] py-[8px]">
+                <div className="text-[10px] font-semibold text-text-3 uppercase tracking-[0.5px] mb-[3px]">
+                  Petitioner's Arguments
+                </div>
+                <BulletList items={narrative.petitioner_arguments} />
+              </div>
+            )}
+            {hasRespArgs && (
+              <div className="bg-surface-2 rounded-sm px-[10px] py-[8px]">
+                <div className="text-[10px] font-semibold text-text-3 uppercase tracking-[0.5px] mb-[3px]">
+                  Respondent's Arguments
+                </div>
+                <BulletList items={narrative.respondent_arguments} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Key Legal Question */}
+        {hasQuestion && (
+          <div className="border-l-[3px] border-ink bg-surface-2 px-[12px] py-[8px] rounded-r-sm">
+            <div className="text-[10px] font-semibold text-text-3 uppercase tracking-[0.5px] mb-[4px]">Key Legal Question</div>
+            <p className="text-[12.5px] font-medium text-text-1 leading-[1.5]">{narrative.key_legal_question}</p>
+          </div>
+        )}
+
+        {/* Court's Reasoning */}
+        {hasReasoning && (
+          <div>
+            <div className="text-[10px] font-semibold text-text-3 uppercase tracking-[0.5px] mb-[4px]">Court's Findings</div>
+            <BulletList items={narrative.court_reasoning} />
+          </div>
+        )}
+
+        {/* Decision — from summary if no separate outcome */}
+        {summaryValue && (
+          <div>
+            <div className="text-[10px] font-semibold text-text-3 uppercase tracking-[0.5px] mb-[4px]">Decision</div>
+            <p className="text-[12px] text-text-1 leading-[1.5]">{summaryValue}</p>
+          </div>
+        )}
+
+        {/* Key Takeaway */}
+        {hasTakeaway && (
+          <div className="bg-green-bg border border-green rounded-sm px-[12px] py-[8px]">
+            <div className="text-[10px] font-semibold text-green uppercase tracking-[0.5px] mb-[3px]">⚖ Key Takeaway</div>
+            <p className="text-[12px] text-green leading-[1.5] font-medium">{narrative.key_takeaway}</p>
+          </div>
+        )}
+
+      </div>
+    </div>
+  )
+}
+
 // ── Section renderers ────────────────────────────────────────────────────────
 
+function renderFieldValue(value: ExtractionIdentityField['value']): React.ReactNode {
+  if (value == null) return null
+
+  // Plain string or number
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return <span className="text-[12px] text-text-1 leading-[1.5]">{String(value)}</span>
+  }
+
+  // Array
+  if (Array.isArray(value)) {
+    return (
+      <ul className="space-y-[2px] mt-[1px]">
+        {value.map((item, i) => (
+          <li key={i} className="flex gap-[6px] text-[12px] text-text-1 leading-[1.5]">
+            <span className="text-text-3 flex-shrink-0">•</span>
+            {typeof item === 'object' && item !== null
+              ? renderFieldValue(item as Record<string, unknown>)
+              : String(item)}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  // Object — render as sub key-value pairs
+  if (typeof value === 'object') {
+    const subEntries = Object.entries(value).filter(([, v]) => v != null)
+    return (
+      <div className="space-y-[4px] mt-[2px]">
+        {subEntries.map(([k, v]) => (
+          <div key={k} className="flex gap-[8px]">
+            <span className="text-[10.5px] text-text-3 flex-shrink-0 min-w-[90px]">{toLabel(k)}</span>
+            <span className="text-[12px] text-text-1 leading-[1.4]">
+              {Array.isArray(v)
+                ? (v as unknown[]).join(', ')
+                : typeof v === 'object' && v !== null
+                  ? JSON.stringify(v)
+                  : String(v)}
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return null
+}
+
 function IdentityFieldsSection({ fields }: { fields: Record<string, ExtractionIdentityField> }) {
-  const entries = Object.entries(fields).filter(([, f]) => f?.value != null)
+  const entries = Object.entries(fields ?? {}).filter(([, f]) => f?.value != null)
   if (!entries.length) return null
   return (
     <Section title="Key Details">
-      <div className="space-y-[8px]">
+      <div className="space-y-[10px]">
         {entries.map(([key, field]) => (
           <div key={key}>
             <div className="flex items-center mb-[2px]">
               <span className="text-[10.5px] font-semibold text-text-2">{toLabel(key)}</span>
-              <ConfBadge confidence={field.confidence} />
+              <AmberBadge confidence={field.confidence} />
             </div>
-            <div className="text-[12px] text-text-1 leading-[1.5]">
-              {Array.isArray(field.value)
-                ? <ul className="space-y-[2px]">{(field.value as string[]).map((v, i) => <li key={i} className="flex gap-[6px]"><span className="text-text-3 flex-shrink-0">•</span>{v}</li>)}</ul>
-                : field.value as string}
-            </div>
+            {renderFieldValue(field.value)}
           </div>
         ))}
       </div>
@@ -162,6 +309,7 @@ function IdentityFieldsSection({ fields }: { fields: Record<string, ExtractionId
   )
 }
 
+// Summary section — only used for non-legal documents
 function SummarySection({ summary, objective }: {
   summary: UniversalExtraction['summary']
   objective: UniversalExtraction['primary_objective']
@@ -176,7 +324,7 @@ function SummarySection({ summary, objective }: {
           <div>
             <div className="flex items-center mb-[3px]">
               <span className="text-[10.5px] font-semibold text-text-2">What happened</span>
-              <ConfBadge confidence={summary.confidence} />
+              <AmberBadge confidence={summary.confidence} />
             </div>
             <p className="text-[12px] text-text-1 leading-[1.6]">{summary.value}</p>
           </div>
@@ -185,7 +333,7 @@ function SummarySection({ summary, objective }: {
           <div>
             <div className="flex items-center mb-[3px]">
               <span className="text-[10.5px] font-semibold text-text-2">Primary objective</span>
-              <ConfBadge confidence={objective.confidence} />
+              <AmberBadge confidence={objective.confidence} />
             </div>
             <p className="text-[12px] text-text-1 leading-[1.6]">{objective.value}</p>
           </div>
@@ -196,17 +344,17 @@ function SummarySection({ summary, objective }: {
 }
 
 function StakeholdersSection({ items }: { items: ExtractionStakeholder[] }) {
-  const filtered = items.filter(s => s.name)
+  const filtered = (items ?? []).filter(s => s.name)
   if (!filtered.length) return null
   return (
-    <Section title="Key Stakeholders">
+    <Section title="Parties">
       <div className="space-y-[8px]">
         {filtered.map((s, i) => (
           <div key={i} className="bg-surface-2 rounded-sm px-[10px] py-[7px]">
             <div className="flex items-center gap-[7px] mb-[2px]">
               <span className="text-[12px] font-semibold text-text-1">{s.name}</span>
               <span className="text-[9.5px] text-text-3 bg-surface-3 px-[6px] py-[1px] rounded-full">{s.role}</span>
-              <ConfBadge confidence={s.confidence} />
+              <AmberBadge confidence={s.confidence} />
             </div>
             {s.obligations && (
               <p className="text-[11.5px] text-text-2 leading-[1.5]">{s.obligations}</p>
@@ -219,10 +367,10 @@ function StakeholdersSection({ items }: { items: ExtractionStakeholder[] }) {
 }
 
 function DeadlinesSection({ items }: { items: ExtractionDeadline[] }) {
-  const filtered = items.filter(d => d.label)
+  const filtered = (items ?? []).filter(d => d.label)
   if (!filtered.length) return null
   return (
-    <Section title="Critical Deadlines">
+    <Section title="Deadlines">
       <div className="space-y-[7px]">
         {filtered.map((d, i) => (
           <div key={i} className="flex gap-[10px] items-start">
@@ -232,7 +380,7 @@ function DeadlinesSection({ items }: { items: ExtractionDeadline[] }) {
             <div className="min-w-0">
               <div className="flex items-center gap-[6px]">
                 <span className="text-[12px] font-medium text-text-1">{d.label}</span>
-                <ConfBadge confidence={d.confidence} />
+                <AmberBadge confidence={d.confidence} />
               </div>
               {d.consequence && (
                 <p className="text-[11px] text-text-3 leading-[1.4] mt-[1px]">{d.consequence}</p>
@@ -246,7 +394,7 @@ function DeadlinesSection({ items }: { items: ExtractionDeadline[] }) {
 }
 
 function ConstraintsSection({ items }: { items: ExtractionConstraint[] }) {
-  const filtered = items.filter(c => c.description)
+  const filtered = (items ?? []).filter(c => c.description)
   if (!filtered.length) return null
   return (
     <Section title="Constraints & Risks">
@@ -257,7 +405,7 @@ function ConstraintsSection({ items }: { items: ExtractionConstraint[] }) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-[6px]">
                 <span className="text-[10.5px] font-semibold text-text-2">{c.type}</span>
-                <ConfBadge confidence={c.confidence} />
+                <AmberBadge confidence={c.confidence} />
               </div>
               <p className="text-[12px] text-text-1 leading-[1.5]">{c.description}</p>
             </div>
@@ -269,7 +417,7 @@ function ConstraintsSection({ items }: { items: ExtractionConstraint[] }) {
 }
 
 function ActionItemsSection({ items }: { items: ExtractionActionItem[] }) {
-  const filtered = items.filter(a => a.action)
+  const filtered = (items ?? []).filter(a => a.action)
   if (!filtered.length) return null
   return (
     <Section title="Action Items">
@@ -293,7 +441,7 @@ function ActionItemsSection({ items }: { items: ExtractionActionItem[] }) {
 }
 
 function CitationsSection({ items }: { items: ExtractionCitation[] }) {
-  const filtered = items.filter(c => c.case_name)
+  const filtered = (items ?? []).filter(c => c.case_name)
   if (!filtered.length) return null
   return (
     <Section title="Citations Relied On">
@@ -306,7 +454,7 @@ function CitationsSection({ items }: { items: ExtractionCitation[] }) {
             <div className="min-w-0">
               <div className="flex items-center gap-[6px]">
                 <span className="text-[12px] text-text-1">{c.case_name}</span>
-                <ConfBadge confidence={c.confidence} />
+                <AmberBadge confidence={c.confidence} />
               </div>
               {c.citation_string && (
                 <p className="text-[11px] text-text-3">{c.citation_string}</p>
@@ -316,6 +464,47 @@ function CitationsSection({ items }: { items: ExtractionCitation[] }) {
         ))}
       </div>
     </Section>
+  )
+}
+
+// ── Extraction content renderer ───────────────────────────────────────────────
+
+function ExtractionContent({ extraction }: { extraction: UniversalExtraction }) {
+  const isLegal = isLegalDocument(extraction)
+  const narrative = extraction.case_narrative
+
+  if (isLegal && narrative) {
+    // Legal document: narrative-first layout (like ChatGPT)
+    return (
+      <div>
+        <CaseNarrativeSection
+          narrative={narrative}
+          summaryValue={extraction.summary?.value}
+        />
+        <IdentityFieldsSection fields={extraction.identity_fields} />
+        <StakeholdersSection items={extraction.key_stakeholders} />
+        {extraction.critical_deadlines?.length > 0 && (
+          <DeadlinesSection items={extraction.critical_deadlines} />
+        )}
+        {extraction.action_items?.length > 0 && (
+          <ActionItemsSection items={extraction.action_items} />
+        )}
+        <CitationsSection items={extraction.citations} />
+      </div>
+    )
+  }
+
+  // Non-legal document: original structured layout
+  return (
+    <div>
+      <SummarySection summary={extraction.summary} objective={extraction.primary_objective} />
+      <IdentityFieldsSection fields={extraction.identity_fields} />
+      <StakeholdersSection items={extraction.key_stakeholders} />
+      <DeadlinesSection items={extraction.critical_deadlines} />
+      <ConstraintsSection items={extraction.constraints_and_risks} />
+      <ActionItemsSection items={extraction.action_items} />
+      <CitationsSection items={extraction.citations} />
+    </div>
   )
 }
 
@@ -334,7 +523,6 @@ export default function PdfExtractorPage() {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMsgs])
 
-  // Clear chat history when document changes
   useEffect(() => {
     setChatMsgs([])
   }, [documentId])
@@ -342,6 +530,11 @@ export default function PdfExtractorPage() {
   const extractMutation = useMutation({
     mutationFn: (file: File) => extractFromUpload(file),
     onSuccess: ({ data }, file) => {
+      if (!data.success || !data.data) {
+        toast(data.error?.message || 'Extraction failed. Check file format and try again.')
+        setFilename('')
+        return
+      }
       const result = data.data as UniversalExtraction
       setFilename(file.name)
       setExtraction(result)
@@ -498,15 +691,7 @@ export default function PdfExtractorPage() {
               <div className="text-[12px] text-text-3">Analysing document…</div>
             </div>
           ) : extraction ? (
-            <div>
-              <SummarySection summary={extraction.summary} objective={extraction.primary_objective} />
-              <IdentityFieldsSection fields={extraction.identity_fields} />
-              <StakeholdersSection items={extraction.key_stakeholders} />
-              <DeadlinesSection items={extraction.critical_deadlines} />
-              <ConstraintsSection items={extraction.constraints_and_risks} />
-              <ActionItemsSection items={extraction.action_items} />
-              <CitationsSection items={extraction.citations} />
-            </div>
+            <ExtractionContent extraction={extraction} />
           ) : null}
         </div>
       </div>
