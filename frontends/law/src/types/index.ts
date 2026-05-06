@@ -152,12 +152,69 @@ export interface ExtractionCitation {
 }
 
 export interface ExtractionCaseNarrative {
-  background: string | null
+  background: string[] | string | null   // array of bullet points (new), or legacy string
   petitioner_arguments: string[]
   respondent_arguments: string[]
   key_legal_question: string | null
   court_reasoning: string[]
   key_takeaway: string | null
+}
+
+// ── Case Management ───────────────────────────────────────────────────────────
+
+export type CaseStatus = 'active' | 'disposed' | 'stayed' | 'settled'
+
+export type MatterType =
+  | 'bail'
+  | 'writ'
+  | 'civil'
+  | 'criminal'
+  | 'cheque_bounce'
+  | 'matrimonial'
+  | 'consumer'
+  | 'property'
+  | 'other'
+
+export interface CasePerson {
+  id: string
+  role: 'client' | 'opponent' | 'opp_counsel' | 'judge' | 'witness' | 'other'
+  name: string
+  phone?: string
+  notes?: string
+}
+
+export interface CaseHearing {
+  id: string
+  date: string          // YYYY-MM-DD
+  notes?: string
+  outcome?: string
+}
+
+export interface CasePayment {
+  id: string
+  label: string         // "Advance", "After framing", "On disposal"
+  amount: number
+  due_date?: string     // YYYY-MM-DD
+  paid: boolean
+  paid_date?: string
+}
+
+export interface LegalCase {
+  id: string
+  case_number?: string
+  title: string         // "Gurnam Singh v. State of Punjab"
+  court: string
+  matter_type: MatterType
+  status: CaseStatus
+  filing_date?: string
+  next_hearing?: string // YYYY-MM-DD (derived from hearings or set directly)
+  total_fees?: number
+  persons: CasePerson[]
+  hearings: CaseHearing[]
+  payments: CasePayment[]
+  notes?: string
+  created_at: string
+  updated_at: string
 }
 
 export interface UniversalExtraction {

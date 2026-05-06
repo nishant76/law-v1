@@ -69,13 +69,16 @@ Return ONLY this JSON structure. No preamble. No markdown:
   }},
 
   "case_narrative": {{
-    "background": "2-3 sentences: who are the parties, what dispute brought them to court, \
-what happened before this document was issued. For non-legal documents set to null.",
+    "background": [
+      "bullet point: who the parties are and what post/subject is in dispute",
+      "bullet point: what happened before court — what triggered this petition",
+      "bullet point: what relief was sought and what lower court/tribunal decided"
+    ],
     "petitioner_arguments": [
-      "argument or ground raised by the petitioner/applicant/claimant — one per item"
+      "argument or ground raised by petitioner — one per item, plain English"
     ],
     "respondent_arguments": [
-      "argument or ground raised by the respondent/opposite party — one per item"
+      "argument or ground raised by respondent — one per item, plain English"
     ],
     "key_legal_question": "The single central legal question the court was asked to decide, \
 phrased as a question ending with '?'. null for non-legal documents.",
@@ -179,7 +182,7 @@ OUTPUT_SCHEMA = {
     "summary": {"value": "str or null", "confidence": "int 0-100"},
     "primary_objective": {"value": "str or null", "confidence": "int 0-100"},
     "case_narrative": {
-        "background": "str or null",
+        "background": ["str"],   # array of bullet points
         "petitioner_arguments": ["str"],
         "respondent_arguments": ["str"],
         "key_legal_question": "str or null",
