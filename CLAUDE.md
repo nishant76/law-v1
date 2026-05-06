@@ -2,6 +2,12 @@
 # Last Updated: April 2026 (v3 — competitor update + prompt engineering added)
 # Read this file completely before writing any code.
 
+## GIT WORKFLOW — READ FIRST
+
+- NEVER create a new git worktree. Do not use isolation: "worktree" in any agent call.
+- Always work directly in the current branch (e.g. pdfExtractor, main).
+- The developer manages branching themselves — do not create branches automatically.
+
 ---
 
 ## WHAT THIS PROJECT IS

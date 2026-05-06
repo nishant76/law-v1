@@ -28,7 +28,17 @@ Confidence scoring:
 - 0-59:   Uncertain, ambiguous, or not present — set value to null
 
 For legal documents, summary must be one crisp sentence: court, \
-parties, provision, outcome. No verbose explanations."""
+parties, provision, outcome. No verbose explanations.
+
+CRITICAL for action_items: only include FUTURE actions required of \
+parties or the lawyer AFTER this document. Court decisions are NOT \
+action items. If this is a final judgment or dismissal order with no \
+pending steps, return an empty action_items array.
+
+CRITICAL for critical_deadlines: only include FUTURE dates that require \
+action by a party. Do NOT list historical hearing dates that have \
+already occurred. For final judgments, return an empty array unless \
+there is a specific compliance deadline stated."""
 
 
 USER_PROMPT_TEMPLATE = """Analyse this document completely and extract \
@@ -56,6 +66,24 @@ Return ONLY this JSON structure. No preamble. No markdown:
   "primary_objective": {{
     "value": "one sentence — what this document achieves or establishes",
     "confidence": 0
+  }},
+
+  "case_narrative": {{
+    "background": "2-3 sentences: who are the parties, what dispute brought them to court, \
+what happened before this document was issued. For non-legal documents set to null.",
+    "petitioner_arguments": [
+      "argument or ground raised by the petitioner/applicant/claimant — one per item"
+    ],
+    "respondent_arguments": [
+      "argument or ground raised by the respondent/opposite party — one per item"
+    ],
+    "key_legal_question": "The single central legal question the court was asked to decide, \
+phrased as a question ending with '?'. null for non-legal documents.",
+    "court_reasoning": [
+      "key finding or reasoning point the court relied on — one per item, plain English"
+    ],
+    "key_takeaway": "One sentence: the legal principle this judgment/order establishes \
+that a lawyer can apply in future matters. null for non-legal documents."
   }},
 
   "key_stakeholders": [
@@ -87,7 +115,7 @@ Return ONLY this JSON structure. No preamble. No markdown:
 
   "action_items": [
     {{
-      "action": "action explicitly required by this document",
+      "action": "FUTURE action explicitly required of a party or lawyer — NOT a court decision",
       "by_whom": "who must act or null",
       "by_when": "deadline or null",
       "priority": "Urgent | High | Normal"
@@ -109,7 +137,15 @@ to this specific document type. Use your judgment — a court order needs \
 case_number, court, bench, parties, date, relief_type, sections_invoked. \
 A lease needs parties, rent, deposit, dates, notice_period. \
 A legal notice needs sender, recipient, demand, deadline, legal_basis. \
-Do not include fields that are null or irrelevant to this document type."""
+Do not include fields that are null or irrelevant to this document type.
+
+For case_narrative: populate for ALL legal documents (court orders, \
+judgments, petitions, legal notices, FIRs, agreements). \
+For non-legal documents set case_narrative to null. \
+petitioner_arguments and respondent_arguments may be empty arrays \
+if not applicable (e.g. a simple court order without contested arguments). \
+court_reasoning may be empty for non-judgments. \
+Always populate background and key_legal_question if this is a court document."""
 
 
 pdf_extractor_prompt = PromptTemplate(
@@ -142,6 +178,14 @@ OUTPUT_SCHEMA = {
     },
     "summary": {"value": "str or null", "confidence": "int 0-100"},
     "primary_objective": {"value": "str or null", "confidence": "int 0-100"},
+    "case_narrative": {
+        "background": "str or null",
+        "petitioner_arguments": ["str"],
+        "respondent_arguments": ["str"],
+        "key_legal_question": "str or null",
+        "court_reasoning": ["str"],
+        "key_takeaway": "str or null",
+    },
     "key_stakeholders": [
         {
             "name": "str",
