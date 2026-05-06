@@ -70,6 +70,7 @@ class ExtractionData(BaseModel):
     identity_fields: dict
     summary: dict
     primary_objective: dict
+    case_narrative: Optional[dict] = None
     key_stakeholders: list
     critical_deadlines: list
     constraints_and_risks: list
@@ -95,11 +96,12 @@ def _build_extraction_data(result: dict) -> ExtractionData:
         identity_fields=result.get("identity_fields", {}),
         summary=result.get("summary", {}),
         primary_objective=result.get("primary_objective", {}),
-        key_stakeholders=result.get("key_stakeholders", []),
-        critical_deadlines=result.get("critical_deadlines", []),
-        constraints_and_risks=result.get("constraints_and_risks", []),
-        action_items=result.get("action_items", []),
-        citations=result.get("citations", []),
+        case_narrative=result.get("case_narrative"),
+        key_stakeholders=result.get("key_stakeholders") or [],
+        critical_deadlines=result.get("critical_deadlines") or [],
+        constraints_and_risks=result.get("constraints_and_risks") or [],
+        action_items=result.get("action_items") or [],
+        citations=result.get("citations") or [],
     )
 
 

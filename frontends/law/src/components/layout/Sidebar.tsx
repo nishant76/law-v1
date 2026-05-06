@@ -5,8 +5,9 @@ import { toast } from '@/store/toastStore'
 
 const NAV = [
   { to: '/', icon: '🏠', label: 'Home', exact: true },
+  { to: '/cases', icon: '⚖️', label: 'My Cases' },
   { to: '/draft', icon: '✍️', label: 'Draft' },
-  { to: '/search', icon: '⚖️', label: 'Search' },
+  { to: '/search', icon: '🔍', label: 'Search' },
   { to: '/pdf', icon: '📄', label: 'PDF Extractor' },
   { to: '/synopsis', icon: '📋', label: 'Synopsis' },
   { to: '/reply', icon: '📩', label: 'Reply Generator' },
