@@ -12,7 +12,6 @@ import DeadlinesPage from '@/pages/Deadlines'
 import SearchPage from '@/pages/Search'
 import SynopsisPage from '@/pages/Synopsis'
 import ReplyPage from '@/pages/Reply'
-import LegalProcessPage from '@/pages/LegalProcess'
 import CasesPage from '@/pages/Cases'
 import CaseDetailPage from '@/pages/Cases/CaseDetail'
 import LoginPage from '@/pages/Login'
@@ -39,7 +38,6 @@ export default function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/synopsis" element={<SynopsisPage />} />
             <Route path="/reply" element={<ReplyPage />} />
-            <Route path="/legal-process" element={<LegalProcessPage />} />
             <Route path="/cases" element={<CasesPage />} />
             <Route path="/cases/:id" element={<CaseDetailPage />} />
           </Route>

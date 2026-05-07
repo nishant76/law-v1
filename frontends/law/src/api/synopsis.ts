@@ -3,16 +3,26 @@ import type { ApiResponse } from '@/types'
 
 export interface Synopsis {
   id: string
-  case_name: string
-  petitioner: string
-  respondent: string
-  court: string
+  case_name: string | null
+  petitioner: string | null
+  respondent: string | null
+  court: string | null
   judgment_date: string | null
-  facts: string
+  case_number: string | null
+  facts: string | null
   issues: string[]
-  held: string
+  held: string | null
   citations_used: string[]
+  relief_granted: string | null
   confidence: number
+}
+
+export const generateSynopsisFromUpload = (file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  return api.post<ApiResponse<Synopsis>>('/synopsis/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
 }
 
 export const generateSynopsis = (document_id: string) =>

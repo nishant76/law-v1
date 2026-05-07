@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import DropZone from '@/components/ui/DropZone'
 import Button from '@/components/ui/Button'
+import MarkdownText, { renderInline } from '@/components/ui/MarkdownText'
 import { extractFromUpload, chatWithDocument } from '@/api/extract'
 import { toast } from '@/store/toastStore'
 import type {
@@ -177,7 +178,7 @@ function BulletList({ items }: { items: string[] | null | undefined }) {
       {items.map((item, i) => (
         <li key={i} className="flex gap-[10px] text-[12.5px] text-text-1 leading-[1.55]">
           <span className="text-text-3 flex-shrink-0 mt-[2px] text-[10px]">●</span>
-          <span>{item}</span>
+          <span>{renderInline(item)}</span>
         </li>
       ))}
     </ul>
@@ -243,7 +244,7 @@ function KeyTakeawayBox({ text }: { text: string }) {
       <div className="text-[11px] font-bold text-green mb-[4px]">
         ⚖ Key Takeaway
       </div>
-      <p className="text-[12.5px] text-green leading-[1.55] font-medium">{text}</p>
+      <p className="text-[12.5px] text-green leading-[1.55] font-medium">{renderInline(text)}</p>
     </div>
   )
 }
@@ -252,8 +253,8 @@ function KeyTakeawayBox({ text }: { text: string }) {
 function BackgroundBullets({ background }: { background: string[] | string | null }) {
   if (!background) return null
   if (Array.isArray(background)) return <BulletList items={background} />
-  // Legacy string — render as paragraph
-  return <p className="text-[12.5px] text-text-1 leading-[1.6]">{background}</p>
+  // Legacy string — render as paragraph with inline markdown
+  return <p className="text-[12.5px] text-text-1 leading-[1.6]">{renderInline(background)}</p>
 }
 
 // Full case_narrative layout (used when backend returns the new field)
@@ -796,8 +797,8 @@ export default function PdfExtractorPage() {
                 <div className="text-[12.5px] text-text-1">{m.content}</div>
               </div>
             ) : (
-              <div key={i} className="bg-surface-2 border-l-[3px] border-ink rounded-r-sm px-[11px] py-[9px] text-[12.5px] text-text-2 leading-[1.6] mb-2 whitespace-pre-wrap">
-                {m.content}
+              <div key={i} className="bg-surface-2 border-l-[3px] border-ink rounded-r-sm px-[11px] py-[9px] mb-2">
+                <MarkdownText text={m.content} />
               </div>
             )
           ))}

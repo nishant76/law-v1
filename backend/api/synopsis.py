@@ -14,7 +14,7 @@ Rules (CLAUDE.md):
 - Standardised response shape on every endpoint
 """
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,6 +96,79 @@ def _request_id() -> str:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@router.post(
+    "/upload",
+    response_model=SynopsisResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Upload a file and generate synopsis immediately — no prior indexing required",
+)
+async def generate_synopsis_from_upload(
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    MAX_BYTES = 50 * 1024 * 1024
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in ("pdf", "docx"):
+        return SynopsisResponse(
+            success=False,
+            error={"code": "unsupported_format", "message": "Only PDF and DOCX files are supported.", "action": "upload_supported_format"},
+            meta={"request_id": _request_id(), "version": "v1"},
+        )
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_BYTES:
+        return SynopsisResponse(
+            success=False,
+            error={"code": "file_too_large", "message": "File exceeds 50 MB limit.", "action": "reduce_file_size"},
+            meta={"request_id": _request_id(), "version": "v1"},
+        )
+    service = get_synopsis_service()
+    try:
+        result = await service.generate_synopsis_from_bytes(
+            file_bytes=file_bytes,
+            file_ext=ext,
+            firm_id=str(current_user.firm_id),
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if msg.startswith("WRONG_DOCUMENT_TYPE:"):
+            doc_type = msg.split(":", 1)[1]
+            return SynopsisResponse(
+                success=False,
+                error={
+                    "code": "wrong_document_type",
+                    "document_type": doc_type,
+                    "message": f"This document appears to be a {doc_type.replace('_', ' ')}, not a court judgment or petition.",
+                    "action": "use_appropriate_tool",
+                },
+                meta={"request_id": _request_id(), "version": "v1"},
+            )
+        logger.error(f"Synopsis upload error user={current_user.user_id}: {exc}", exc_info=True)
+        return SynopsisResponse(
+            success=False,
+            error={"code": "generation_failed", "message": msg, "action": "retry"},
+            meta={"request_id": _request_id(), "version": "v1"},
+        )
+    except RuntimeError as exc:
+        logger.error(f"Synopsis upload error user={current_user.user_id}: {exc}", exc_info=True)
+        return SynopsisResponse(
+            success=False,
+            error={"code": "generation_failed", "message": str(exc), "action": "retry"},
+            meta={"request_id": _request_id(), "version": "v1"},
+        )
+    except Exception as exc:
+        logger.error(f"Synopsis upload unexpected error: {exc}", exc_info=True)
+        return SynopsisResponse(
+            success=False,
+            error={"code": "generation_failed", "message": str(exc), "action": "retry"},
+            meta={"request_id": _request_id(), "version": "v1"},
+        )
+    return SynopsisResponse(
+        success=True,
+        data=_synopsis_to_data(result),
+        meta={"request_id": _request_id(), "version": "v1"},
+    )
+
 
 @router.post(
     "/generate",
