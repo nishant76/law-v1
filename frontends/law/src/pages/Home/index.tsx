@@ -6,9 +6,9 @@ import NewCaseModal from '@/pages/Cases/NewCaseModal'
 import dayjs from 'dayjs'
 import type { LegalCase, CaseStatus, MatterType } from '@/types'
 
-// ── Action cards ──────────────────────────────────────────────────────────────
+// ── Live tool cards ───────────────────────────────────────────────────────────
 
-interface ActionCard {
+interface LiveCard {
   icon: string
   iconBg: string
   accent: string
@@ -18,14 +18,33 @@ interface ActionCard {
   onClick?: () => void
 }
 
-const RESEARCH_CARDS: ActionCard[] = [
-  { icon: '⚖️', iconBg: 'bg-blue-bg', accent: 'bg-blue', title: 'Judgment Search', desc: 'Search SC and P&H HC judgments. Source-backed, verified citations.', to: '/search' },
-  { icon: '💬', iconBg: 'bg-green-bg', accent: 'bg-green', title: 'Chat with PDF', desc: 'Upload any court order or contract. Ask questions, extract key dates and facts.', to: '/pdf' },
-  { icon: '📊', iconBg: 'bg-amber-bg', accent: 'bg-amber', title: 'Extract Key Points', desc: 'Auto-extract parties, amounts, dates and conditions from any document.', to: '/pdf' },
-  { icon: '⏰', iconBg: 'bg-ink', accent: 'bg-ink', title: 'Deadline Tracker', desc: 'Track hearings and limitations. WhatsApp reminders to your clients.', to: '/deadlines' },
+interface SoonCard {
+  icon: string
+  title: string
+  desc: string
+}
+
+const SOON_CARDS: SoonCard[] = [
+  {
+    icon: '✦',
+    title: 'AI Legal Drafting',
+    desc: 'Draft bail applications, writs and notices with AI research side by side.',
+  },
+  {
+    icon: '⚡',
+    title: 'Strategic Filing Drafter',
+    desc: 'Win on merits, delay proceedings or challenge jurisdiction — strategy drives the draft.',
+  },
+  {
+    icon: '📖',
+    title: 'Legal Process Guide',
+    desc: 'Step-by-step Punjab/Haryana procedures with court fees and limitation periods.',
+  },
 ]
 
-function ActionCardTile({ card }: { card: ActionCard }) {
+// ── Card components ───────────────────────────────────────────────────────────
+
+function LiveCardTile({ card }: { card: LiveCard }) {
   const navigate = useNavigate()
   return (
     <div
@@ -34,17 +53,36 @@ function ActionCardTile({ card }: { card: ActionCard }) {
     >
       <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-DEFAULT opacity-0 group-hover:opacity-100 transition-opacity ${card.accent}`} />
       <div className={`w-8 h-8 rounded-icon flex items-center justify-center text-[15px] flex-shrink-0 ${card.iconBg}`}>
-        <span className={card.iconBg === 'bg-ink' ? 'text-white' : ''}>{card.icon}</span>
+        <span className={card.iconBg === 'bg-ink' ? 'brightness-200 text-white' : ''}>{card.icon}</span>
       </div>
       <div>
         <div className="text-[12.5px] font-bold text-text-1 leading-[1.3]">{card.title}</div>
-        <div className="text-[11px] text-text-3 leading-[1.5] mt-[-1px]">{card.desc}</div>
+        <div className="text-[11px] text-text-3 leading-[1.5] mt-[1px]">{card.desc}</div>
       </div>
     </div>
   )
 }
 
-// ── Case card (compact, for home page) ───────────────────────────────────────
+function SoonCardTile({ card }: { card: SoonCard }) {
+  return (
+    <div className="bg-surface-2 border border-border-1 rounded-DEFAULT p-[15px] flex flex-col gap-[9px] relative overflow-hidden">
+      <div className="absolute top-[10px] right-[10px]">
+        <span className="text-[9px] font-bold tracking-[0.5px] uppercase text-text-3 bg-white border border-border-1 px-[7px] py-[2px] rounded-full">
+          Soon
+        </span>
+      </div>
+      <div className="w-8 h-8 rounded-icon flex items-center justify-center text-[15px] bg-surface-3 flex-shrink-0">
+        {card.icon}
+      </div>
+      <div>
+        <div className="text-[12.5px] font-bold text-text-2 leading-[1.3]">{card.title}</div>
+        <div className="text-[11px] text-text-3 leading-[1.5] mt-[1px]">{card.desc}</div>
+      </div>
+    </div>
+  )
+}
+
+// ── Case card ─────────────────────────────────────────────────────────────────
 
 const STATUS_CLS: Record<CaseStatus, string> = {
   active: 'text-green', disposed: 'text-text-3', stayed: 'text-amber', settled: 'text-blue',
@@ -64,10 +102,10 @@ function daysUntil(d?: string) {
 
 function HomeCaseCard({ c }: { c: LegalCase }) {
   const navigate = useNavigate()
-  const client = c.persons.find(p => p.role === 'client')
+  const client    = c.persons.find(p => p.role === 'client')
   const paidTotal = c.payments.filter(p => p.paid).reduce((s, p) => s + p.amount, 0)
-  const balance = c.total_fees != null ? c.total_fees - paidTotal : null
-  const days = daysUntil(c.next_hearing)
+  const balance   = c.total_fees != null ? c.total_fees - paidTotal : null
+  const days      = daysUntil(c.next_hearing)
 
   return (
     <div
@@ -110,36 +148,71 @@ function HomeCaseCard({ c }: { c: LegalCase }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const navigate = useNavigate()
-  const user = useAuthStore((s) => s.user)
-  const cases = useCaseStore((s) => s.cases)
+  const navigate      = useNavigate()
+  const user          = useAuthStore((s) => s.user)
+  const cases         = useCaseStore((s) => s.cases)
   const [showNewCase, setShowNewCase] = useState(false)
 
   const firstName = user?.full_name?.split(' ')[0] ?? 'Advocate'
-  const today = dayjs().format('dddd, D MMMM YYYY')
-  const firmName = user ? `${user.firm_name ?? 'Your Firm'}` : ''
-
+  const today     = dayjs().format('dddd, D MMMM YYYY')
+  const firmName  = user?.firm_name ?? ''
   const activeCases = cases.filter(c => c.status === 'active').slice(0, 3)
 
-  // New Case card — rendered inline with DRAFT cards
-  const newCaseCard: ActionCard = {
-    icon: '⚖️',
-    iconBg: 'bg-ink',
-    accent: 'bg-ink',
-    title: 'New Case',
-    desc: 'Register a new matter — upload files, log parties, fees, and hearing dates.',
-    onClick: () => setShowNewCase(true),
-  }
-
-  const draftCards: ActionCard[] = [
-    newCaseCard,
-    { icon: '✦', iconBg: 'bg-blue-bg', accent: 'bg-blue', title: 'AI Legal Drafting', desc: 'Draft bail applications, writs and notices with research side by side.', to: '/draft' },
-    { icon: '🔍', iconBg: 'bg-green-bg', accent: 'bg-green', title: 'Review Your Draft', desc: 'Upload a completed draft and get compliance checks and issue spotting.', to: '/pdf' },
-    { icon: '📤', iconBg: 'bg-amber-bg', accent: 'bg-amber', title: 'Upload Your Draft', desc: 'Upload an existing draft and continue editing with AI research alongside.', to: '/pdf' },
+  const liveCards: LiveCard[] = [
+    {
+      icon: '⚖️',
+      iconBg: 'bg-ink',
+      accent: 'bg-ink',
+      title: 'New Case',
+      desc: 'Register a matter — parties, fees, hearing dates and documents.',
+      onClick: () => setShowNewCase(true),
+    },
+    {
+      icon: '📄',
+      iconBg: 'bg-blue-bg',
+      accent: 'bg-blue',
+      title: 'PDF Extractor',
+      desc: 'Extract parties, dates and amounts. Q&A any court order or contract.',
+      to: '/pdf',
+    },
+    {
+      icon: '📋',
+      iconBg: 'bg-green-bg',
+      accent: 'bg-green',
+      title: 'Case Synopsis',
+      desc: 'Upload a judgment or petition. Get parties, facts, issues, held and citations.',
+      to: '/synopsis',
+    },
+    {
+      icon: '↩',
+      iconBg: 'bg-amber-bg',
+      accent: 'bg-amber',
+      title: 'Smart Reply',
+      desc: 'Upload a legal notice. Extract allegations, set stance and draft a complete reply.',
+      to: '/reply',
+    },
+    {
+      icon: '📅',
+      iconBg: 'bg-ink',
+      accent: 'bg-ink',
+      title: 'Deadline Tracker',
+      desc: 'Track hearings and limitations. WhatsApp reminders sent directly to your clients.',
+      to: '/deadlines',
+    },
+    {
+      icon: '🔍',
+      iconBg: 'bg-blue-bg',
+      accent: 'bg-blue',
+      title: 'Judgment Search',
+      desc: 'Search SC and P&H HC judgments. Source-backed, verified citations instantly.',
+      to: '/search',
+    },
   ]
 
   return (
     <div className="max-w-[1200px]">
+
+      {/* Greeting */}
       <p className="font-serif text-[23px] tracking-[-0.3px] text-text-1 mb-[2px]">
         Hi, <em className="not-italic text-text-2">{firstName}.</em>
       </p>
@@ -147,24 +220,18 @@ export default function HomePage() {
         {today}{firmName ? ` · ${firmName}` : ''}
       </p>
 
-      {/* Draft + Case section */}
-      <div className="mb-6">
-        <div className="text-[10px] font-bold tracking-[0.7px] uppercase text-text-3 mb-[9px]">Get Started</div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-[9px]">
-          {draftCards.map((c) => <ActionCardTile key={c.title} card={c} />)}
+      {/* ── Live tools ─────────────────────────────────────────────────────── */}
+      <div className="mb-7">
+        <div className="text-[10px] font-bold tracking-[0.7px] uppercase text-text-3 mb-[9px]">
+          Tools
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-[9px]">
+          {liveCards.map(c => <LiveCardTile key={c.title} card={c} />)}
         </div>
       </div>
 
-      {/* Research section */}
-      <div className="mb-6">
-        <div className="text-[10px] font-bold tracking-[0.7px] uppercase text-text-3 mb-[9px]">Research & Documents</div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-[9px]">
-          {RESEARCH_CARDS.map((c) => <ActionCardTile key={c.title} card={c} />)}
-        </div>
-      </div>
-
-      {/* My Cases */}
-      <div>
+      {/* ── My Cases ───────────────────────────────────────────────────────── */}
+      <div className="mb-7">
         <div className="flex items-center justify-between mb-[9px]">
           <div className="text-[10px] font-bold tracking-[0.7px] uppercase text-text-3">My Cases</div>
           <button
@@ -196,6 +263,16 @@ export default function HomePage() {
             )}
           </div>
         )}
+      </div>
+
+      {/* ── Coming soon ────────────────────────────────────────────────────── */}
+      <div>
+        <div className="text-[10px] font-bold tracking-[0.7px] uppercase text-text-3 mb-[9px]">
+          Coming Soon
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-[9px]">
+          {SOON_CARDS.map(c => <SoonCardTile key={c.title} card={c} />)}
+        </div>
       </div>
 
       <NewCaseModal

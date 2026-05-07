@@ -1,9 +1,20 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useDeadlineStore } from '@/store/deadlineStore'
 import { logout } from '@/api/auth'
 import { toast } from '@/store/toastStore'
+import dayjs from 'dayjs'
 
-const NAV = [
+function useDeadlineBadge() {
+  const deadlines = useDeadlineStore(s => s.deadlines)
+  const urgent = deadlines.filter(d => {
+    const diff = dayjs(d.due_date).diff(dayjs().startOf('day'), 'day')
+    return diff <= 7
+  })
+  return urgent.length > 0 ? String(urgent.length) : undefined
+}
+
+const BASE_NAV = [
   { to: '/', icon: '🏠', label: 'Home', exact: true },
   { to: '/cases', icon: '⚖️', label: 'My Cases' },
   { to: '/draft', icon: '✍️', label: 'Draft' },
@@ -11,8 +22,7 @@ const NAV = [
   { to: '/pdf', icon: '📄', label: 'PDF Extractor' },
   { to: '/synopsis', icon: '📋', label: 'Synopsis' },
   { to: '/reply', icon: '📩', label: 'Reply Generator' },
-  { to: '/legal-process', icon: '📚', label: 'Process Guide' },
-  { to: '/deadlines', icon: '📅', label: 'Deadlines', badge: '3' },
+  { to: '/deadlines', icon: '📅', label: 'Deadlines' },
 ]
 
 interface Props {
@@ -23,6 +33,11 @@ interface Props {
 export default function Sidebar({ open, onClose }: Props) {
   const { user, logout: clearAuth } = useAuthStore()
   const navigate = useNavigate()
+  const deadlineBadge = useDeadlineBadge()
+
+  const NAV = BASE_NAV.map(item =>
+    item.to === '/deadlines' ? { ...item, badge: deadlineBadge } : item
+  )
 
   const handleLogout = async () => {
     try { await logout() } catch { /* ignore */ }

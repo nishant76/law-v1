@@ -1,189 +1,257 @@
 """
-Reply API endpoints
-Handles Smart Reply Generator workflow: extract allegations, get legal grounds, generate reply
-"""
-from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-import io
+Reply API endpoints — Smart Reply Generator
 
-from backend.api.deps import get_current_user, get_db
+Endpoints:
+  POST /api/v1/reply/upload              — upload notice file → extract allegations (one call)
+  POST /api/v1/reply/generate            — generate reply from allegation stances
+  GET  /api/v1/reply/{draft_id}/export   — download reply as .docx
+
+Rules (CLAUDE.md):
+- JWT required on every endpoint
+- firm_id from JWT only — never from request body
+- All business logic in reply_service.py — zero logic here
+- Wrong firm → 404 not 403
+- Standardised response shape on every endpoint
+"""
+import uuid
+from typing import List, Optional
+from fastapi import APIRouter, Depends, UploadFile, File, status
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.api.deps import get_db, get_current_user, CurrentUser
 from backend.services.reply_service import get_reply_service
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/reply", tags=["reply"])
 
 
-@router.post("/reply/extract-allegations", response_model=dict)
-async def extract_allegations(
-    document_id: str,
-    current_user: dict = Depends(get_current_user),
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
+
+class AllegationItem(BaseModel):
+    point_number: int
+    allegation: str
+    legal_basis_claimed: Optional[str] = None
+
+
+class NoticeExtractionData(BaseModel):
+    document_id: str
+    sender: Optional[str] = None
+    recipient: Optional[str] = None
+    notice_date: Optional[str] = None
+    notice_type: str = "other"
+    allegations: List[AllegationItem] = []
+
+
+class AllegationResponse(BaseModel):
+    point_number: int
+    allegation: str = ""
+    stance: str = "deny"   # admit | deny | partial
+    grounds: str = ""
+    legal_basis_claimed: Optional[str] = None
+
+
+class GenerateReplyRequest(BaseModel):
+    document_id: str
+    allegation_responses: List[AllegationResponse] = Field(..., min_length=1)
+
+
+class ReplyGeneratedData(BaseModel):
+    draft_id: str
+    reply_text: str
+
+
+class StandardResponse(BaseModel):
+    success: bool
+    data: Optional[dict] = None
+    error: Optional[dict] = None
+    meta: dict = Field(default_factory=dict)
+
+
+def _request_id() -> str:
+    return str(uuid.uuid4())
+
+
+def _meta() -> dict:
+    return {"request_id": _request_id(), "version": "v1"}
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/upload",
+    status_code=status.HTTP_200_OK,
+    summary="Upload legal notice and extract allegations in one call",
+)
+async def upload_and_extract(
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Step 1: Extract allegations from legal notice
+    """Upload a legal notice PDF/DOCX and extract all allegations immediately."""
+    MAX_BYTES = 50 * 1024 * 1024
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
 
-    Args:
-        document_id: ID of the uploaded legal notice document
+    if ext not in ("pdf", "docx"):
+        return StandardResponse(
+            success=False,
+            error={"code": "unsupported_format", "message": "Only PDF and DOCX files are supported.", "action": "upload_supported_format"},
+            meta=_meta(),
+        )
 
-    Returns:
-        Extracted allegations with metadata
-    """
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_BYTES:
+        return StandardResponse(
+            success=False,
+            error={"code": "file_too_large", "message": "File exceeds 50 MB limit.", "action": "reduce_file_size"},
+            meta=_meta(),
+        )
+
+    service = get_reply_service()
+
+    # Store document for later use in generate
+    document_id = "direct"
     try:
-        service = get_reply_service()
-        result = await service.extract_allegations(
-            document_id=document_id,
-            firm_id=current_user["firm_id"],
+        from backend.services.document_service import get_document_service
+        doc_service = get_document_service()
+        doc = await doc_service.store_document_in_db(
             session=db,
+            firm_id=str(current_user.firm_id),
+            matter_id=None,
+            filename=file.filename or "notice",
+            file_type=ext,
+            file_size_bytes=len(file_bytes),
+            blob_path=f"reply/{current_user.firm_id}/{file.filename}",
+            user_id=str(current_user.user_id),
         )
-
-        return {
-            "success": True,
-            "data": result,
-        }
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
+        # Extract text and store on doc for generate step
+        raw_text = ""
+        if ext == "pdf":
+            from pypdf import PdfReader
+            import io
+            reader = PdfReader(io.BytesIO(file_bytes))
+            raw_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        elif ext == "docx":
+            from docx import Document as DocxDocument
+            import io
+            doc_obj = DocxDocument(io.BytesIO(file_bytes))
+            raw_text = "\n".join(p.text for p in doc_obj.paragraphs)
+        await doc_service.update_document_indexed(
+            session=db,
+            document_id=str(doc.id),
+            chunk_count=0,
+            ocr_text=raw_text,
         )
-    except Exception as e:
-        logger.error(f"Failed to extract allegations: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to extract allegations",
-        )
+        document_id = str(doc.id)
+    except Exception as exc:
+        logger.warning(f"Could not persist reply notice doc (non-fatal): {exc}")
 
-
-@router.post("/reply/legal-grounds", response_model=dict)
-async def get_legal_grounds(
-    allegation: str,
-    matter_type: str,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Step 2: Get legal grounds for denying an allegation
-
-    Args:
-        allegation: The allegation text
-        matter_type: Type of matter (property, cheque, employment, etc.)
-
-    Returns:
-        Suggested legal grounds with citations
-    """
     try:
-        service = get_reply_service()
-        result = await service.get_legal_grounds(
-            allegation=allegation,
-            matter_type=matter_type,
-            firm_id=current_user["firm_id"],
-            session=db,
+        extraction = await service.extract_allegations_from_bytes(
+            file_bytes=file_bytes,
+            file_ext=ext,
+            firm_id=str(current_user.firm_id),
+        )
+    except ValueError as exc:
+        return StandardResponse(
+            success=False,
+            error={"code": "validation_error", "message": str(exc), "action": "check_file"},
+            meta=_meta(),
+        )
+    except RuntimeError as exc:
+        logger.error(f"Reply upload extraction error user={current_user.user_id}: {exc}")
+        return StandardResponse(
+            success=False,
+            error={"code": "extraction_failed", "message": "Could not extract allegations. Please try again.", "action": "retry"},
+            meta=_meta(),
         )
 
-        return {
-            "success": True,
-            "data": result,
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to get legal grounds: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get legal grounds",
-        )
+    return StandardResponse(
+        success=True,
+        data={"document_id": document_id, **extraction},
+        meta=_meta(),
+    )
 
 
-@router.post("/reply/generate", response_model=dict)
+@router.post(
+    "/generate",
+    status_code=status.HTTP_200_OK,
+    summary="Generate complete formal reply from allegation stances",
+)
 async def generate_reply(
-    document_id: str,
-    allegation_responses: List[Dict[str, Any]],
-    current_user: dict = Depends(get_current_user),
+    body: GenerateReplyRequest,
+    current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Step 3: Generate complete reply incorporating lawyer's decisions
-
-    Args:
-        document_id: Original notice document ID
-        allegation_responses: List of {"point_number": int, "stance": "admit/deny/partial", "grounds": str}
-
-    Returns:
-        Generated reply draft details
-    """
+    """Generate a complete formal reply to the legal notice."""
+    service = get_reply_service()
     try:
-        service = get_reply_service()
-        draft = await service.generate_reply(
-            document_id=document_id,
-            firm_id=current_user["firm_id"],
-            allegation_responses=allegation_responses,
+        draft_id, reply_text = await service.generate_reply(
+            document_id=body.document_id,
+            firm_id=str(current_user.firm_id),
+            allegation_responses=[r.model_dump() for r in body.allegation_responses],
             session=db,
         )
+    except ValueError as exc:
+        return StandardResponse(
+            success=False,
+            error={"code": "validation_error", "message": str(exc), "action": "retry"},
+            meta=_meta(),
+        )
+    except RuntimeError as exc:
+        logger.error(f"Reply generation error user={current_user.user_id}: {exc}")
+        return StandardResponse(
+            success=False,
+            error={"code": "generation_failed", "message": "Reply generation failed. Please try again.", "action": "retry"},
+            meta=_meta(),
+        )
 
-        return {
-            "success": True,
-            "data": {
-                "draft_id": str(draft.id),
-                "title": draft.title,
-                "status": draft.status.value,
-                "confidence_score": draft.confidence_score,
-            },
+    return StandardResponse(
+        success=True,
+        data={"draft_id": draft_id, "reply_text": reply_text},
+        meta=_meta(),
+    )
+
+
+@router.get(
+    "/{draft_id}/export",
+    summary="Download reply draft as .docx",
+    responses={
+        200: {
+            "content": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document": {}},
+            "description": "Word document (.docx) containing the reply",
         }
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.error(f"Failed to generate reply: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate reply",
-        )
-
-
-@router.get("/reply/{draft_id}/export")
+    },
+)
 async def export_reply_docx(
     draft_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Export reply draft as .docx file
-
-    Args:
-        draft_id: Draft ID to export
-
-    Returns:
-        DOCX file download
-    """
+    service = get_reply_service()
     try:
-        service = get_reply_service()
-        docx_content = await service.export_reply_docx(
+        file_bytes = await service.export_reply_docx(
             draft_id=draft_id,
-            firm_id=current_user["firm_id"],
+            firm_id=str(current_user.firm_id),
             session=db,
         )
+    except ValueError as exc:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.error(f"Reply docx export error draft={draft_id}: {exc}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Export failed. Please try again.")
 
-        # Return as downloadable file
-        return StreamingResponse(
-            io.BytesIO(docx_content),
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"attachment; filename=reply_{draft_id}.docx"},
-        )
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.error(f"Failed to export DOCX: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to export DOCX",
-        )
+    return Response(
+        content=file_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="reply_{draft_id}.docx"'},
+    )

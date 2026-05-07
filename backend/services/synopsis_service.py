@@ -100,16 +100,30 @@ def _parse_synopsis_json(raw_response: str) -> dict:
     text = raw_response.strip()
     if text.startswith("```"):
         text = re.sub(r"^```[a-z]*\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
+        text = re.sub(r"\n?```$", "", text.strip())
+    text = text.strip()
 
+    # Direct parse
     try:
         data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        logger.error(f"Failed to parse synopsis JSON: {exc} — raw={text[:200]}")
-        raise ValueError(f"LLM returned non-JSON response: {exc}") from exc
+    except json.JSONDecodeError:
+        # Try to extract first {...} block (handles prose around JSON)
+        match = re.search(r'\{[\s\S]*\}', text)
+        if match:
+            try:
+                data = json.loads(match.group())
+            except json.JSONDecodeError:
+                data = None
+        else:
+            data = None
+
+        if data is None:
+            logger.error(f"Failed to parse synopsis JSON — raw={text[:300]}")
+            raise ValueError(f"LLM returned non-JSON response: {text[:100]}")
 
     # Normalise — ensure all expected keys exist
     defaults = {
+        "document_type": "other",
         "case_name": None,
         "petitioner": None,
         "respondent": None,
@@ -131,6 +145,23 @@ def _build_synopsis_title(parsed: dict) -> str:
     """Derive a human-readable title for the draft record"""
     case_name = parsed.get("case_name") or "Untitled Case"
     return f"Case Synopsis — {case_name}"
+
+
+# Document types accepted by Case Synopsis Generator
+_SYNOPSIS_ALLOWED_TYPES = {"judgment", "petition", "order"}
+
+
+def _validate_document_type(parsed: dict) -> None:
+    """
+    Raise ValueError with a structured prefix if document is not suitable
+    for synopsis generation (i.e. not a court judgment, petition, or order).
+
+    Callers catch "WRONG_DOCUMENT_TYPE:<type>" and return a structured
+    error response to the frontend.
+    """
+    doc_type = str(parsed.get("document_type") or "other").lower().strip().replace(" ", "_")
+    if doc_type not in _SYNOPSIS_ALLOWED_TYPES:
+        raise ValueError(f"WRONG_DOCUMENT_TYPE:{doc_type}")
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +359,78 @@ class SynopsisService:
             relief_granted=parsed.get("relief_granted"),
             confidence=int(parsed.get("confidence", 0)),
             created_at=draft.created_at,
+        )
+
+    async def generate_synopsis_from_bytes(
+        self,
+        file_bytes: bytes,
+        file_ext: str,
+        firm_id: str,
+    ) -> "SynopsisResult":
+        """Generate synopsis directly from uploaded file bytes — no DB document required."""
+        ft = file_ext.lower().lstrip(".")
+        try:
+            if ft == "pdf":
+                from pypdf import PdfReader
+                reader = PdfReader(BytesIO(file_bytes))
+                raw_text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+                if not raw_text:
+                    raise ValueError("PDF appears to be a scanned image — no selectable text found.")
+            elif ft == "docx":
+                from docx import Document as DocxDocument
+                doc_obj = DocxDocument(BytesIO(file_bytes))
+                raw_text = "\n".join(p.text for p in doc_obj.paragraphs).strip()
+            else:
+                raise ValueError(f"Unsupported file type '{ft}'. Supported: pdf, docx.")
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise RuntimeError(f"Could not read file: {exc}") from exc
+
+        # Truncate to ~14000 chars — legal notices can run 8-10 pages and
+        # key demands/relief (Para 20+) and citations (Art 21, Rule 133A) appear
+        # in later paragraphs. 8000 chars only covered ~first 4-5 pages.
+        safe_text = sanitise_document_text(raw_text)[:14000]
+
+        try:
+            raw_response = await asyncio.wait_for(
+                self._llm.call_completion(
+                    system_prompt=case_synopsis_prompt.system_prompt,
+                    user_prompt=case_synopsis_prompt.format_user_prompt(document_text=safe_text),
+                    model=ModelType.GPT4O_MINI,
+                    temperature=0.0,
+                    max_tokens=1800,
+                    firm_id=firm_id,
+                    timeout=90,
+                ),
+                timeout=90.0,
+            )
+        except asyncio.TimeoutError:
+            raise ValueError("AI request timed out — please try again")
+        except Exception as exc:
+            raise RuntimeError(f"Synopsis generation failed: {exc}") from exc
+
+        parsed = _parse_synopsis_json(raw_response)
+
+        # Validate document type — synopsis only works for court documents
+        _validate_document_type(parsed)
+
+        return SynopsisResult(
+            synopsis_id=str(uuid.uuid4()),
+            document_id="",
+            case_name=parsed["case_name"],
+            petitioner=parsed["petitioner"],
+            respondent=parsed["respondent"],
+            court=parsed["court"],
+            judgment_date=parsed["judgment_date"],
+            case_number=parsed["case_number"],
+            facts=parsed["facts"],
+            issues=parsed["issues"] or [],
+            held=parsed["held"],
+            citations_used=parsed["citations_used"] or [],
+            relief_granted=parsed["relief_granted"],
+            confidence=int(parsed.get("confidence", 0)),
+            created_at=datetime.utcnow(),
         )
 
     async def export_synopsis_docx(
