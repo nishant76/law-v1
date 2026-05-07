@@ -14,15 +14,23 @@ function useDeadlineBadge() {
   return urgent.length > 0 ? String(urgent.length) : undefined
 }
 
-const BASE_NAV = [
-  { to: '/', icon: '🏠', label: 'Home', exact: true },
-  { to: '/cases', icon: '⚖️', label: 'My Cases' },
-  { to: '/draft', icon: '✍️', label: 'Draft' },
-  { to: '/search', icon: '🔍', label: 'Search' },
-  { to: '/pdf', icon: '📄', label: 'PDF Extractor' },
+interface NavItem {
+  to: string
+  icon: string
+  label: string
+  exact?: boolean
+  badge?: string
+}
+
+const BASE_NAV: NavItem[] = [
+  { to: '/',         icon: '🏠', label: 'Home',           exact: true },
+  { to: '/cases',    icon: '⚖️', label: 'My Cases' },
+  { to: '/draft',    icon: '✍️', label: 'Draft' },
+  { to: '/search',   icon: '🔍', label: 'Search' },
+  { to: '/pdf',      icon: '📄', label: 'PDF Extractor' },
   { to: '/synopsis', icon: '📋', label: 'Synopsis' },
-  { to: '/reply', icon: '📩', label: 'Reply Generator' },
-  { to: '/deadlines', icon: '📅', label: 'Deadlines' },
+  { to: '/reply',    icon: '📩', label: 'Reply Generator' },
+  { to: '/deadlines',icon: '📅', label: 'Deadlines' },
 ]
 
 interface Props {
