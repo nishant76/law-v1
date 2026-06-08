@@ -7,11 +7,18 @@ import type { CaseStatus, MatterType, CasePerson, CaseHearing, CasePayment } fro
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const STATUS_CLS: Record<CaseStatus, string> = {
-  active: 'bg-green-bg text-green border-green',
-  disposed: 'bg-surface-3 text-text-3 border-border-1',
-  stayed: 'bg-amber-bg text-amber border-amber',
-  settled: 'bg-blue-bg text-blue border-blue',
+const STATUS_DOT: Record<CaseStatus, string> = {
+  active:   'bg-green animate-pulseDot',
+  disposed: 'bg-white/40',
+  stayed:   'bg-amber animate-pulseDot',
+  settled:  'bg-blue',
+}
+
+const STATUS_BADGE: Record<CaseStatus, string> = {
+  active:   'bg-green/20 text-green border-green/30',
+  disposed: 'bg-white/10 text-white/50 border-white/15',
+  stayed:   'bg-amber/20 text-amber border-amber/30',
+  settled:  'bg-blue/20 text-blue border-blue/30',
 }
 
 const STATUS_LABEL: Record<CaseStatus, string> = {
@@ -55,6 +62,16 @@ const ROLE_OPTIONS: { value: CasePerson['role']; label: string }[] = [
 const ROLE_LABEL: Record<CasePerson['role'], string> = {
   client: 'Client', opponent: 'Opponent', opp_counsel: 'Opp. Counsel',
   judge: 'Judge / Bench', witness: 'Witness', other: 'Other',
+}
+
+// Role chip colours
+const ROLE_CHIP: Record<CasePerson['role'], string> = {
+  client:      'bg-blue-bg text-blue border-blue/25',
+  opponent:    'bg-red-50 text-red-600 border-red-200',
+  opp_counsel: 'bg-surface-3 text-text-2 border-border-1',
+  judge:       'bg-purple-50 text-purple-700 border-purple-200',
+  witness:     'bg-amber-bg text-amber border-amber/25',
+  other:       'bg-surface-2 text-text-3 border-border-1',
 }
 
 // ── Edit draft type ───────────────────────────────────────────────────────────
@@ -102,7 +119,7 @@ function HearingBadge({ date }: { date: string }) {
 const inputCls = 'w-full px-[9px] py-[6px] border border-border-2 rounded-sm bg-white text-text-1 text-[12.5px] outline-none focus:ring-[1.5px] focus:ring-ink/20 transition-all'
 const selectCls = 'px-[9px] py-[6px] border border-border-2 rounded-sm bg-white text-text-1 text-[12.5px] outline-none focus:ring-[1.5px] focus:ring-ink/20 transition-all'
 
-// ── Section primitive ─────────────────────────────────────────────────────────
+// ── Section primitive — no card, just hairline divider ────────────────────────
 
 function Section({ title, action, children }: {
   title: string
@@ -110,9 +127,9 @@ function Section({ title, action, children }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white border border-border-1 rounded-DEFAULT px-[16px] py-[14px] mb-[12px]">
+    <div className="border-t border-border-1 pt-[16px] pb-[20px]">
       <div className="flex items-center justify-between mb-[12px]">
-        <div className="text-[11px] font-bold tracking-[0.5px] uppercase text-text-3">{title}</div>
+        <div className="text-[10px] font-bold tracking-[1px] uppercase text-text-3">{title}</div>
         {action}
       </div>
       {children}
@@ -295,186 +312,210 @@ export default function CaseDetailPage() {
     toast('Case deleted')
   }
 
+  // ── Days until display helper ───────────────────────────────────────────────
+  const hearingDays = daysUntil(c.next_hearing)
+  const hearingDaySub = (() => {
+    if (hearingDays === null) return undefined
+    if (hearingDays === 0) return 'Today!'
+    if (hearingDays < 0) return 'Past'
+    return `${hearingDays}d away`
+  })()
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="max-w-[760px]">
 
-      {/* Header */}
-      <div className="flex items-start gap-[12px] mb-5">
-        <button
-          onClick={() => editing ? cancelEdit() : navigate('/cases')}
-          className="text-[12px] text-text-3 hover:text-text-1 transition-colors mt-[3px] flex-shrink-0"
-        >
-          {editing ? '✕ Cancel' : '← Cases'}
-        </button>
+      {/* ── Dark hero strip ── */}
+      <div className="bg-sidebar rounded-[10px] px-[20px] pt-[16px] pb-[20px] mb-[24px]">
 
-        <div className="flex-1 min-w-0">
-          {editing && draft ? (
-            /* ── Edit mode header ── */
-            <div className="space-y-[8px]">
-              <input
-                className={`${inputCls} text-[17px] font-serif tracking-[-0.2px] font-normal`}
-                value={draft.title}
-                onChange={e => setDraftField('title', e.target.value)}
-                placeholder="Case title"
-              />
-              <div className="flex items-center gap-[8px] flex-wrap">
-                <select
-                  className={selectCls}
-                  value={draft.status}
-                  onChange={e => setDraftField('status', e.target.value as CaseStatus)}
-                >
-                  {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-                <select
-                  className={selectCls}
-                  value={draft.matter_type}
-                  onChange={e => setDraftField('matter_type', e.target.value as MatterType)}
-                >
-                  {MATTER_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
-              </div>
-            </div>
-          ) : (
-            /* ── View mode header ── */
-            <div>
-              <div className="flex items-center gap-[8px] flex-wrap mb-[2px]">
-                <h1 className="font-serif text-[20px] tracking-[-0.2px] text-text-1 leading-tight">{c.title}</h1>
-                <span className={`text-[10px] font-bold px-[7px] py-[2px] rounded-full border ${STATUS_CLS[c.status]}`}>
-                  {STATUS_LABEL[c.status]}
-                </span>
-              </div>
-              <div className="flex items-center gap-[8px] flex-wrap text-[12px] text-text-3">
-                {c.case_number && <span className="font-mono">{c.case_number}</span>}
-                {c.case_number && <span>·</span>}
-                <span>{c.court}</span>
-                <span>·</span>
-                <span>{MATTER_LABEL[c.matter_type]}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Edit / Save button */}
-        <div className="flex-shrink-0 mt-[2px]">
+        {/* Back + Edit row */}
+        <div className="flex items-center justify-between mb-[14px]">
+          <button
+            onClick={() => editing ? cancelEdit() : navigate('/cases')}
+            className="text-[11px] font-medium text-white/40 hover:text-white/70 transition-colors"
+          >
+            {editing ? '✕ Cancel' : '← Cases'}
+          </button>
           {editing ? (
-            <Button onClick={saveEdit}>Save Changes</Button>
+            <button
+              onClick={saveEdit}
+              className="text-[11.5px] font-bold px-[14px] py-[5px] rounded-sm bg-gold text-sidebar hover:bg-gold/90 transition-colors"
+            >
+              Save Changes
+            </button>
           ) : (
-            <Button onClick={startEdit}>Edit</Button>
+            <button
+              onClick={startEdit}
+              className="text-[11.5px] font-semibold px-[12px] py-[5px] rounded-sm bg-white/10 text-white/70 hover:bg-white/[0.15] hover:text-white transition-colors"
+            >
+              Edit
+            </button>
           )}
         </div>
-      </div>
 
-      {/* Quick stats bar — read-only always */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-[8px] mb-[14px]">
-        {[
-          { label: 'Client', value: client?.name || '—', sub: client?.phone },
-          {
-            label: 'Next Hearing',
-            value: c.next_hearing ? fmtDate(c.next_hearing) : '—',
-            sub: (() => {
-              const d = daysUntil(c.next_hearing)
-              if (d === null) return undefined
-              if (d === 0) return 'Today!'
-              if (d < 0) return 'Past'
-              return `${d} day${d !== 1 ? 's' : ''} away`
-            })(),
-            urgent: (daysUntil(c.next_hearing) ?? 99) <= 3,
-          },
-          {
-            label: 'Total Fees',
-            value: c.total_fees != null ? `₹${c.total_fees.toLocaleString('en-IN')}` : '—',
-            sub: paidTotal > 0 ? `₹${paidTotal.toLocaleString('en-IN')} received` : undefined,
-          },
-          {
-            label: 'Balance Due',
-            value: balance != null ? (balance <= 0 ? 'Paid ✓' : `₹${balance.toLocaleString('en-IN')}`) : '—',
-            positive: balance !== null && balance <= 0,
-            urgent: balance !== null && balance > 0,
-          },
-        ].map(stat => (
-          <div key={stat.label} className="bg-white border border-border-1 rounded-DEFAULT px-[12px] py-[10px]">
-            <div className="text-[10px] font-bold tracking-[0.4px] uppercase text-text-3 mb-[3px]">{stat.label}</div>
-            <div className={`text-[13px] font-semibold leading-tight ${
-              (stat as { urgent?: boolean }).urgent ? 'text-red-600'
-              : (stat as { positive?: boolean }).positive ? 'text-green'
-              : 'text-text-1'
-            }`}>{stat.value}</div>
-            {stat.sub && <div className="text-[10.5px] text-text-3 mt-[1px]">{stat.sub}</div>}
+        {/* Title + status */}
+        {editing && draft ? (
+          <div className="space-y-[10px]">
+            <input
+              className="w-full px-[10px] py-[7px] bg-white/10 border border-white/20 rounded-sm text-white text-[18px] font-serif tracking-[-0.2px] placeholder-white/30 outline-none focus:border-gold/50 transition-colors"
+              value={draft.title}
+              onChange={e => setDraftField('title', e.target.value)}
+              placeholder="Case title"
+            />
+            <div className="flex items-center gap-[8px] flex-wrap">
+              <select
+                className="px-[9px] py-[5px] bg-white/10 border border-white/20 rounded-sm text-white/80 text-[12px] outline-none"
+                value={draft.status}
+                onChange={e => setDraftField('status', e.target.value as CaseStatus)}
+              >
+                {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value} className="bg-sidebar">{s.label}</option>)}
+              </select>
+              <select
+                className="px-[9px] py-[5px] bg-white/10 border border-white/20 rounded-sm text-white/80 text-[12px] outline-none"
+                value={draft.matter_type}
+                onChange={e => setDraftField('matter_type', e.target.value as MatterType)}
+              >
+                {MATTER_OPTIONS.map(m => <option key={m.value} value={m.value} className="bg-sidebar">{m.label}</option>)}
+              </select>
+            </div>
           </div>
-        ))}
+        ) : (
+          <>
+            <h1 className="font-serif text-[21px] tracking-[-0.3px] text-white leading-tight mb-[6px]">
+              {c.title}
+            </h1>
+            <div className="flex items-center gap-[8px] flex-wrap">
+              <span className={`inline-flex items-center gap-[5px] text-[10px] font-bold px-[8px] py-[2px] rounded-full border ${STATUS_BADGE[c.status]}`}>
+                <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${STATUS_DOT[c.status]}`} />
+                {STATUS_LABEL[c.status]}
+              </span>
+              <span className="text-white/30 text-[11px]">·</span>
+              <span className="text-white/50 text-[11px]">{c.court}</span>
+              <span className="text-white/30 text-[11px]">·</span>
+              <span className="text-white/50 text-[11px]">{MATTER_LABEL[c.matter_type]}</span>
+              {c.case_number && (
+                <>
+                  <span className="text-white/30 text-[11px]">·</span>
+                  <span className="text-white/40 text-[11px] font-mono">{c.case_number}</span>
+                </>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-[1px] bg-white/[0.07] rounded-[6px] overflow-hidden mt-[16px]">
+          {[
+            {
+              label: 'Client',
+              value: client?.name || '—',
+              sub: client?.phone,
+            },
+            {
+              label: 'Next Hearing',
+              value: c.next_hearing ? fmtDate(c.next_hearing) : '—',
+              sub: hearingDaySub,
+              urgent: (hearingDays ?? 99) >= 0 && (hearingDays ?? 99) <= 3,
+            },
+            {
+              label: 'Total Fees',
+              value: c.total_fees != null ? `₹${c.total_fees.toLocaleString('en-IN')}` : '—',
+              sub: paidTotal > 0 ? `₹${paidTotal.toLocaleString('en-IN')} paid` : undefined,
+            },
+            {
+              label: 'Balance Due',
+              value: balance != null ? (balance <= 0 ? 'Paid ✓' : `₹${balance.toLocaleString('en-IN')}`) : '—',
+              positive: balance !== null && balance <= 0,
+              urgent: balance !== null && balance > 0,
+            },
+          ].map(stat => (
+            <div key={stat.label} className="bg-sidebar px-[14px] py-[10px]">
+              <div className="text-[9px] font-bold tracking-[0.8px] uppercase text-white/30 mb-[3px]">{stat.label}</div>
+              <div className={`text-[13px] font-semibold leading-tight truncate ${
+                (stat as { urgent?: boolean }).urgent ? 'text-red-400'
+                : (stat as { positive?: boolean }).positive ? 'text-green-400'
+                : 'text-white'
+              }`}>{stat.value}</div>
+              {stat.sub && <div className="text-[10px] text-white/35 mt-[1px] truncate">{stat.sub}</div>}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Parties ── */}
-      {editing && draft ? (
+      {(c.persons.length > 0 || (editing && draft)) && (
         <Section title="Parties Involved">
-          <div className="space-y-[8px]">
-            {draft.persons.map((p, i) => (
-              <div key={p.id} className="flex items-center gap-[8px] flex-wrap">
-                <select
-                  className={`${selectCls} w-[130px] flex-shrink-0`}
-                  value={p.role}
-                  onChange={e => updatePerson(i, 'role', e.target.value)}
-                >
-                  {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-                <input
-                  className={`${inputCls} flex-[2] min-w-[120px]`}
-                  placeholder="Full name"
-                  value={p.name}
-                  onChange={e => updatePerson(i, 'name', e.target.value)}
-                />
-                <input
-                  className={`${inputCls} flex-[1] min-w-[100px]`}
-                  placeholder="Phone (optional)"
-                  value={p.phone ?? ''}
-                  onChange={e => updatePerson(i, 'phone', e.target.value)}
-                />
-                <button
-                  onClick={() => removePerson(i)}
-                  className="text-text-3 hover:text-red-500 text-[16px] leading-none flex-shrink-0 transition-colors"
-                  title="Remove"
-                >×</button>
-              </div>
-            ))}
-            <button
-              onClick={addPerson}
-              className="text-[11.5px] font-semibold text-ink hover:underline mt-[4px]"
-            >
-              + Add Person
-            </button>
-          </div>
-        </Section>
-      ) : c.persons.length > 0 ? (
-        <Section title="Parties Involved">
-          {c.persons.map(p => (
-            <div key={p.id} className="flex items-baseline gap-[10px] py-[7px] border-b border-border-1 last:border-b-0">
-              <span className="text-[11px] text-text-3 w-[120px] flex-shrink-0">{ROLE_LABEL[p.role]}</span>
-              <span className="text-[12.5px] font-semibold text-text-1 flex-1">{p.name}</span>
-              {p.phone && <span className="text-[11px] text-text-3 font-mono flex-shrink-0">{p.phone}</span>}
+          {editing && draft ? (
+            <div className="space-y-[8px]">
+              {draft.persons.map((p, i) => (
+                <div key={p.id} className="flex items-center gap-[8px] flex-wrap">
+                  <select
+                    className={`${selectCls} w-[130px] flex-shrink-0`}
+                    value={p.role}
+                    onChange={e => updatePerson(i, 'role', e.target.value)}
+                  >
+                    {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                  <input
+                    className={`${inputCls} flex-[2] min-w-[120px]`}
+                    placeholder="Full name"
+                    value={p.name}
+                    onChange={e => updatePerson(i, 'name', e.target.value)}
+                  />
+                  <input
+                    className={`${inputCls} flex-[1] min-w-[100px]`}
+                    placeholder="Phone (optional)"
+                    value={p.phone ?? ''}
+                    onChange={e => updatePerson(i, 'phone', e.target.value)}
+                  />
+                  <button
+                    onClick={() => removePerson(i)}
+                    className="text-text-3 hover:text-red-500 text-[16px] leading-none flex-shrink-0 transition-colors"
+                    title="Remove"
+                  >×</button>
+                </div>
+              ))}
+              <button onClick={addPerson} className="text-[11.5px] font-semibold text-ink hover:underline mt-[4px]">
+                + Add Person
+              </button>
             </div>
-          ))}
+          ) : (
+            <div className="flex flex-wrap gap-[8px]">
+              {c.persons.map(p => (
+                <div
+                  key={p.id}
+                  className={`inline-flex items-center gap-[7px] border rounded-[6px] px-[10px] py-[6px] ${ROLE_CHIP[p.role]}`}
+                >
+                  <span className="text-[9.5px] font-bold uppercase tracking-[0.5px] opacity-70">{ROLE_LABEL[p.role]}</span>
+                  <span className="text-[12.5px] font-semibold leading-tight">{p.name}</span>
+                  {p.phone && (
+                    <span className="text-[10.5px] font-mono opacity-60 ml-[2px]">{p.phone}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </Section>
-      ) : editing ? null : null}
+      )}
 
-      {/* ── Hearings — always same regardless of edit mode ── */}
+      {/* ── Hearings ── */}
       <Section title="Hearings" action={<AddHearingRow onAdd={h => addHearing(c.id, h)} />}>
         {upcoming.length === 0 && past.length === 0 ? (
           <div className="text-[12px] text-text-3 italic">No hearings logged yet.</div>
         ) : (
           <div>
             {upcoming.map(h => (
-              <div key={h.id} className="flex items-start gap-[10px] py-[7px] border-b border-border-1 last:border-b-0">
-                <span className="flex-shrink-0 mt-[1px]"><HearingBadge date={h.date} /></span>
-                <span className="text-[11px] bg-green-bg text-green font-semibold px-[5px] py-[1px] rounded-sm flex-shrink-0">Upcoming</span>
+              <div key={h.id} className="flex items-start gap-[10px] py-[8px] border-b border-border-1 last:border-b-0">
+                <span className="flex-shrink-0"><HearingBadge date={h.date} /></span>
+                <span className="text-[10px] bg-green-bg text-green font-bold px-[6px] py-[1.5px] rounded-sm flex-shrink-0 uppercase tracking-[0.4px]">Upcoming</span>
                 {h.notes && <span className="text-[12px] text-text-2 flex-1">{h.notes}</span>}
               </div>
             ))}
             {past.map(h => (
-              <div key={h.id} className="flex items-start gap-[10px] py-[7px] border-b border-border-1 last:border-b-0 opacity-70">
-                <span className="text-[11px] text-text-3 flex-shrink-0 mt-[1px]">{fmtDate(h.date)}</span>
-                <span className="text-[11px] bg-surface-3 text-text-3 font-semibold px-[5px] py-[1px] rounded-sm flex-shrink-0">Past</span>
+              <div key={h.id} className="flex items-start gap-[10px] py-[8px] border-b border-border-1 last:border-b-0 opacity-60">
+                <span className="text-[11px] text-text-3 flex-shrink-0">{fmtDate(h.date)}</span>
+                <span className="text-[10px] bg-surface-3 text-text-3 font-bold px-[6px] py-[1.5px] rounded-sm flex-shrink-0 uppercase tracking-[0.4px]">Past</span>
                 {h.notes && <span className="text-[12px] text-text-2 flex-1">{h.notes}</span>}
                 {h.outcome && <span className="text-[11.5px] font-medium text-text-1 flex-shrink-0">{h.outcome}</span>}
               </div>
@@ -485,24 +526,43 @@ export default function CaseDetailPage() {
 
       {/* ── Fees & Payments ── */}
       <Section title="Fees & Payments" action={<AddPaymentRow onAdd={p => addPayment(c.id, p)} />}>
-        {/* Total fees row — editable in edit mode */}
-        <div className="flex items-center justify-between pb-[10px] mb-[6px] border-b border-border-1">
-          <span className="text-[12px] text-text-3">Total agreed fees</span>
-          {editing && draft ? (
+
+        {/* Compact fee summary strip */}
+        {!editing ? (
+          <div className="inline-flex items-center divide-x divide-border-1 border border-border-1 rounded-sm mb-[12px] text-[12px] overflow-hidden">
+            <div className="flex items-center gap-[5px] px-[12px] py-[6px]">
+              <span className="text-text-3">Agreed</span>
+              <span className="font-semibold text-text-1">
+                {c.total_fees != null ? `₹${c.total_fees.toLocaleString('en-IN')}` : '—'}
+              </span>
+            </div>
+            <div className="flex items-center gap-[5px] px-[12px] py-[6px]">
+              <span className="text-text-3">Paid</span>
+              <span className="font-semibold text-green">₹{paidTotal.toLocaleString('en-IN')}</span>
+            </div>
+            {balance != null && (
+              <div className="flex items-center gap-[5px] px-[12px] py-[6px]">
+                <span className="text-text-3">Due</span>
+                <span className={`font-semibold ${balance <= 0 ? 'text-green' : 'text-amber'}`}>
+                  {balance <= 0 ? '₹0 ✓' : `₹${balance.toLocaleString('en-IN')}`}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : draft ? (
+          <div className="flex items-center gap-[10px] mb-[12px]">
+            <span className="text-[12px] text-text-3 flex-shrink-0">Total agreed fees</span>
             <input
-              className={`${inputCls} w-[140px] text-right`}
+              className={`${inputCls} w-[140px]`}
               type="number"
               placeholder="₹ 0"
               value={draft.total_fees}
               onChange={e => setDraftField('total_fees', e.target.value)}
             />
-          ) : (
-            <span className="text-[12px] font-bold text-text-1">
-              {c.total_fees != null ? `₹${c.total_fees.toLocaleString('en-IN')}` : '—'}
-            </span>
-          )}
-        </div>
+          </div>
+        ) : null}
 
+        {/* Payment rows */}
         {c.payments.length === 0 ? (
           <div className="text-[12px] text-text-3 italic">No payments logged yet.</div>
         ) : (
@@ -512,59 +572,43 @@ export default function CaseDetailPage() {
                 <button
                   onClick={() => togglePaymentPaid(c.id, p.id)}
                   className={[
-                    'w-[18px] h-[18px] rounded-sm border-[1.5px] flex items-center justify-center flex-shrink-0 transition-colors',
+                    'w-[17px] h-[17px] rounded-sm border-[1.5px] flex items-center justify-center flex-shrink-0 transition-colors',
                     p.paid ? 'bg-ink border-ink text-white' : 'border-border-2 hover:border-ink',
                   ].join(' ')}
                   title={p.paid ? 'Mark unpaid' : 'Mark paid'}
                 >
-                  {p.paid && <span className="text-[10px] font-bold">✓</span>}
+                  {p.paid && <span className="text-[9px] font-bold">✓</span>}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-[8px]">
-                    <span className={`text-[12.5px] font-medium ${p.paid ? 'text-text-3 line-through' : 'text-text-1'}`}>
-                      {p.label}
-                    </span>
-                    {p.paid && p.paid_date && <span className="text-[10px] text-text-3">paid {fmtDate(p.paid_date)}</span>}
-                    {!p.paid && p.due_date && <span className="text-[10px] text-text-3">due {fmtDate(p.due_date)}</span>}
-                  </div>
+                  <span className={`text-[12.5px] font-medium ${p.paid ? 'text-text-3 line-through' : 'text-text-1'}`}>
+                    {p.label}
+                  </span>
+                  {p.paid && p.paid_date && <span className="text-[10px] text-text-3 ml-[6px]">paid {fmtDate(p.paid_date)}</span>}
+                  {!p.paid && p.due_date && <span className="text-[10px] text-text-3 ml-[6px]">due {fmtDate(p.due_date)}</span>}
                 </div>
-                <span className={`text-[13px] font-semibold flex-shrink-0 ${p.paid ? 'text-green' : 'text-text-1'}`}>
+                <span className={`text-[12.5px] font-semibold flex-shrink-0 ${p.paid ? 'text-green' : 'text-text-1'}`}>
                   ₹{p.amount.toLocaleString('en-IN')}
                 </span>
               </div>
             ))}
-            <div className="pt-[10px] mt-[2px] space-y-[4px]">
-              <div className="flex justify-between text-[12px]">
-                <span className="text-text-3">Received</span>
-                <span className="font-semibold text-green">₹{paidTotal.toLocaleString('en-IN')}</span>
-              </div>
-              {balance != null && (
-                <div className="flex justify-between text-[12.5px] border-t border-border-1 pt-[6px] mt-[2px]">
-                  <span className="font-bold text-text-1">Balance outstanding</span>
-                  <span className={`font-bold ${balance <= 0 ? 'text-green' : 'text-amber'}`}>
-                    {balance <= 0 ? 'Fully paid ✓' : `₹${balance.toLocaleString('en-IN')}`}
-                  </span>
-                </div>
-              )}
-            </div>
           </div>
         )}
       </Section>
 
       {/* ── Notes ── */}
-      {editing && draft ? (
+      {(editing && draft) || c.notes ? (
         <Section title="Notes">
-          <textarea
-            className={`${inputCls} w-full leading-[1.6] resize-none`}
-            rows={4}
-            placeholder="Key facts, client instructions, strategy notes…"
-            value={draft.notes}
-            onChange={e => setDraftField('notes', e.target.value)}
-          />
-        </Section>
-      ) : c.notes ? (
-        <Section title="Notes">
-          <p className="text-[12.5px] text-text-2 leading-[1.6] whitespace-pre-wrap">{c.notes}</p>
+          {editing && draft ? (
+            <textarea
+              className={`${inputCls} w-full leading-[1.6] resize-none`}
+              rows={4}
+              placeholder="Key facts, client instructions, strategy notes…"
+              value={draft.notes}
+              onChange={e => setDraftField('notes', e.target.value)}
+            />
+          ) : (
+            <p className="text-[12.5px] text-text-2 leading-[1.6] whitespace-pre-wrap">{c.notes}</p>
+          )}
         </Section>
       ) : null}
 
@@ -594,7 +638,7 @@ export default function CaseDetailPage() {
               <span className="text-[11px] text-text-3 w-[140px] flex-shrink-0 mt-[8px]">Filing Date</span>
               <input
                 type="date"
-                className={`${selectCls}`}
+                className={selectCls}
                 value={draft.filing_date}
                 onChange={e => setDraftField('filing_date', e.target.value)}
               />
@@ -610,16 +654,21 @@ export default function CaseDetailPage() {
           </>
         )}
 
-        <div className="pt-[12px] mt-[4px] border-t border-border-1">
+        <div className="pt-[14px] mt-[6px] border-t border-border-1">
           {editing ? (
             <div className="flex items-center gap-[12px]">
-              <Button onClick={saveEdit}>Save Changes</Button>
+              <button
+                onClick={saveEdit}
+                className="text-[11.5px] font-bold px-[14px] py-[5px] rounded-sm bg-ink text-white hover:bg-[#2e2b27] transition-colors"
+              >
+                Save Changes
+              </button>
               <button onClick={cancelEdit} className="text-[12px] font-medium text-text-3 hover:text-text-1 transition-colors">
                 Cancel
               </button>
             </div>
           ) : (
-            <button onClick={handleDelete} className="text-[11.5px] font-medium text-red-500 hover:text-red-700 transition-colors">
+            <button onClick={handleDelete} className="text-[11.5px] font-medium text-red-400 hover:text-red-600 transition-colors">
               Delete this case
             </button>
           )}

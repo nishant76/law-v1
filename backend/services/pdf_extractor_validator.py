@@ -64,41 +64,13 @@ def _is_past_date(date_str: str) -> bool:
 def _is_dismissed(extracted: dict) -> bool:
     """
     Return True if this document represents a dismissed/rejected order.
-    Checks multiple field names since GPT-5.2 uses dynamic field naming.
+    Reads the structured case_outcome field set by the LLM.
     """
-    identity = extracted.get("identity_fields", {})
-
-    # All field names GPT-5.2 might use for the outcome/relief field
-    fields_to_check = [
-        "relief_type", "outcome", "final_decision",
-        "result", "order_type", "disposal", "decision",
-        "relief_granted", "order_outcome"
-    ]
-
-    combined = ""
-    for field in fields_to_check:
-        field_data = identity.get(field, {})
-        val = (
-            field_data.get("value", "") or ""
-            if isinstance(field_data, dict)
-            else str(field_data or "")
-        )
-        combined += " " + val.lower()
-
-    # Also check summary — always present and reliable
-    combined += " " + (
-        extracted.get("summary", {}).get("value", "") or ""
-    ).lower()
-
-    # Also check primary_objective — sometimes contains outcome language
-    combined += " " + (
-        extracted.get("primary_objective", {}).get("value", "") or ""
-    ).lower()
-
-    dismiss_words = ("dismiss", "dismissed", "rejection", "rejected",
-                     "refused", "upheld cat", "petition fails",
-                     "no merit")
-    return any(word in combined for word in dismiss_words)
+    outcome = extracted.get("case_outcome")
+    if outcome is not None:
+        return outcome == "dismissed"
+    # Fallback for extractions predating the case_outcome field
+    return False
 
 
 DATE_FIELDS = [
@@ -159,21 +131,16 @@ def validate_and_correct(extracted: dict, document_text: str = "") -> dict:
 
     extracted["identity_fields"] = identity
 
-    # STEP 3 — Clear stale deadlines and action items on dismissed cases
+    # STEP 3 — On dismissed cases, remove any deadline/action the LLM
+    # mistakenly marked as future or non-court-decision
     if _is_dismissed(extracted):
         extracted["critical_deadlines"] = [
             d for d in extracted.get("critical_deadlines", [])
-            if (
-                d.get("date") and
-                not _is_past_date(d.get("date", ""))
-            )
+            if d.get("is_future") is True
         ]
         extracted["action_items"] = [
             item for item in extracted.get("action_items", [])
-            if (
-                item.get("by_when") and
-                not _is_past_date(item.get("by_when", ""))
-            )
+            if not item.get("is_court_decision", False)
         ]
 
     # STEP 4 — Return

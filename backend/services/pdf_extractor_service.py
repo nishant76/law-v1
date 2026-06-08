@@ -15,7 +15,7 @@ import json
 import re
 import uuid
 import asyncio
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -146,6 +146,82 @@ class PDFExtractorService:
             raise RuntimeError(f"Field extraction failed: {exc}") from exc
 
         return {"document_id": "direct", **parsed}, safe_text
+
+
+    async def extract_fields_stream(
+        self,
+        file_bytes: bytes,
+        file_ext: str,
+        firm_id: str,
+    ) -> AsyncGenerator[dict, None]:
+        """
+        Stream extraction events for the upload/stream endpoint.
+
+        Yields dicts that the endpoint serialises as SSE:
+          {"type": "progress", "stage": "reading",   "message": "..."}
+          {"type": "progress", "stage": "analysing", "message": "..."}
+          {"type": "progress", "stage": "generating","pct": 0-100}
+          {"type": "result",   "data": {...}, "raw_text": "..."}
+        """
+        ft = file_ext.lower().lstrip(".")
+
+        # ── 1. Extract text ───────────────────────────────────────────────────
+        yield {"type": "progress", "stage": "reading", "message": "Reading document…"}
+        try:
+            if ft == "pdf":
+                from pypdf import PdfReader
+                reader = PdfReader(io.BytesIO(file_bytes))
+                pages = [page.extract_text() or "" for page in reader.pages]
+                raw_text = "\n".join(pages).strip()
+                if not raw_text:
+                    raise ValueError(
+                        "PDF appears to be a scanned image — no selectable text found."
+                    )
+            elif ft == "docx":
+                from docx import Document as DocxDocument
+                doc_obj = DocxDocument(io.BytesIO(file_bytes))
+                raw_text = "\n".join(p.text for p in doc_obj.paragraphs).strip()
+            else:
+                raise ValueError(f"Unsupported file type '{ft}'.")
+        except ValueError:
+            raise
+        except Exception as exc:
+            logger.error(f"Text extraction failed for {ft}: {exc}")
+            raise RuntimeError(f"Could not read file: {exc}") from exc
+
+        # ── 2. Start LLM stream ───────────────────────────────────────────────
+        yield {"type": "progress", "stage": "analysing", "message": "Analysing with AI…"}
+
+        safe_text = sanitise_document_text(raw_text)
+        user_prompt = pdf_extractor_prompt.format_user_prompt(document_text=safe_text)
+
+        full_text = ""
+        # Approximate expected tokens to drive a progress %
+        # Typical response: ~2 000 tokens. We emit a progress event every 200 chars (~50 tokens).
+        EXPECTED_CHARS = 8_000  # ~2 000 tokens × ~4 chars/token
+        FLUSH_EVERY = 200
+        buffered = 0
+
+        async for chunk in self._llm.call_completion_stream(
+            system_prompt=pdf_extractor_prompt.system_prompt,
+            user_prompt=user_prompt,
+            model=LLMModelType(pdf_extractor_prompt.model.value),
+            temperature=0.0,
+            max_tokens=pdf_extractor_prompt.max_tokens,
+            firm_id=firm_id,
+        ):
+            full_text += chunk
+            buffered += len(chunk)
+            if buffered >= FLUSH_EVERY:
+                pct = min(int(len(full_text) / EXPECTED_CHARS * 100), 95)
+                yield {"type": "progress", "stage": "generating", "pct": pct}
+                buffered = 0
+
+        # ── 3. Parse and validate ─────────────────────────────────────────────
+        parsed = _parse_llm_json(full_text, "stream_extract")
+        validated = validate_and_correct(parsed, document_text=safe_text)
+
+        yield {"type": "result", "data": validated, "raw_text": raw_text}
 
 
 _pdf_extractor_service: Optional[PDFExtractorService] = None

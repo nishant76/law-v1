@@ -62,7 +62,16 @@ function paymentTag(c: LegalCase) {
   return null
 }
 
-// ── Case Card ─────────────────────────────────────────────────────────────────
+// ── Status dot colour ─────────────────────────────────────────────────────────
+
+const STATUS_DOT: Record<CaseStatus, string> = {
+  active:   'bg-green shadow-[0_0_0_3px_rgba(22,163,74,0.18)]',
+  disposed: 'bg-text-3',
+  stayed:   'bg-amber shadow-[0_0_0_3px_rgba(180,83,9,0.18)]',
+  settled:  'bg-blue shadow-[0_0_0_3px_rgba(29,78,216,0.18)]',
+}
+
+// ── Case Row ──────────────────────────────────────────────────────────────────
 
 function CaseCard({ c }: { c: LegalCase }) {
   const navigate = useNavigate()
@@ -71,54 +80,40 @@ function CaseCard({ c }: { c: LegalCase }) {
   return (
     <div
       onClick={() => navigate(`/cases/${c.id}`)}
-      className="bg-white border border-border-1 rounded-DEFAULT px-[14px] py-[12px] cursor-pointer hover:border-border-2 hover:shadow-[0_1px_8px_rgba(0,0,0,0.06)] transition-all"
+      className="flex items-center gap-[14px] px-[14px] py-[13px] border-b border-border-1 cursor-pointer hover:bg-surface-2 transition-colors group last:border-b-0"
     >
-      <div className="flex items-start justify-between gap-[12px]">
-        <div className="flex-1 min-w-0">
-          {/* Title row */}
-          <div className="flex items-center gap-[8px] flex-wrap">
-            <span className="text-[13px] font-semibold text-text-1 truncate max-w-[380px]">{c.title}</span>
-            <span className={`text-[9.5px] font-bold px-[6px] py-[1px] rounded-full flex-shrink-0 ${STATUS_CLS[c.status]}`}>
-              {STATUS_LABEL[c.status]}
-            </span>
-            <span className="text-[9.5px] font-medium px-[6px] py-[1px] rounded-full bg-surface-3 text-text-3 flex-shrink-0">
-              {MATTER_LABEL[c.matter_type]}
-            </span>
-          </div>
-          {/* Subtitle row */}
-          <div className="flex items-center gap-[6px] mt-[4px] flex-wrap">
-            <span className="text-[11.5px] text-text-3">{c.court}</span>
-            {c.case_number && (
-              <>
-                <span className="text-text-3 text-[10px]">·</span>
-                <span className="text-[11px] text-text-3 font-mono">{c.case_number}</span>
-              </>
-            )}
-          </div>
-          {/* Meta row */}
-          <div className="flex items-center gap-[10px] mt-[6px] flex-wrap">
-            {client && (
-              <span className="text-[11px] text-text-2">
-                👤 {client.name}
-              </span>
-            )}
-            {c.next_hearing && (
-              <>
-                <span className="text-text-3 text-[10px]">·</span>
-                <span className="text-[11px] text-text-3">📅</span>
-                {hearingChip(c.next_hearing)}
-              </>
-            )}
-            {paymentTag(c) && (
-              <>
-                <span className="text-text-3 text-[10px]">·</span>
-                {paymentTag(c)}
-              </>
-            )}
-          </div>
+      {/* Status dot */}
+      <span className={`w-[8px] h-[8px] rounded-full flex-shrink-0 ${STATUS_DOT[c.status]}`} />
+
+      {/* Main info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-[8px] mb-[2px]">
+          <span className="text-[13px] font-semibold text-text-1 truncate">{c.title}</span>
+          <span className="text-[9.5px] font-medium px-[5px] py-[1px] rounded-full bg-surface-3 text-text-3 flex-shrink-0 hidden sm:inline">
+            {MATTER_LABEL[c.matter_type]}
+          </span>
         </div>
-        <div className="text-text-3 text-[16px] flex-shrink-0 mt-[2px]">›</div>
+        <div className="flex items-center gap-[6px] text-[11px] text-text-3 flex-wrap">
+          <span>{c.court}</span>
+          {c.case_number && (
+            <><span>·</span><span className="font-mono">{c.case_number}</span></>
+          )}
+          {client && (
+            <><span>·</span><span className="text-text-2">{client.name}</span></>
+          )}
+        </div>
       </div>
+
+      {/* Right side — hearing + fee */}
+      <div className="flex flex-col items-end gap-[3px] flex-shrink-0">
+        {c.next_hearing
+          ? hearingChip(c.next_hearing)
+          : <span className="text-[11px] text-text-3">No hearing set</span>
+        }
+        {paymentTag(c)}
+      </div>
+
+      <span className="text-text-3 text-[15px] group-hover:text-text-2 transition-colors flex-shrink-0">›</span>
     </div>
   )
 }
@@ -209,7 +204,7 @@ export default function CasesPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-[7px]">
+        <div className="bg-white border border-border-1 rounded-DEFAULT overflow-hidden">
           {filtered.map(c => <CaseCard key={c.id} c={c} />)}
         </div>
       )}

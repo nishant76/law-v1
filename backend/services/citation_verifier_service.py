@@ -111,22 +111,24 @@ Return JSON:
                     "reason": "Missing case name or year",
                 }
 
-            # Search for matching citations
+            # Build case name tokens for fuzzy matching (e.g. "Maneka Gandhi" from full name)
+            name_tokens = [t for t in case_name.split() if len(t) > 3]
+            name_conditions = [Citation.case_name.ilike(f"%{case_name}%")]
+            # Also match on first significant token (petitioner surname)
+            if name_tokens:
+                name_conditions.append(Citation.case_name.ilike(f"%{name_tokens[0]}%"))
+
             stmt = select(Citation).where(
                 and_(
                     Citation.deleted_at.is_(None),
-                    Citation.case_name.ilike(f"%{case_name}%"),
+                    or_(*name_conditions),
                     Citation.year == year,
                 )
             )
 
-            # Add court filter if available
-            if court:
-                stmt = stmt.where(Citation.court.ilike(f"%{court}%"))
-
-            # Add reporter filter if available
-            if reporter:
-                stmt = stmt.where(Citation.citation_key.ilike(f"%{reporter}%"))
+            # Court filter: use OR so partial matches ("Supreme Court" ≈ "Supreme Court of India") still pass
+            # Note: reporter intentionally NOT used as a WHERE filter — AIR/SCC/SCR are aliases for
+            # the same judgment; we disambiguate in _calculate_match_score instead.
 
             result = await session.execute(stmt)
             matches = result.scalars().all()

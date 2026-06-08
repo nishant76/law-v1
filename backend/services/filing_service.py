@@ -37,6 +37,7 @@ class FilingService:
         facts: str,
         relief: str,
         session: AsyncSession,
+        user_selected_citations: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Generate a strategic filing with citation verification and quality scoring
@@ -57,10 +58,23 @@ class FilingService:
         try:
             logger.info(f"Generating {filing_type} filing for {client_name} with objective: {objective}")
 
-            # Fetch relevant verified citations
-            verified_citations = await self._fetch_relevant_citations(
+            # Fetch relevant verified citations from DB
+            db_citations = await self._fetch_relevant_citations(
                 filing_type, objective, court, facts, session
             )
+
+            # Merge user-selected citations (priority) with DB-fetched ones
+            if user_selected_citations:
+                # User-selected go first so the LLM knows to prioritise them
+                verified_citations = user_selected_citations + [
+                    c for c in db_citations if c not in user_selected_citations
+                ]
+                logger.info(
+                    f"Using {len(user_selected_citations)} user-selected + "
+                    f"{len(db_citations)} DB citations for {filing_type}"
+                )
+            else:
+                verified_citations = db_citations
 
             # Generate draft using GPT-4o
             draft_data = await self._generate_draft_with_ai(
@@ -269,9 +283,17 @@ class FilingService:
             )
 
             # Parse JSON response
-            import json
-            draft_data = json.loads(response_text)
+            import json, re
+            if not response_text or not response_text.strip():
+                raise ValueError("LLM returned an empty response — check API key quota or model availability")
 
+            # Strip markdown fences if present
+            cleaned = response_text.strip()
+            if cleaned.startswith("```"):
+                cleaned = re.sub(r"^```[a-z]*\n?", "", cleaned)
+                cleaned = re.sub(r"\n?```$", "", cleaned.strip()).strip()
+
+            draft_data = json.loads(cleaned)
             logger.info(f"Generated draft with {len(draft_data.get('citations_used', []))} citations used")
             return draft_data
 

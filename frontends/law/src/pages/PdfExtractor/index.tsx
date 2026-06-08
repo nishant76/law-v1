@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import DropZone from '@/components/ui/DropZone'
 import Button from '@/components/ui/Button'
@@ -76,21 +76,13 @@ function toLabel(key: string) {
 
 function isAmber(confidence: number) { return confidence > 0 && confidence < AMBER }
 
-// Splits a string into bullet sentences.
-// Merges short orphan fragments (< 20 chars) into the next sentence
-// so "In CWP No." + "39633..." stays as one bullet.
-function splitSentences(text: string): string[] {
-  const raw = text.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean)
-  const merged: string[] = []
-  for (let i = 0; i < raw.length; i++) {
-    if (raw[i].length < 20 && i + 1 < raw.length) {
-      // Merge short fragment with next
-      raw[i + 1] = raw[i] + ' ' + raw[i + 1]
-    } else {
-      merged.push(raw[i])
-    }
-  }
-  return merged.filter(s => s.length > 4)
+// Convert summary.value (string[] from new backend, legacy string from history)
+// into a bullet array — no regex splitting needed.
+function toSummaryBullets(value: string[] | string | null | undefined): string[] {
+  if (!value) return []
+  if (Array.isArray(value)) return value.filter(s => s?.length > 0)
+  // Legacy: single string from old localStorage history — treat as one bullet
+  return value.trim() ? [value.trim()] : []
 }
 
 function isLegalDocument(extraction: UniversalExtraction) {
@@ -102,27 +94,14 @@ const LEGAL_NARRATIVE_KEYS = new Set([
   'key_issue', 'outcome', 'key_legal_question',
 ])
 
-// Detect if an action item is a court decision (not a lawyer/party task)
+// Court decisions are flagged by the LLM — no string matching needed
 function isCourtDecision(item: ExtractionActionItem): boolean {
-  const who = (item.by_whom || '').toLowerCase()
-  const action = (item.action || '').toLowerCase()
-  return (
-    who.includes('high court') ||
-    who.includes('court') ||
-    action.startsWith('dismiss') ||
-    action.startsWith('uphold') ||
-    action.startsWith('reject') ||
-    action.startsWith('allow the petition') ||
-    action.startsWith('quash')
-  )
+  return item.is_court_decision === true
 }
 
-// Detect if a deadline date is in the past
-function isPastDate(dateStr: string): boolean {
-  if (!dateStr || dateStr.toLowerCase().startsWith('relative')) return false
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return false
-  return d < new Date()
+// Future deadlines are flagged by the LLM — no date math needed
+function isFutureDeadline(item: ExtractionDeadline): boolean {
+  return item.is_future === true
 }
 
 // ── Primitive renderers ───────────────────────────────────────────────────────
@@ -260,7 +239,7 @@ function BackgroundBullets({ background }: { background: string[] | string | nul
 // Full case_narrative layout (used when backend returns the new field)
 function CaseNarrativeSection({ narrative, summaryValue }: {
   narrative: ExtractionCaseNarrative
-  summaryValue?: string | null
+  summaryValue?: string[] | string | null
 }) {
   const hasBackground = Array.isArray(narrative.background)
     ? (narrative.background?.length ?? 0) > 0
@@ -314,10 +293,10 @@ function CaseNarrativeSection({ narrative, summaryValue }: {
         )}
 
         {/* Decision */}
-        {summaryValue && (
+        {toSummaryBullets(summaryValue).length > 0 && (
           <div>
             <SubHeader>Decision</SubHeader>
-            <BulletList items={splitSentences(summaryValue)} />
+            <BulletList items={toSummaryBullets(summaryValue)} />
           </div>
         )}
 
@@ -335,19 +314,19 @@ function LegalSummarySection({ extraction }: { extraction: UniversalExtraction }
   const fields = extraction.identity_fields ?? {}
   const keyIssue = (fields.key_issue?.value || fields.key_legal_question?.value) as string | null
   const outcome = fields.outcome?.value as string | null
-  const summaryText = extraction.summary?.value
+  const summaryBullets = toSummaryBullets(extraction.summary?.value)
 
-  if (!keyIssue && !outcome && !summaryText) return null
+  if (!keyIssue && !outcome && !summaryBullets.length) return null
 
   return (
     <div className="px-4 py-[14px] border-b border-border-1">
       <SectionTitle>Case Story</SectionTitle>
       <div className="space-y-[14px]">
 
-        {summaryText && (
+        {summaryBullets.length > 0 && (
           <div>
             <SubHeader>What Happened</SubHeader>
-            <BulletList items={splitSentences(summaryText)} />
+            <BulletList items={summaryBullets} />
           </div>
         )}
 
@@ -367,8 +346,14 @@ function LegalSummarySection({ extraction }: { extraction: UniversalExtraction }
 
 // ── Section renderers ─────────────────────────────────────────────────────────
 
-// Skips keys rendered in Case Story or that are redundant
-const LEGAL_SKIP_KEYS = new Set(['key_issue', 'key_legal_question', 'outcome'])
+// Skips keys rendered in Case Story or already shown in the Parties section
+const LEGAL_SKIP_KEYS = new Set([
+  'key_issue', 'key_legal_question', 'outcome',
+  // Party fields — rendered in StakeholdersSection, not in Key Details
+  'petitioner', 'respondent', 'respondents', 'appellant',
+  'petitioner_description', 'respondent_description',
+  'appellant_description', 'respondent_name', 'petitioner_name',
+])
 
 function IdentityFieldsSection({ fields, skipKeys }: {
   fields: Record<string, ExtractionIdentityField>
@@ -405,7 +390,6 @@ function StakeholdersSection({ items }: { items: ExtractionStakeholder[] }) {
             <div className="flex items-baseline gap-[8px] mb-[2px] flex-wrap">
               <span className="text-[12.5px] font-semibold text-text-1">{s.name}</span>
               <span className="text-[11px] text-text-3">{s.role}</span>
-              <AmberBadge confidence={s.confidence} />
             </div>
             {s.obligations && (
               <p className="text-[12px] text-text-2 leading-[1.5]">{s.obligations}</p>
@@ -419,7 +403,7 @@ function StakeholdersSection({ items }: { items: ExtractionStakeholder[] }) {
 
 function DeadlinesSection({ items }: { items: ExtractionDeadline[] }) {
   // Only show future actionable deadlines
-  const filtered = (items ?? []).filter(d => d.label && !isPastDate(d.date))
+  const filtered = (items ?? []).filter(d => d.label && isFutureDeadline(d))
   if (!filtered.length) return null
   return (
     <Section title="Deadlines">
@@ -465,6 +449,7 @@ function ConstraintsSection({ items }: { items: ExtractionConstraint[] }) {
 function ActionItemsSection({ items }: { items: ExtractionActionItem[] }) {
   // Filter out court decisions — only show future tasks for lawyer or parties
   const filtered = (items ?? []).filter(a => a.action && !isCourtDecision(a))
+
   if (!filtered.length) return null
   return (
     <Section title="Action Items">
@@ -560,13 +545,13 @@ function ExtractionContent({ extraction }: { extraction: UniversalExtraction }) 
     <div>
       <Section title="Summary">
         <div className="space-y-[10px]">
-          {extraction.summary?.value && (
+          {toSummaryBullets(extraction.summary?.value).length > 0 && (
             <div>
               <div className="flex items-center mb-[5px]">
                 <span className="text-[11px] font-bold text-text-2">What happened</span>
                 <AmberBadge confidence={extraction.summary.confidence} />
               </div>
-              <BulletList items={splitSentences(extraction.summary.value)} />
+              <BulletList items={toSummaryBullets(extraction.summary.value)} />
             </div>
           )}
           {extraction.primary_objective?.value && (
@@ -592,6 +577,13 @@ function ExtractionContent({ extraction }: { extraction: UniversalExtraction }) 
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+// Loading stage labels shown to the user
+const STAGE_LABELS: Record<string, string> = {
+  reading:   'Reading document…',
+  analysing: 'Analysing with AI…',
+  generating:'Extracting fields…',
+}
+
 export default function PdfExtractorPage() {
   const [filename, setFilename] = useState('')
   const [extraction, setExtraction] = useState<UniversalExtraction | null>(null)
@@ -599,31 +591,19 @@ export default function PdfExtractorPage() {
   const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([])
   const [question, setQuestion] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
+  const [loadingStage, setLoadingStage] = useState<string | null>(null)
+  const [loadingPct, setLoadingPct] = useState(0)
   const chatBottomRef = useRef<HTMLDivElement>(null)
+
+  const isExtracting = loadingStage !== null
+
+  // Chat still uses React Query mutation
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMsgs])
 
   useEffect(() => { setChatMsgs([]) }, [documentId])
-
-  const extractMutation = useMutation({
-    mutationFn: (file: File) => extractFromUpload(file),
-    onSuccess: ({ data }, file) => {
-      if (!data.success || !data.data) {
-        toast(data.error?.message || 'Extraction failed. Check file format and try again.')
-        setFilename('')
-        return
-      }
-      const result = data.data as UniversalExtraction
-      setFilename(file.name)
-      setExtraction(result)
-      saveToHistory(file.name, result)
-      setHistory(loadHistory())
-      setDocumentId(result.document_id ?? null)
-    },
-    onError: () => toast('Extraction failed. Check file format and try again.'),
-  })
 
   const chatMutation = useMutation({
     mutationFn: ({ id, msgs }: { id: string; msgs: ChatMsg[] }) =>
@@ -637,21 +617,56 @@ export default function PdfExtractorPage() {
     onError: () => toast('Could not get an answer. Try again.'),
   })
 
-  const handleFile = (file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     if (file.size > 50 * 1024 * 1024) { toast('File too large — max 50MB'); return }
     setFilename(file.name)
     setExtraction(null)
     setDocumentId(null)
     setChatMsgs([])
-    extractMutation.mutate(file)
-  }
+    setLoadingStage('reading')
+    setLoadingPct(0)
+
+    // Timer-based stage simulation while the API call runs
+    const stageTimer1 = setTimeout(() => setLoadingStage('analysing'), 2000)
+    const stageTimer2 = setTimeout(() => { setLoadingStage('generating'); setLoadingPct(10) }, 5000)
+
+    // Tick progress % from 10 → 90 while in generating stage (~1 second per tick)
+    let pct = 10
+    const pctInterval = setInterval(() => {
+      pct = Math.min(pct + 3, 90)
+      setLoadingPct(pct)
+    }, 1000)
+
+    const clearTimers = () => {
+      clearTimeout(stageTimer1)
+      clearTimeout(stageTimer2)
+      clearInterval(pctInterval)
+    }
+
+    try {
+      const resp = await extractFromUpload(file)
+      clearTimers()
+      const result = resp.data.data as UniversalExtraction
+      setExtraction(result)
+      saveToHistory(file.name, result)
+      setHistory(loadHistory())
+      setDocumentId(result.document_id ?? null)
+      setLoadingStage(null)
+      setLoadingPct(0)
+    } catch {
+      clearTimers()
+      toast('Extraction failed. Check file format and try again.')
+      setFilename('')
+      setLoadingStage(null)
+    }
+  }, [])
 
   const handleLoadHistory = (entry: HistoryEntry) => {
     setFilename(entry.filename)
     setExtraction(entry.extraction)
     setDocumentId(null)
     setChatMsgs([])
-    extractMutation.reset()
+    setLoadingStage(null)
   }
 
   const handleDeleteHistory = (e: React.MouseEvent, id: string) => {
@@ -673,29 +688,40 @@ export default function PdfExtractorPage() {
     setExtraction(null)
     setDocumentId(null)
     setChatMsgs([])
-    extractMutation.reset()
+    setLoadingStage(null)
+    setLoadingPct(0)
   }
 
   // ── Landing screen ────────────────────────────────────────────────────────
 
-  if (!filename || (!extractMutation.isPending && !extraction)) {
+  if (!filename || (!isExtracting && !extraction)) {
     return (
       <div className="max-w-[520px] mx-auto mt-9 px-2">
         <DropZone onFile={handleFile} />
 
-        {extractMutation.isPending && (
-          <div className="mt-4 text-center">
-            <div className="inline-flex items-center gap-2 text-[12px] text-text-2">
-              <svg className="animate-spin h-4 w-4 text-ink" viewBox="0 0 24 24" fill="none">
+        {isExtracting && (
+          <div className="mt-5">
+            {/* Stage label */}
+            <div className="flex items-center justify-center gap-2 text-[12px] text-text-2 mb-3">
+              <svg className="animate-spin h-4 w-4 text-ink flex-shrink-0" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
               </svg>
-              Analysing {filename}…
+              {STAGE_LABELS[loadingStage!] ?? 'Processing…'}
             </div>
+            {/* Progress bar — visible during generating stage */}
+            {loadingStage === 'generating' && loadingPct > 0 && (
+              <div className="w-full bg-surface-3 rounded-full h-[3px] overflow-hidden">
+                <div
+                  className="bg-ink h-[3px] rounded-full transition-all duration-300"
+                  style={{ width: `${loadingPct}%` }}
+                />
+              </div>
+            )}
           </div>
         )}
 
-        {history.length > 0 && !extractMutation.isPending && (
+        {history.length > 0 && !isExtracting && (
           <div className="mt-6">
             <div className="text-[9.5px] font-bold tracking-[0.6px] uppercase text-text-3 mb-[8px]">
               Recently Extracted
@@ -757,13 +783,26 @@ export default function PdfExtractorPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {extractMutation.isPending ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3">
+          {isExtracting ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
               <svg className="animate-spin h-5 w-5 text-text-3" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
               </svg>
-              <div className="text-[12px] text-text-3">Analysing document…</div>
+              <div className="text-[12px] text-text-2 font-medium">
+                {STAGE_LABELS[loadingStage!] ?? 'Processing…'}
+              </div>
+              {loadingStage === 'generating' && loadingPct > 0 && (
+                <div className="w-full max-w-[200px]">
+                  <div className="w-full bg-surface-3 rounded-full h-[3px] overflow-hidden">
+                    <div
+                      className="bg-ink h-[3px] rounded-full transition-all duration-300"
+                      style={{ width: `${loadingPct}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-text-3 text-center mt-1">{loadingPct}%</div>
+                </div>
+              )}
             </div>
           ) : extraction ? (
             <ExtractionContent extraction={extraction} />

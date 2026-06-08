@@ -77,11 +77,21 @@ export interface OwnFileResult {
   result_type: string
 }
 
+export interface SearchAnalysis {
+  trend?: string
+  winning_factors: string[]
+  risk_factors: string[]
+  strongest_case?: string
+  practical_advice?: string
+  relevance_per_case?: Record<string, string>
+}
+
 export interface UnifiedSearchResponse {
   success: boolean
   query: string
   from_your_files: OwnFileResult[]
   from_public_judgments: PublicJudgmentResult[]
+  overall_analysis?: SearchAnalysis | null
   total_results: number
   duration_ms: number
 }
@@ -128,6 +138,7 @@ export interface ExtractionDeadline {
   date: string
   consequence: string | null
   confidence: number
+  is_future: boolean   // set by LLM — true = action still required
 }
 
 export interface ExtractionConstraint {
@@ -142,6 +153,7 @@ export interface ExtractionActionItem {
   by_whom: string | null
   by_when: string | null
   priority: 'Urgent' | 'High' | 'Normal'
+  is_court_decision: boolean  // true = past court ruling, not a future task
 }
 
 export interface ExtractionCitation {
@@ -225,9 +237,10 @@ export interface UniversalExtraction {
     confidence: number
   }
   identity_fields: Record<string, ExtractionIdentityField>
-  summary: { value: string | null; confidence: number }
+  summary: { value: string[] | string | null; confidence: number }
   primary_objective: { value: string | null; confidence: number }
   case_narrative?: ExtractionCaseNarrative | null
+  case_outcome: 'allowed' | 'dismissed' | 'pending' | null
   key_stakeholders: ExtractionStakeholder[]
   critical_deadlines: ExtractionDeadline[]
   constraints_and_risks: ExtractionConstraint[]

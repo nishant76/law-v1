@@ -1,5 +1,5 @@
 # CLAUDE.md — Nikhar Platform
-# Last Updated: April 2026 (v3 — competitor update + prompt engineering added)
+# Last Updated: June 2026 (v4 — frontend design system, search timeout fixes, UI patterns)
 # Read this file completely before writing any code.
 
 ## GIT WORKFLOW — READ FIRST
@@ -71,10 +71,12 @@ nikhar/
 
 ### Frontend
 - Framework:   React 18
-- Styling:     TailwindCSS
-- Server state: React Query
+- Styling:     TailwindCSS (custom design tokens — see FRONTEND DESIGN SYSTEM below)
+- Server state: TanStack Query v5 (@tanstack/react-query ^5.80.2)
 - UI state:    Zustand
+- Routing:     React Router v6
 - Target:      1366x768 optimised
+- Fonts:       Plus Jakarta Sans (body), Fraunces (serif headings)
 
 ### AI / LLM
 - Drafting:    GPT-4o (Azure OpenAI) — expensive, use only for filing drafts
@@ -92,6 +94,211 @@ nikhar/
 - WhatsApp:    WhatsApp Business API (Meta official) — client reminders
 - Monitoring:  Azure Application Insights
 - CI/CD:       GitHub Actions → Azure App Service
+
+---
+
+## FRONTEND DESIGN SYSTEM
+
+### Design Language
+The Nikhar UI follows a "legal document + modern tool" aesthetic:
+- Warm off-white background (`#F8F7F4`) — not clinical white
+- Dark sidebar with gold accents — high contrast, professional
+- Card-less content sections — hairline dividers only, no white card boxes
+- Flow-guided navigation labels (action-oriented, not feature-named)
+
+### Tailwind Custom Tokens (tailwind.config.ts)
+```
+Colors:
+  bg / paper:       #F8F7F4     (warm off-white page background)
+  sidebar:          #111827     (dark sidebar background)
+  sidebar-hover:    #1f2937
+  ink:              #1C1A16     (primary text / CTA buttons)
+  gold.DEFAULT:     #C9A84C     (active nav, save buttons, logo mark)
+  gold.bg:          #FDF6E3
+  gold.muted:       rgba(201,168,76,0.15)  (active nav highlight)
+  text.1:           #1C1A16     (primary text)
+  text.2:           #6A6760     (secondary text)
+  text.3:           #A09C95     (muted / labels)
+  border.1:         #E5E3DD     (default dividers)
+  border.2:         #C8C4BC     (input borders)
+  surface.2:        #F1F0EC
+  surface.3:        #E8E6E0
+  green.DEFAULT:    #15803D  /  green.bg: #F0FDF4
+  amber.DEFAULT:    #B45309  /  amber.bg: #FFFBEB
+  blue.DEFAULT:     #1D4ED8  /  blue.bg:  #EFF6FF
+
+Animations:
+  pulseDot:         2s ease-in-out infinite — opacity + scale pulse
+                    Used on active/stayed status dots in case badges
+  fadeUp:           0.18s ease — subtle enter animation
+  progBar:          3.5s ease-out — AI usage bar fill
+
+Border radius:
+  DEFAULT: 10px  |  sm: 7px  |  icon: 6px  |  full: 9999px
+```
+
+### Sidebar Layout
+- `bg-sidebar` (#111827) dark background, 210px fixed width
+- Logo mark: gold rounded square with document SVG icon
+- Nav groups: WORKSPACE / DO / TRACK (uppercase 9px labels)
+  - WORKSPACE: Overview, My Cases
+  - DO: Draft a Filing, Find Judgments, Read a Document, Summarise Case, Reply to Notice
+  - TRACK: Hearings & Dates
+- Active state: `bg-gold-muted text-gold font-semibold` + absolute 3px gold left border
+- Inactive: `text-white/50` hover `text-white/80`
+- Footer: AI usage bar (gold fill) + user card with gold avatar ring + sign-out
+
+### Navigation Labels (flow-guided, not feature-named)
+```
+Route         Label
+/             Overview
+/cases        My Cases
+/draft        Draft a Filing
+/search       Find Judgments
+/pdf          Read a Document
+/synopsis     Summarise Case
+/reply        Reply to Notice
+/deadlines    Hearings & Dates
+/legal-process Legal Process Guide
+```
+
+### CaseDetail Page Pattern (dark hero + card-less sections)
+
+**Hero strip** (`bg-sidebar rounded-[10px]`):
+- Back button (ghost `text-white/40`) + Edit/Save button (top-right)
+  - Edit: `bg-white/10 text-white/70` ghost
+  - Save: `bg-gold text-sidebar` gold filled
+- Case title: `font-serif text-[21px] text-white`
+- Status badge + court · matter type · case number in `white/50`
+- 4-column stats grid on dark background with `1px` gap dividers
+  (Client, Next Hearing, Total Fees, Balance Due)
+  - Urgent/overdue values: `text-red-400`
+  - Positive (paid/no balance): `text-green-400`
+  - Normal: `text-white`
+
+**Section primitive** (card-less — NO white card borders):
+```tsx
+// CORRECT — hairline divider only
+<div className="border-t border-border-1 pt-[16px] pb-[20px]">
+  <div className="text-[10px] font-bold tracking-[1px] uppercase text-text-3 mb-[12px]">
+    {title}
+  </div>
+  {children}
+</div>
+
+// WRONG — do not use card styling for sections
+<div className="bg-white border border-border-1 rounded-DEFAULT ...">
+```
+
+**Party role chips** (coloured by role):
+```
+client:      bg-blue-bg text-blue border-blue/25
+opponent:    bg-red-50 text-red-600 border-red-200
+opp_counsel: bg-surface-3 text-text-2 border-border-1
+judge:       bg-purple-50 text-purple-700 border-purple-200
+witness:     bg-amber-bg text-amber border-amber/25
+other:       bg-surface-2 text-text-3 border-border-1
+```
+Each chip: `inline-flex items-center gap-[7px] border rounded-[6px] px-[10px] py-[6px]`
+Role label: `text-[9.5px] font-bold uppercase tracking-[0.5px] opacity-70`
+Name: `text-[12.5px] font-semibold`
+
+**Fees strip** (compact inline — not large stat boxes):
+```tsx
+<div className="inline-flex items-center divide-x divide-border-1 border border-border-1 rounded-sm">
+  <div className="px-[12px] py-[6px]">Agreed / Paid / Due</div>
+</div>
+```
+
+### Cases List Page (CaseCard pattern)
+- Single `bg-white border border-border-1 rounded-DEFAULT overflow-hidden` container
+- Each case is a row: status dot | title + matter chip | court · case# · client | hearing chip + fee tag | ›
+- Status dots with coloured glow shadows:
+  ```
+  active:   bg-green shadow-[0_0_0_3px_rgba(22,163,74,0.18)]
+  stayed:   bg-amber shadow-[0_0_0_3px_rgba(180,83,9,0.18)]
+  settled:  bg-blue  shadow-[0_0_0_3px_rgba(29,78,216,0.18)]
+  disposed: bg-text-3 (no shadow)
+  ```
+
+---
+
+## TANSTACK QUERY v5 — CRITICAL PATTERN
+
+TanStack Query v5 attaches an internal AbortController to every `useMutation`.
+In React 18 Strict Mode (double-render in dev), this AbortController fires
+immediately, cancelling in-flight requests before they complete.
+
+**NEVER use `useMutation` for search or any user-triggered API call
+that must not be cancelled.**
+
+Use plain `async/await` + `useState` instead:
+
+```typescript
+// CORRECT — plain async/await, no TQ5 mutation
+const [isPending, setIsPending] = useState(false)
+const [errorMsg, setErrorMsg] = useState<string | null>(null)
+const searchIdRef = useRef(0)   // stale-response guard
+
+const handleSearch = async () => {
+  const q = query.trim()
+  if (!q || isPending) return
+  const thisId = ++searchIdRef.current
+  setIsPending(true)
+  setErrorMsg(null)
+  try {
+    const resp = await unifiedSearch(q)
+    if (thisId !== searchIdRef.current) return   // ignore stale
+    // ...set results
+  } catch (err: unknown) {
+    if (thisId !== searchIdRef.current) return
+    setErrorMsg(err instanceof Error ? err.message : 'Search failed.')
+  } finally {
+    if (thisId === searchIdRef.current) setIsPending(false)
+  }
+}
+
+// WRONG — useMutation gets cancelled in React 18 Strict Mode dev
+const { mutate, isPending } = useMutation({ mutationFn: unifiedSearch })
+```
+
+Use `useMutation` only for fire-and-forget mutations where cancellation
+is acceptable (e.g. deleting a record, toggling a flag).
+
+---
+
+## SEARCH SERVICE — TIMEOUT ARCHITECTURE
+
+The unified search has layered timeouts to prevent hangs:
+
+```
+Layer 1 — Embedding (search_service.py):
+  asyncio.wait_for(embed_query(query), timeout=8.0)
+  On timeout/failure: falls back to [] (empty vector)
+  → search degrades to keyword-only, never hangs
+
+Layer 2 — Full search endpoint (api/search.py):
+  asyncio.wait_for(unified_search(...), timeout=25.0)
+  On asyncio.TimeoutError: returns HTTP 504 with clear message
+
+Layer 3 — Frontend (axios):
+  Browser timeout: 120 seconds (per GAP-043)
+  Error shown as red banner to user
+```
+
+Pattern in search_service.py:
+```python
+embed_result, expand_result = await asyncio.gather(
+    asyncio.wait_for(self.embed_query(query), timeout=8.0),
+    expand_query(query, use_llm=True),
+    return_exceptions=True,
+)
+query_vector = embed_result if isinstance(embed_result, list) else []
+expanded_queries = expand_result if isinstance(expand_result, list) else [query]
+```
+
+Never call `embed_query` or any Azure OpenAI call without a timeout.
+Never let a single Azure service call block the entire request indefinitely.
 
 ---
 
@@ -536,7 +743,13 @@ GAP-044: Health check endpoint on day one
 GAP-031: Never f-strings in SQL — parameterised only
 GAP-032: Never log PII — actions and IDs only
 GAP-035: Delete from Azure AI Search when document deleted
-GAP-043: Explicit timeouts — browser 120s, FastAPI 90s
+GAP-043: Explicit timeouts — RESOLVED for search:
+         embed_query: asyncio.wait_for timeout=8s (fallback to keyword)
+         search endpoint: asyncio.wait_for timeout=25s → HTTP 504
+         browser: 120s axios timeout (still to enforce app-wide)
+GAP-050: TanStack Query v5 AbortController — RESOLVED for search:
+         Replaced useMutation with plain async/await + searchIdRef guard
+         Rule: never use useMutation for user-triggered search/fetch calls
 ```
 
 ---

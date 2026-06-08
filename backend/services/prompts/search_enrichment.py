@@ -67,11 +67,12 @@ search_analysis_prompt = PromptTemplate(
         "Always respond in valid JSON only. "
         "Base your analysis ONLY on the provided cases. "
         "Never fabricate additional cases or facts. "
-        "Keep each field to 2 sentences maximum."
+        "Keep trend, strongest_case, and practical_advice to 2 sentences maximum. "
+        "Keep each relevance_per_case entry to 1 sentence — be specific to the search query."
     ),
     user_prompt_template=(
         "A lawyer has searched for: {query}\n\n"
-        "These are the most relevant judgments found:\n"
+        "These are the most relevant judgments found (each prefixed with its ID):\n"
         "{cases_summary}\n\n"
         "Provide a concise overall analysis in JSON:\n"
         "{{\n"
@@ -79,15 +80,21 @@ search_analysis_prompt = PromptTemplate(
         '  "winning_factors": ["factor 1", "factor 2", "factor 3"],\n'
         '  "risk_factors": ["risk 1", "risk 2"],\n'
         '  "strongest_case": "which single case best supports this query and why",\n'
-        '  "practical_advice": "one actionable insight for the lawyer"\n'
-        "}}"
+        '  "practical_advice": "one actionable insight for the lawyer",\n'
+        '  "relevance_per_case": {{\n'
+        '    "<case_id>": "one sentence: exactly why THIS case helps with the specific query",\n'
+        '    "<case_id>": "..."\n'
+        '  }}\n'
+        "}}\n\n"
+        "Use the exact IDs shown in the case list as keys in relevance_per_case."
     ),
     model=ModelType.GPT4O_MINI,
-    version="2026-04-19",
+    version="2026-05-14",
     temperature=0.0,
-    max_tokens=600,
+    max_tokens=1500,
     description=(
         "Generate an overall strategic analysis across all public judgment results "
-        "for a given search query. Called only when >= 3 results. Never cached."
+        "for a given search query. Includes per-case relevance keyed by citation ID. "
+        "Called only when >= 3 results. Never cached — always query-specific."
     ),
 )

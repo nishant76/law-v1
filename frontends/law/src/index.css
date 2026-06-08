@@ -4,7 +4,7 @@
 
 @layer base {
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: #F5F4F0; color: #1C1A16; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  html, body { height: 100%; background: #F8F7F4; color: #1C1A16; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
   #root { height: 100%; }
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-thumb { background: #E0DDD6; border-radius: 4px; }

@@ -13,8 +13,10 @@ Rules (CLAUDE.md):
 - Standardised response shape on every endpoint
 """
 import uuid
+import json
 import asyncio
 from fastapi import APIRouter, Depends, UploadFile, File, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -71,6 +73,7 @@ class ExtractionData(BaseModel):
     summary: dict
     primary_objective: dict
     case_narrative: Optional[dict] = None
+    case_outcome: Optional[str] = None
     key_stakeholders: list
     critical_deadlines: list
     constraints_and_risks: list
@@ -97,6 +100,7 @@ def _build_extraction_data(result: dict) -> ExtractionData:
         summary=result.get("summary", {}),
         primary_objective=result.get("primary_objective", {}),
         case_narrative=result.get("case_narrative"),
+        case_outcome=result.get("case_outcome"),
         key_stakeholders=result.get("key_stakeholders") or [],
         critical_deadlines=result.get("critical_deadlines") or [],
         constraints_and_risks=result.get("constraints_and_risks") or [],
@@ -234,6 +238,135 @@ async def extract_from_upload(
 
 
 @router.post(
+    "/upload/stream",
+    summary="Upload and extract with real-time SSE progress",
+)
+async def extract_from_upload_stream(
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Runs the extraction as a background asyncio task and sends heartbeat
+    SSE events every 2 seconds while it runs. Heartbeats force nginx/proxy
+    buffers to flush so the client sees stage updates immediately.
+
+    SSE event types:
+      progress  {"stage": "reading"|"analysing"|"generating", "message": str, "pct"?: int}
+      result    {"data": <ExtractionData dict>}
+      error     {"code": str, "message": str}
+      done      {}
+    """
+    MAX_BYTES = 50 * 1024 * 1024
+
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    file_bytes = await file.read()
+
+    def _sse(payload: dict) -> str:
+        # Pad to 256 bytes so proxies that buffer on minimum-chunk-size flush immediately
+        line = f"data: {json.dumps(payload)}"
+        padding = max(0, 256 - len(line) - 4)
+        return line + (" " * padding) + "\n\n"
+
+    async def generate():
+        if ext not in ("pdf", "docx"):
+            yield _sse({"type": "error", "code": "unsupported_format",
+                        "message": "Only PDF and DOCX files are supported."})
+            yield _sse({"type": "done"})
+            return
+
+        if len(file_bytes) > MAX_BYTES:
+            yield _sse({"type": "error", "code": "file_too_large",
+                        "message": "File exceeds 50 MB limit."})
+            yield _sse({"type": "done"})
+            return
+
+        # ── Fire extraction as a background task ─────────────────────────────
+        # This lets the generator keep running (heartbeats) while the LLM works.
+        service = get_pdf_extractor_service()
+        task = asyncio.create_task(
+            service.extract_fields_from_bytes(
+                file_bytes=file_bytes,
+                file_ext=ext,
+                firm_id=str(current_user.firm_id),
+            )
+        )
+
+        # Immediate first event — arrives at browser in < 1 s
+        yield _sse({"type": "progress", "stage": "reading",
+                    "message": "Reading document…"})
+
+        # Let the event loop hand control to the task for a moment
+        await asyncio.sleep(0.05)
+        yield _sse({"type": "progress", "stage": "analysing",
+                    "message": "Analysing with AI…"})
+
+        # ── Heartbeat loop — every 2 s until task completes ───────────────────
+        # Regular yields force nginx / any proxy to flush its write buffer.
+        elapsed = 0
+        EXPECTED_SECONDS = 35   # conservative estimate for progress %
+        while not task.done():
+            await asyncio.sleep(2)
+            elapsed += 2
+            pct = min(int(elapsed / EXPECTED_SECONDS * 100), 94)
+            yield _sse({"type": "progress", "stage": "generating",
+                        "message": "Extracting fields…", "pct": pct})
+
+        # ── Task finished — get result ────────────────────────────────────────
+        try:
+            result, raw_text = task.result()
+        except ValueError as exc:
+            yield _sse({"type": "error", "code": "validation_error", "message": str(exc)})
+            yield _sse({"type": "done"})
+            return
+        except Exception as exc:
+            logger.error(f"Stream extraction error user={current_user.user_id}: {exc}")
+            yield _sse({"type": "error", "code": "extraction_failed",
+                        "message": "Extraction failed. Please try again."})
+            yield _sse({"type": "done"})
+            return
+
+        # ── Persist for /extract/chat ─────────────────────────────────────────
+        try:
+            doc_service = get_document_service()
+            doc = await doc_service.store_document_in_db(
+                session=db,
+                firm_id=str(current_user.firm_id),
+                matter_id=None,
+                filename=file.filename or "upload",
+                file_type=ext,
+                file_size_bytes=len(file_bytes),
+                blob_path=f"extractor/{current_user.firm_id}/{file.filename}",
+                user_id=str(current_user.user_id),
+            )
+            await doc_service.update_document_indexed(
+                session=db,
+                document_id=str(doc.id),
+                chunk_count=0,
+                ocr_text=raw_text or "",
+            )
+            result["document_id"] = str(doc.id)
+        except Exception as exc:
+            logger.warning(f"Could not persist streamed doc for chat: {exc}")
+
+        extraction = _build_extraction_data(
+            {"document_id": result.get("document_id", "direct"), **result}
+        )
+        yield _sse({"type": "result", "data": extraction.model_dump()})
+        yield _sse({"type": "done"})
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",       # nginx: disable proxy buffering
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post(
     "/chat",
     response_model=ChatResponse,
     status_code=status.HTTP_200_OK,
@@ -266,12 +399,44 @@ async def chat_with_document(
         )
 
     safe_text = sanitise_document_text(doc.ocr_text)
+
+    # ── Context window: use full document text up to 100,000 chars ────────────
+    # GPT-4o-mini supports 128k tokens (~96k words / ~480k chars).
+    # Previous limit of 12,000 chars was cutting 11-page court orders in half —
+    # pages 5-11 (where legal analysis typically lives) were never seen.
+    # 100,000 chars comfortably fits any court document up to ~60 pages.
+    doc_context = safe_text[:100_000]
+
     system_prompt = (
-        "You are a document assistant for an Indian legal workspace. "
-        "Answer questions about the document below only. "
-        "Be concise and precise. Use correct legal terminology. "
-        "If the answer is not in the document say so explicitly — never guess.\n\n"
-        f"Document content:\n{safe_text[:12000]}"
+        "You are a senior legal research assistant for Indian lawyers practising in "
+        "Punjab, Haryana and Chandigarh courts.\n\n"
+        "You answer questions about the document provided below.\n\n"
+
+        "RULES:\n"
+        "1. CONCEPTUAL EQUIVALENCE — check whether the concept is present under "
+        "different terminology before saying not found.\n"
+        "   • 'vicarious liability'  = employer liable before MACT, recovery from "
+        "employee, Corporation paid compensation\n"
+        "   • 'natural justice'      = opportunity of hearing, show cause notice, "
+        "audi alteram partem\n"
+        "   • 'estoppel'             = cannot change stand, Section 115 Evidence Act\n"
+        "   • 'res judicata'         = matter already decided, cannot reopen\n"
+        "2. NEVER FABRICATE — do not infer beyond what the document states.\n"
+        "3. CITE THE DOCUMENT — mention paragraph, heading, or page when visible.\n"
+        "4. COMPLETELY UNRELATED question — set answer to the single sentence "
+        "'This document does not cover that topic.' and confidence to 0.\n\n"
+        "Always respond with valid JSON only. No markdown. No preamble.\n\n"
+        "Response format:\n"
+        "{\n"
+        '  "answer": "your answer here",\n'
+        '  "confidence": 8,\n'
+        '  "concept_found_as": "exact terminology the document uses, or null",\n'
+        '  "sources": [{"location": "para 5 / page 3 / heading X"}]\n'
+        "}\n\n"
+        "Confidence scale: 10=exact phrase present, 8=concept clearly present under "
+        "different term, 6=partially addressed, 4=tangential, 2=barely related, "
+        "0=not present or unrelated.\n\n"
+        f"Document content:\n{doc_context}"
     )
 
     # Keep last 10 messages to control token cost
@@ -280,11 +445,11 @@ async def chat_with_document(
 
     llm = get_llm_service()
     try:
-        answer = await asyncio.wait_for(
+        raw = await asyncio.wait_for(
             llm.call_chat_completion(
                 system_prompt=system_prompt,
                 messages=llm_messages,
-                model=ModelType.GPT52,
+                model=ModelType.GPT4O_MINI,
                 temperature=0.0,
                 max_tokens=1000,
                 firm_id=str(current_user.firm_id),
@@ -306,8 +471,25 @@ async def chat_with_document(
             meta={"request_id": _request_id(), "version": "v1"},
         )
 
+    # Parse structured JSON response — confidence comes from the model, not keyword scanning
+    import json as _json, re as _re
+    try:
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = _re.sub(r"^```[a-z]*\n?", "", cleaned)
+            cleaned = _re.sub(r"\n?```$", "", cleaned.strip())
+        parsed = _json.loads(cleaned)
+        answer = parsed.get("answer", raw)
+        confidence = int(parsed.get("confidence", 8))
+        sources = parsed.get("sources", [])
+    except Exception:
+        # LLM returned plain text — use as-is with neutral confidence
+        answer = raw
+        confidence = 8
+        sources = []
+
     return ChatResponse(
         success=True,
-        data=ChatData(answer=answer, confidence=8, sources=[]),
+        data=ChatData(answer=answer, confidence=confidence, sources=sources),
         meta={"request_id": _request_id(), "version": "v1"},
     )

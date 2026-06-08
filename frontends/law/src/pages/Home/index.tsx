@@ -26,19 +26,19 @@ interface SoonCard {
 
 const SOON_CARDS: SoonCard[] = [
   {
-    icon: '✦',
-    title: 'AI Legal Drafting',
-    desc: 'Draft bail applications, writs and notices with AI research side by side.',
-  },
-  {
-    icon: '⚡',
-    title: 'Strategic Filing Drafter',
-    desc: 'Win on merits, delay proceedings or challenge jurisdiction — strategy drives the draft.',
-  },
-  {
     icon: '📖',
     title: 'Legal Process Guide',
     desc: 'Step-by-step Punjab/Haryana procedures with court fees and limitation periods.',
+  },
+  {
+    icon: '📊',
+    title: 'Judge Analytics',
+    desc: 'Track judge tendencies across matter types at P&H HC and district courts.',
+  },
+  {
+    icon: '🔗',
+    title: 'eCourts Integration',
+    desc: 'Auto-pull next hearing dates directly from eCourts — no manual entry.',
   },
 ]
 
@@ -206,6 +206,14 @@ export default function HomePage() {
       title: 'Judgment Search',
       desc: 'Search SC and P&H HC judgments. Source-backed, verified citations instantly.',
       to: '/search',
+    },
+    {
+      icon: '✦',
+      iconBg: 'bg-surface-3',
+      accent: 'bg-ink',
+      title: 'Draft Filing',
+      desc: 'Search relevant judgments, pick citations, set strategy — draft generated in seconds.',
+      to: '/draft',
     },
   ]
 

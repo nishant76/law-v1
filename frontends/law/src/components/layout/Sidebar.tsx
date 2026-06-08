@@ -14,23 +14,87 @@ function useDeadlineBadge() {
   return urgent.length > 0 ? String(urgent.length) : undefined
 }
 
+// ── SVG icons ─────────────────────────────────────────────────────────────────
+
+const Icons: Record<string, React.ReactNode> = {
+  overview: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px]">
+      <rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.2"/>
+      <rect x="9" y="1.5" width="5.5" height="5.5" rx="1.2"/>
+      <rect x="1.5" y="9" width="5.5" height="5.5" rx="1.2"/>
+      <rect x="9" y="9" width="5.5" height="5.5" rx="1.2"/>
+    </svg>
+  ),
+  cases: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px]">
+      <path d="M2 4h12M2 7.5h9M2 11h10.5"/>
+    </svg>
+  ),
+  draft: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px]">
+      <path d="M3 2h6.5l3.5 3.5V14H3V2z"/>
+      <path d="M9 2v4h4M5.5 8.5h5M5.5 11h3.5"/>
+    </svg>
+  ),
+  search: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px]">
+      <circle cx="6.5" cy="6.5" r="4"/>
+      <path d="M10 10l3.5 3.5"/>
+    </svg>
+  ),
+  pdf: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px]">
+      <path d="M3 1.5h7l3 3V14.5H3V1.5z"/>
+      <path d="M10 1.5v4h3"/>
+      <circle cx="8" cy="10" r="1.5"/>
+      <path d="M4.5 10h2M9.5 10h2"/>
+    </svg>
+  ),
+  synopsis: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px]">
+      <path d="M3 2.5h10M3 6h7M3 9.5h8M3 13h5"/>
+      <path d="M13 9l1.5 1.5L13 12" strokeLinecap="round"/>
+    </svg>
+  ),
+  reply: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px]">
+      <path d="M5.5 4.5L2 8l3.5 3.5"/>
+      <path d="M2 8h7.5a3 3 0 013 3v1"/>
+    </svg>
+  ),
+  deadlines: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px]">
+      <rect x="1.5" y="3" width="13" height="11.5" rx="1.5"/>
+      <path d="M5 1.5v3M11 1.5v3M1.5 7.5h13"/>
+    </svg>
+  ),
+}
+
+// ── Nav structure ─────────────────────────────────────────────────────────────
+
 interface NavItem {
   to: string
-  icon: string
+  iconKey: string
   label: string
   exact?: boolean
   badge?: string
 }
 
-const BASE_NAV: NavItem[] = [
-  { to: '/',         icon: '🏠', label: 'Home',           exact: true },
-  { to: '/cases',    icon: '⚖️', label: 'My Cases' },
-  { to: '/draft',    icon: '✍️', label: 'Draft' },
-  { to: '/search',   icon: '🔍', label: 'Search' },
-  { to: '/pdf',      icon: '📄', label: 'PDF Extractor' },
-  { to: '/synopsis', icon: '📋', label: 'Synopsis' },
-  { to: '/reply',    icon: '📩', label: 'Reply Generator' },
-  { to: '/deadlines',icon: '📅', label: 'Deadlines' },
+const WORKSPACE_NAV: NavItem[] = [
+  { to: '/',      iconKey: 'overview', label: 'Overview',   exact: true },
+  { to: '/cases', iconKey: 'cases',    label: 'My Cases' },
+]
+
+const DO_NAV: NavItem[] = [
+  { to: '/draft',    iconKey: 'draft',    label: 'Draft a Filing' },
+  { to: '/search',   iconKey: 'search',   label: 'Find Judgments' },
+  { to: '/pdf',      iconKey: 'pdf',      label: 'Read a Document' },
+  { to: '/synopsis', iconKey: 'synopsis', label: 'Summarise Case' },
+  { to: '/reply',    iconKey: 'reply',    label: 'Reply to Notice' },
+]
+
+const TRACK_NAV: NavItem[] = [
+  { to: '/deadlines', iconKey: 'deadlines', label: 'Hearings & Dates' },
 ]
 
 interface Props {
@@ -38,12 +102,53 @@ interface Props {
   onClose: () => void
 }
 
+// ── Nav item component ────────────────────────────────────────────────────────
+
+function SideNavItem({ item, onClick }: { item: NavItem; onClick: () => void }) {
+  return (
+    <NavLink
+      to={item.to}
+      end={item.exact}
+      onClick={onClick}
+      className={({ isActive }) =>
+        [
+          'relative flex items-center gap-[9px] px-[10px] py-[7px] rounded-[7px] cursor-pointer',
+          'text-[12px] font-medium mb-[1px] transition-all select-none',
+          isActive
+            ? 'bg-gold-muted text-gold font-semibold'
+            : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80',
+        ].join(' ')
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {/* Gold left border when active */}
+          {isActive && (
+            <span className="absolute left-0 top-[6px] bottom-[6px] w-[3px] bg-gold rounded-r-[3px]" />
+          )}
+          <span className={['flex-shrink-0 transition-opacity', isActive ? 'opacity-100' : 'opacity-60'].join(' ')}>
+            {Icons[item.iconKey]}
+          </span>
+          <span className="flex-1 truncate">{item.label}</span>
+          {item.badge && (
+            <span className="text-[9px] font-bold bg-amber text-white px-[6px] py-[1px] rounded-full flex-shrink-0">
+              {item.badge}
+            </span>
+          )}
+        </>
+      )}
+    </NavLink>
+  )
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
 export default function Sidebar({ open, onClose }: Props) {
   const { user, logout: clearAuth } = useAuthStore()
   const navigate = useNavigate()
   const deadlineBadge = useDeadlineBadge()
 
-  const NAV = BASE_NAV.map(item =>
+  const trackNav = TRACK_NAV.map(item =>
     item.to === '/deadlines' ? { ...item, badge: deadlineBadge } : item
   )
 
@@ -54,102 +159,107 @@ export default function Sidebar({ open, onClose }: Props) {
     toast('Logged out')
   }
 
+  const initials = user?.initials ?? '??'
+  const fullName = user?.full_name ?? 'Loading…'
+  const plan = user?.plan ?? ''
+
   return (
     <>
       {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/40 z-[150] md:hidden"
+          className="fixed inset-0 bg-black/50 z-[150] md:hidden"
           onClick={onClose}
         />
       )}
 
       <aside
         className={[
-          'w-[216px] flex-shrink-0 bg-white border-r border-border-1 flex flex-col z-[200]',
+          'w-[210px] min-w-[210px] flex-shrink-0 bg-sidebar flex flex-col z-[200] h-full',
           'transition-transform duration-[250ms]',
           'fixed md:static top-0 left-0 bottom-0',
           open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         ].join(' ')}
       >
-        {/* Logo */}
-        <div className="px-[14px] py-4 border-b border-border-1 flex items-center gap-[9px]">
-          <div className="w-7 h-7 bg-ink rounded-[7px] flex items-center justify-center flex-shrink-0">
+        {/* ── Logo ── */}
+        <div className="px-[16px] py-[18px] flex items-center gap-[9px] border-b border-white/[0.07]">
+          <div className="w-[28px] h-[28px] bg-gold rounded-[7px] flex items-center justify-center flex-shrink-0">
             <svg viewBox="0 0 14 14" fill="none" className="w-[14px] h-[14px]">
-              <rect x="2" y="1" width="8" height="11" rx="1.5" stroke="white" strokeWidth="1.2"/>
-              <path d="M4 5h5M4 7.5h3.5M4 10h2" stroke="white" strokeWidth="1" strokeLinecap="round"/>
-              <path d="M8 1v3h3" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+              <rect x="2" y="1" width="8" height="11" rx="1.5" stroke="#111827" strokeWidth="1.2"/>
+              <path d="M4 5h5M4 7.5h3.5M4 10h2" stroke="#111827" strokeWidth="1" strokeLinecap="round"/>
+              <path d="M8 1v3h3" stroke="#111827" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="font-serif text-[16px] tracking-[-0.2px] text-text-1">Nikhar</span>
+          <span className="font-serif text-[17px] text-white tracking-[-0.2px]">Nikhar</span>
         </div>
 
-        {/* Profile */}
-        <div className="mx-[10px] mt-[10px] mb-[6px] px-[10px] py-[9px] bg-surface-2 rounded-sm flex items-center gap-2 cursor-pointer hover:bg-surface-3 transition-colors border border-transparent">
-          <div className="w-[26px] h-[26px] rounded-full bg-ink text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">
-            {user?.initials ?? '??'}
-          </div>
+        {/* ── Nav ── */}
+        <nav className="flex-1 overflow-y-auto px-[8px] py-[10px] space-y-[18px]">
+
+          {/* Workspace */}
           <div>
-            <div className="text-[11.5px] font-bold text-text-1 leading-tight">{user?.full_name ?? 'Loading…'}</div>
-            <div className="text-[10px] text-text-3 leading-tight">{user?.plan ?? ''}</div>
+            <div className="px-[10px] mb-[4px] text-[9px] font-bold tracking-[1px] uppercase text-white/25">
+              Workspace
+            </div>
+            {WORKSPACE_NAV.map(item => (
+              <SideNavItem key={item.to} item={item} onClick={onClose} />
+            ))}
           </div>
-        </div>
 
-        {/* Section label */}
-        <div className="px-[14px] pt-2 pb-[3px] text-[9px] font-bold tracking-[0.8px] uppercase text-text-3">
-          Workspace
-        </div>
+          {/* Do */}
+          <div>
+            <div className="px-[10px] mb-[4px] text-[9px] font-bold tracking-[1px] uppercase text-white/25">
+              Do
+            </div>
+            {DO_NAV.map(item => (
+              <SideNavItem key={item.to} item={item} onClick={onClose} />
+            ))}
+          </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-2 py-[2px] overflow-y-auto">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.exact}
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  'flex items-center gap-[7px] px-2 py-[7px] rounded-sm cursor-pointer text-[12.5px] font-medium mb-[1px] transition-all select-none',
-                  isActive
-                    ? 'bg-surface-2 text-text-1 font-semibold'
-                    : 'text-text-2 hover:bg-surface-2 hover:text-text-1',
-                ].join(' ')
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <span className={['w-[26px] h-[26px] rounded-icon flex items-center justify-center text-[13px] flex-shrink-0', isActive ? 'bg-border-1' : ''].join(' ')}>
-                    {item.icon}
-                  </span>
-                  <span className="flex-1 truncate">{item.label}</span>
-                  {item.badge && (
-                    <span className="text-[9.5px] font-bold bg-ink text-white px-[7px] py-[1px] rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
+          {/* Track */}
+          <div>
+            <div className="px-[10px] mb-[4px] text-[9px] font-bold tracking-[1px] uppercase text-white/25">
+              Track
+            </div>
+            {trackNav.map(item => (
+              <SideNavItem key={item.to} item={item} onClick={onClose} />
+            ))}
+          </div>
+
         </nav>
 
-        {/* Footer — AI usage meter */}
-        <div className="p-[10px] border-t border-border-1">
-          <div className="px-[6px] py-1">
-            <div className="flex justify-between text-[10px] text-text-3 mb-1 font-medium">
-              <span>AI Usage</span><span>68% used</span>
+        {/* ── Footer ── */}
+        <div className="border-t border-white/[0.07] px-[8px] pt-[10px] pb-[12px] space-y-[6px]">
+
+          {/* AI usage */}
+          <div className="px-[10px] py-[6px]">
+            <div className="flex justify-between items-center mb-[5px]">
+              <span className="text-[10px] font-medium text-white/35">AI Usage</span>
+              <span className="text-[10px] text-white/25">68%</span>
             </div>
-            <div className="h-[3px] bg-surface-3 rounded-full overflow-hidden">
-              <div className="h-full bg-ink rounded-full" style={{ width: '68%' }} />
+            <div className="h-[3px] bg-white/10 rounded-full overflow-hidden">
+              <div className="h-full bg-gold rounded-full" style={{ width: '68%' }} />
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full mt-2 text-[11px] font-medium text-text-3 hover:text-text-1 transition-colors py-1 text-left px-[6px] rounded-sm hover:bg-surface-2"
-          >
-            Sign out
-          </button>
+
+          {/* User card */}
+          <div className="flex items-center gap-[9px] px-[10px] py-[8px] rounded-[8px] cursor-pointer hover:bg-white/[0.06] transition-colors group">
+            <div className="w-[28px] h-[28px] rounded-full bg-gold flex items-center justify-center text-[10px] font-bold text-sidebar flex-shrink-0 ring-2 ring-gold/30">
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] font-semibold text-white/85 truncate leading-tight">{fullName}</div>
+              <div className="text-[10px] text-white/30 leading-tight capitalize">{plan} plan</div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-[10px] text-white/20 group-hover:text-white/50 transition-colors flex-shrink-0"
+              title="Sign out"
+            >
+              ↪
+            </button>
+          </div>
+
         </div>
       </aside>
     </>

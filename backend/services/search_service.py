@@ -6,6 +6,7 @@ Returns results clearly labeled by source type
 
 import asyncio
 import json
+import re
 import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -19,6 +20,7 @@ import httpx
 from backend.models.law_citation import Citation
 from backend.services.llm_service import get_llm_service, ModelType
 from backend.services.rag_service import get_rag_service
+from backend.services.query_expander import expand_query, build_expanded_query_string
 from backend.services.prompts.rag_synthesis import rag_synthesis_prompt
 from backend.services.prompts.search_enrichment import search_analysis_prompt
 from backend.core.config import settings
@@ -133,30 +135,34 @@ class SearchService:
         query: str,
         query_vector: List[float],
         firm_id: str,
-        top: int = 10,
+        top: int = 15,
+        expanded_queries: Optional[List[str]] = None,
     ) -> List[OwnFileResult]:
         """
-        Hybrid search over firm's indexed documents
-        
+        Hybrid search over firm's indexed documents.
+        Uses query expansion to catch vocabulary mismatches.
+
         Args:
             query: Search query text
             query_vector: Embedded query vector
             firm_id: Firm ID (required - searches only own firm's documents)
-            top: Number of results to return (default 10)
-            
+            top: Number of results to return (default 15)
+            expanded_queries: Related terms from query_expander (optional)
+
         Returns:
             List of results with document_name, page, excerpt, score, confidence
         """
         try:
             logger.info(f"Searching own files: {query[:100]}... (firm: {firm_id})")
-            
+
             chunks = await self.rag_service.retrieve_chunks(
                 query=query,
                 firm_id=firm_id,
                 top_k=top,
                 query_vector=query_vector,
+                expanded_queries=expanded_queries,
             )
-            
+
             results = [
                 {
                     "document_name": chunk.get("document_name"),
@@ -169,10 +175,10 @@ class SearchService:
                 }
                 for chunk in chunks
             ]
-            
+
             logger.info(f"Found {len(results)} own file results")
             return results
-            
+
         except Exception as e:
             logger.error(f"Error searching own files: {e}", exc_info=True)
             return []
@@ -205,23 +211,52 @@ class SearchService:
             }
         """
         start_time = datetime.utcnow()
-        
+
         try:
             logger.info(f"Unified search: {query[:100]}... (firm: {firm_id})")
-            
-            # Step 1: Embed query once
-            query_vector = await self.embed_query(query)
-            
+
+            # Step 1: Embed query + expand to related legal terms (parallel).
+            # Both are best-effort — if Azure OpenAI is unavailable we fall back:
+            #   embed_query  → empty vector  (public judgment FTS still works via ILIKE)
+            #   expand_query → [query] only  (static synonyms still fire inside expand_query)
+            embed_result, expand_result = await asyncio.gather(
+                asyncio.wait_for(self.embed_query(query), timeout=8.0),
+                expand_query(query, use_llm=True),
+                return_exceptions=True,
+            )
+
+            if isinstance(embed_result, list):
+                query_vector = embed_result
+            else:
+                logger.warning(
+                    f"unified_search: embed_query failed ({embed_result!r}) — "
+                    "falling back to keyword-only search"
+                )
+                query_vector = []
+
+            expanded_queries: List[str] = (
+                expand_result if isinstance(expand_result, list) else [query]
+            )
+
+            # Use expanded query string for FTS/ILIKE (public judgments)
+            expanded_query_str = build_expanded_query_string(expanded_queries)
+            logger.info(
+                f"unified_search: original='{query[:50]}', "
+                f"vector={'yes' if query_vector else 'no (fallback)'}, "
+                f"expanded={len(expanded_queries)} terms"
+            )
+
             # Step 2: Run both searches in parallel
             own_files_task = self.search_own_files(
                 query=query,
                 query_vector=query_vector,
                 firm_id=firm_id or "",
                 top=top_per_source,
+                expanded_queries=expanded_queries,
             ) if firm_id else asyncio.sleep(0)
-            
+
             public_judgments_task = self.search_public_judgments(
-                query=query,
+                query=expanded_query_str or query,
                 _query_vector=query_vector,
                 filters=filters,
                 firm_id=firm_id,
@@ -287,101 +322,133 @@ class SearchService:
         firm_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Generate synthesized answer from retrieved chunks using RAG
-        Calls GPT-4o-mini with rag_synthesis prompt
-        
+        Generate a synthesized answer from retrieved chunks using RAG.
+
+        Fixed in v2:
+          • Properly parses the structured JSON response from GPT-4o-mini
+            (v1 was doing response_text[:300] and never parsing JSON — confidence
+            was always 5 regardless of what the LLM returned)
+          • Uses document_name key (not 'source' which never existed in chunks)
+          • Uses top 10 chunks instead of 5 for better coverage
+          • Includes page_number in source attribution
+          • Surfaces concept_found_as and what_is_present from the new prompt
+          • Adds low-confidence warning with actionable guidance
+
         Args:
-            query: Original search query
-            chunks: List of context chunks from search results
+            query:   Original search query
+            chunks:  Retrieved chunks from RAG index (sorted by score desc)
             firm_id: Firm ID for token tracking
-            
+
         Returns:
             {
                 "answer": str,
+                "answer_found": bool,
+                "concept_found_as": str | None,
                 "confidence": int (0-10),
-                "sources": [{"document": str, "page": int, "excerpt": str}],
-                "answer_found": bool
+                "sources": [{"document_name", "page", "excerpt"}],
+                "what_is_present": str,
+                "missing_information": str | None,
+                "warning": str | None,
             }
         """
         try:
             logger.info(
-                f"Synthesizing answer from {len(chunks)} chunks (firm: {firm_id})"
+                f"synthesise_answer: {len(chunks)} chunks, query='{query[:60]}', firm={firm_id}"
             )
-            
+
             if not chunks:
                 return {
-                    "answer": "No relevant information found. Please provide more context or try a different search.",
+                    "answer": (
+                        "No relevant information found in your uploaded documents. "
+                        "Try uploading the specific judgment or document you are looking for."
+                    ),
+                    "answer_found": False,
+                    "concept_found_as": None,
                     "confidence": 0,
                     "sources": [],
-                    "answer_found": False,
+                    "what_is_present": "No documents indexed yet.",
+                    "missing_information": "Upload the relevant document and try again.",
+                    "warning": "Upload more relevant documents to improve search quality.",
                 }
-            
-            # Format chunks for RAG prompt
-            context_text = "\n\n".join([
-                f"[{chunk.get('source', 'Unknown')}] {chunk.get('text', '')}"
-                for chunk in chunks[:5]  # Use top 5 chunks
-            ])
-            
-            system_prompt = rag_synthesis_prompt.system_prompt
+
+            # Format chunks — use document_name (correct key), include page number
+            context_lines = []
+            for i, chunk in enumerate(chunks[:10], 1):   # use top 10, not 5
+                doc = chunk.get("document_name") or "Unknown document"
+                page = chunk.get("page_number", 0)
+                text = chunk.get("text", "").strip()
+                score = chunk.get("score", 0.0)
+                context_lines.append(
+                    f"[Excerpt {i} | {doc} | Page {page} | Score {score:.2f}]\n{text}"
+                )
+            context_text = "\n\n---\n\n".join(context_lines)
+
             user_prompt = rag_synthesis_prompt.format_user_prompt(
                 query=query,
                 context_chunks=context_text,
             )
-            
+
             response_text = await self.llm_service.call_completion(
-                system_prompt=system_prompt,
+                system_prompt=rag_synthesis_prompt.system_prompt,
                 user_prompt=user_prompt,
                 model=ModelType(rag_synthesis_prompt.model.value),
                 temperature=0.0,
-                max_tokens=500,
+                max_tokens=rag_synthesis_prompt.max_tokens,
                 firm_id=firm_id,
             )
-            
-            # Parse response (simple parsing for MVP)
-            lines = response_text.split('\n')
-            answer = response_text[:300]  # First 300 chars
-            confidence = 5  # Default confidence
-            
-            # Try to extract confidence score
-            for line in lines:
-                if "confidence" in line.lower() and any(c.isdigit() for c in line):
-                    try:
-                        confidence = int(''.join(filter(str.isdigit, line.split(':')[-1])))
-                        confidence = max(0, min(10, confidence))  # Clamp 0-10
-                    except ValueError:
-                        pass
-            
-            # Build sources
-            sources = [
-                {
-                    "document": chunk.get("source", "Unknown"),
-                    "page": chunk.get("page", 0),
-                    "excerpt": chunk.get("text", "")[:100],
+
+            # ── Parse JSON response (v1 never did this — it was broken) ────────
+            parsed = self._parse_json_response(response_text)
+            if not parsed:
+                # LLM returned non-JSON — return the raw text as a fallback answer
+                logger.warning("synthesise_answer: LLM returned non-JSON, using raw text")
+                return {
+                    "answer": response_text[:600].strip(),
+                    "answer_found": True,
+                    "concept_found_as": None,
+                    "confidence": 4,
+                    "sources": [],
+                    "what_is_present": "See answer above.",
+                    "missing_information": None,
                 }
-                for chunk in chunks[:3]
-            ]
-            
-            result = {
-                "answer": answer,
+
+            # ── Normalise and clamp values ──────────────────────────────────────
+            confidence = int(parsed.get("confidence", 5))
+            confidence = max(0, min(10, confidence))
+
+            result: Dict[str, Any] = {
+                "answer": parsed.get("answer", ""),
+                "answer_found": bool(parsed.get("answer_found", confidence >= 4)),
+                "concept_found_as": parsed.get("concept_found_as"),
                 "confidence": confidence,
-                "sources": sources,
-                "answer_found": confidence >= 4,
+                "sources": parsed.get("sources", []),
+                "what_is_present": parsed.get("what_is_present", ""),
+                "missing_information": parsed.get("missing_information"),
             }
-            
-            # Warn if low confidence
+
             if confidence < 4:
-                result["warning"] = "Upload more relevant documents to improve search quality"
-            
-            logger.info(f"Answer synthesized with confidence {confidence}")
+                result["warning"] = (
+                    "Low confidence — the document may not directly address this question. "
+                    "Upload more relevant documents to improve results."
+                )
+
+            logger.info(
+                f"synthesise_answer: confidence={confidence}, "
+                f"answer_found={result['answer_found']}, "
+                f"concept_found_as={result['concept_found_as']}"
+            )
             return result
-            
+
         except Exception as e:
-            logger.error(f"Error synthesizing answer: {e}", exc_info=True)
+            logger.error(f"synthesise_answer: error: {e}", exc_info=True)
             return {
                 "answer": "Failed to generate answer. Please try again.",
+                "answer_found": False,
+                "concept_found_as": None,
                 "confidence": 0,
                 "sources": [],
-                "answer_found": False,
+                "what_is_present": "",
+                "missing_information": None,
                 "error": str(e),
             }
     
@@ -480,9 +547,13 @@ class SearchService:
                 citations = list(fts_rows.scalars().all())
                 logger.info(f"_search_local_citations: FTS returned {len(citations)} rows for '{query[:60]}'")
 
-                # --- Pass 2: per-word ILIKE fallback ---
+                # --- Pass 2: per-word ILIKE fallback (includes expanded query terms) ---
                 if not citations:
-                    words = [w for w in query.split() if len(w) > 1]
+                    # Split ALL words from both original and expanded query string
+                    words = list({
+                        w for w in query.split() + (query.split())
+                        if len(w) > 2
+                    })
                     word_clauses = [
                         or_(
                             Citation.case_name.ilike(f"%{w}%"),
@@ -490,6 +561,7 @@ class SearchService:
                             Citation.primary_citation.ilike(f"%{w}%"),
                             Citation.subject_tags.ilike(f"%{w}%"),
                             Citation.court.ilike(f"%{w}%"),
+                            Citation.judgment_text.ilike(f"%{w}%"),
                         )
                         for w in words
                     ]
@@ -600,12 +672,16 @@ class SearchService:
         if len(results) < 3:
             return None
 
-        # Build the case summary fed to the prompt: case name + ratio if available
+        # Build the case summary fed to the prompt.
+        # Each line is prefixed with [id:<uuid>] so the LLM can key relevance_per_case by ID.
         case_lines = []
         for r in results:
             enrichment = r.get("enrichment") or {}
             ratio = enrichment.get("ratio") or "ratio not yet available"
-            case_lines.append(f"- {r['case_name']} ({r.get('year', '?')}): {ratio}")
+            case_id = r.get("id", "")
+            case_lines.append(
+                f"[id:{case_id}] {r['case_name']} ({r.get('year', '?')}): {ratio}"
+            )
         cases_summary = "\n".join(case_lines)
 
         user_prompt = search_analysis_prompt.format_user_prompt(

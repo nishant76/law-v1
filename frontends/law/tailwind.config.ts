@@ -9,13 +9,16 @@ export default {
         serif: ['Fraunces', 'serif'],
       },
       colors: {
-        bg: '#F5F4F0',
+        bg: '#F8F7F4',
+        paper: '#F8F7F4',
+        sidebar: '#111827',
+        'sidebar-hover': '#1f2937',
         surface: {
-          2: '#EFEDE8',
-          3: '#E5E2DB',
+          2: '#F1F0EC',
+          3: '#E8E6E0',
         },
         border: {
-          1: '#E0DDD6',
+          1: '#E5E3DD',
           2: '#C8C4BC',
         },
         text: {
@@ -24,6 +27,11 @@ export default {
           3: '#A09C95',
         },
         ink: '#1C1A16',
+        gold: {
+          DEFAULT: '#C9A84C',
+          bg: '#FDF6E3',
+          muted: 'rgba(201,168,76,0.15)',
+        },
         green: {
           DEFAULT: '#15803D',
           bg: '#F0FDF4',
@@ -50,10 +58,12 @@ export default {
       keyframes: {
         fadeUp: { from: { opacity: '0', transform: 'translateY(5px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
         progBar: { from: { width: '0%' }, to: { width: '100%' } },
+        pulseDot: { '0%,100%': { opacity: '1', transform: 'scale(1)' }, '50%': { opacity: '0.4', transform: 'scale(0.75)' } },
       },
       animation: {
         fadeUp: 'fadeUp 0.18s ease both',
         progBar: 'progBar 3.5s ease-out forwards',
+        pulseDot: 'pulseDot 2s ease-in-out infinite',
       },
       fontSize: {
         '2xs': ['9px', { lineHeight: '1.4' }],

@@ -3,6 +3,7 @@ Search API Routes
 GET /api/v1/search/unified — unified search over both sources
 """
 
+import asyncio
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,13 +59,17 @@ async def unified_search(
         
         # Initialize search service
         search_service = get_search_service(db)
-        
-        # Perform unified search
-        result = await search_service.unified_search(
-            query=query,
-            filters=search_request.filters,
-            firm_id=firm_id,
-            top_per_source=search_request.limit,
+
+        # Perform unified search (hard 25s timeout — backend must respond before
+        # the frontend's 120s axios timeout fires)
+        result = await asyncio.wait_for(
+            search_service.unified_search(
+                query=query,
+                filters=search_request.filters,
+                firm_id=firm_id,
+                top_per_source=search_request.limit,
+            ),
+            timeout=25.0,
         )
         
         # Check for errors
@@ -98,6 +103,9 @@ async def unified_search(
         
     except HTTPException:
         raise
+    except asyncio.TimeoutError:
+        logger.error("unified_search: timed out after 25s")
+        raise HTTPException(status_code=504, detail="Search timed out. Please try again.")
     except Exception as e:
         logger.error(f"Error in unified_search endpoint: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Search failed. Please try again.")

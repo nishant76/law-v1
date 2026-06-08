@@ -16,7 +16,7 @@ legal_process_service = get_legal_process_service()
 
 
 @router.get("/matter-types", response_model=List[str])
-@require_permission("legal_process:read")
+@require_permission("search_documents")
 async def list_matter_types(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> List[str]:
@@ -42,7 +42,7 @@ async def list_matter_types(
 
 
 @router.post("/procedure", response_model=Dict[str, Any])
-@require_permission("legal_process:read")
+@require_permission("search_documents")
 async def get_procedure(
     matter_type: str,
     court: str,

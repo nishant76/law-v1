@@ -2,16 +2,15 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Good morning',
+  '/cases': 'My Cases',
   '/draft': 'Draft a Filing',
-  '/search': 'Judgment Search',
-  '/pdf': 'PDF Extractor',
-  '/synopsis': 'Case Synopsis',
-  '/reply': 'Reply Generator',
+  '/search': 'Find Judgments',
+  '/pdf': 'Read a Document',
+  '/synopsis': 'Summarise Case',
+  '/reply': 'Reply to Notice',
   '/legal-process': 'Legal Process Guide',
-  '/deadlines': 'Deadline Tracker',
+  '/deadlines': 'Hearings & Dates',
 }
-
-const PAGE_ACTIONS: Record<string, React.ReactNode> = {}
 
 interface Props {
   onHamburger: () => void
@@ -21,12 +20,16 @@ interface Props {
 export default function Topbar({ onHamburger, userName }: Props) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const title = pathname === '/' && userName
+
+  // strip /cases/:id suffix so /cases/* resolves to "My Cases"
+  const basePath = '/' + pathname.split('/')[1]
+  const title = basePath === '/' && userName
     ? `Good morning, ${userName}`
-    : (PAGE_TITLES[pathname] ?? 'Nikhar')
+    : (PAGE_TITLES[basePath] ?? 'Nikhar')
 
   return (
-    <header className="h-[50px] flex-shrink-0 bg-white border-b border-border-1 flex items-center px-5 gap-[10px]">
+    <header className="h-[48px] flex-shrink-0 bg-paper border-b border-border-1 flex items-center px-5 gap-[10px]">
+      {/* Mobile hamburger */}
       <button
         onClick={onHamburger}
         className="md:hidden w-[30px] h-[30px] border border-border-1 rounded-sm bg-transparent flex items-center justify-center text-[15px] text-text-2 flex-shrink-0"
@@ -34,25 +37,22 @@ export default function Topbar({ onHamburger, userName }: Props) {
         ☰
       </button>
 
-      <div className="font-serif text-[15px] tracking-[-0.1px] text-text-1 flex-1">
-        {title}
-      </div>
+      <div className="font-serif text-[14px] tracking-[-0.1px] text-text-1 flex-1">{title}</div>
 
       <div className="flex gap-[7px]">
-        {pathname === '/' && (
+        {basePath === '/' && (
           <button
             onClick={() => navigate('/draft')}
-            className="text-[12px] font-semibold px-[13px] py-[6px] rounded-sm bg-ink text-white border border-ink hover:bg-[#2e2b27] transition-colors whitespace-nowrap flex items-center gap-[5px]"
+            className="text-[11.5px] font-semibold px-[12px] py-[5px] rounded-sm bg-ink text-white hover:bg-[#2e2b27] transition-colors whitespace-nowrap"
           >
             + New Draft
           </button>
         )}
-        {pathname === '/deadlines' && (
-          <button className="text-[12px] font-semibold px-[13px] py-[6px] rounded-sm bg-ink text-white border border-ink hover:bg-[#2e2b27] transition-colors whitespace-nowrap">
+        {basePath === '/deadlines' && (
+          <button className="text-[11.5px] font-semibold px-[12px] py-[5px] rounded-sm bg-ink text-white hover:bg-[#2e2b27] transition-colors whitespace-nowrap">
             + Add
           </button>
         )}
-        {PAGE_ACTIONS[pathname]}
       </div>
     </header>
   )

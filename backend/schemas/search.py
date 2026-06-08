@@ -181,6 +181,10 @@ class SearchAnalysis(BaseModel):
     risk_factors: List[str] = Field(default_factory=list, description="Factors that hurt the lawyer's position")
     strongest_case: Optional[str] = Field(None, description="Single case that best supports the query and why")
     practical_advice: Optional[str] = Field(None, description="One actionable insight for the lawyer")
+    relevance_per_case: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Per-citation relevance keyed by citation UUID — why each case helps with this specific query",
+    )
 
 
 class UnifiedSearchResponse(BaseModel):

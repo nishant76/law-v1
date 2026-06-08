@@ -27,18 +27,22 @@ Confidence scoring:
 - 60-79:  Value is reasonably inferred from context
 - 0-59:   Uncertain, ambiguous, or not present — set value to null
 
-For legal documents, summary must be one crisp sentence: court, \
-parties, provision, outcome. No verbose explanations.
+For summary, return 1-3 short bullet strings (array). Each bullet \
+is one complete sentence covering a distinct aspect: what happened, \
+the court/outcome, relief granted. Never return summary as a string.
 
-CRITICAL for action_items: only include FUTURE actions required of \
-parties or the lawyer AFTER this document. Court decisions are NOT \
-action items. If this is a final judgment or dismissal order with no \
-pending steps, return an empty action_items array.
+For action_items: set is_court_decision=true for anything a court has \
+already decided (dismissed, upheld, quashed, allowed). Set it false for \
+future steps the lawyer or parties must take. Include both — the \
+frontend filters on the field.
 
-CRITICAL for critical_deadlines: only include FUTURE dates that require \
-action by a party. Do NOT list historical hearing dates that have \
-already occurred. For final judgments, return an empty array unless \
-there is a specific compliance deadline stated."""
+For critical_deadlines: set is_future=true only for dates that have not \
+yet passed and still require action. Set is_future=false for historical \
+dates. Include both — the frontend filters on the field.
+
+For case_outcome: set to "allowed" if petition/appeal was allowed, \
+"dismissed" if dismissed/rejected/refused, "pending" if not yet decided, \
+null for non-legal documents."""
 
 
 USER_PROMPT_TEMPLATE = """Analyse this document completely and extract \
@@ -59,7 +63,10 @@ Return ONLY this JSON structure. No preamble. No markdown:
   }},
 
   "summary": {{
-    "value": "one crisp sentence for legal documents. 2-3 sentences for others.",
+    "value": [
+      "bullet: what happened / who is involved / what is at stake",
+      "bullet: outcome or relief granted (omit if not yet decided)"
+    ],
     "confidence": 0
   }},
 
@@ -67,6 +74,8 @@ Return ONLY this JSON structure. No preamble. No markdown:
     "value": "one sentence — what this document achieves or establishes",
     "confidence": 0
   }},
+
+  "case_outcome": "allowed | dismissed | pending | null — only for legal documents with a final decision",
 
   "case_narrative": {{
     "background": [
@@ -103,7 +112,8 @@ that a lawyer can apply in future matters. null for non-legal documents."
       "label": "plain English description",
       "date": "YYYY-MM-DD or relative",
       "consequence": "what happens if missed or null",
-      "confidence": 0
+      "confidence": 0,
+      "is_future": true
     }}
   ],
 
@@ -118,10 +128,11 @@ that a lawyer can apply in future matters. null for non-legal documents."
 
   "action_items": [
     {{
-      "action": "FUTURE action explicitly required of a party or lawyer — NOT a court decision",
+      "action": "action required of a party or lawyer",
       "by_whom": "who must act or null",
       "by_when": "deadline or null",
-      "priority": "Urgent | High | Normal"
+      "priority": "Urgent | High | Normal",
+      "is_court_decision": false
     }}
   ],
 
@@ -179,7 +190,7 @@ OUTPUT_SCHEMA = {
             "confidence": "int 0-100"
         }
     },
-    "summary": {"value": "str or null", "confidence": "int 0-100"},
+    "summary": {"value": ["str"], "confidence": "int 0-100"},  # always an array
     "primary_objective": {"value": "str or null", "confidence": "int 0-100"},
     "case_narrative": {
         "background": ["str"],   # array of bullet points

@@ -1,6 +1,14 @@
 import api from './client'
 import type { ApiResponse, Draft } from '@/types'
 
+export interface SelectedCitation {
+  case_name: string
+  citation: string | null
+  court: string
+  year: number
+  source_url?: string
+}
+
 export interface FilingInput {
   filing_type: string
   objective: string
@@ -10,6 +18,16 @@ export interface FilingInput {
   sections?: string
   facts: string
   relief?: string
+  selected_citations?: SelectedCitation[]
+}
+
+export interface ExportFilingInput {
+  draft_sections: Record<string, string>
+  filing_type: string
+  petitioner: string
+  respondent: string
+  court: string
+  citations_used?: string[]
 }
 
 export const generateFiling = (input: FilingInput) =>
@@ -18,5 +36,5 @@ export const generateFiling = (input: FilingInput) =>
 export const getFiling = (id: string) =>
   api.get<ApiResponse<Draft>>(`/filing/${id}`)
 
-export const exportFiling = (id: string) =>
-  api.get(`/filing/${id}/export`, { responseType: 'blob' })
+export const exportFiling = (id: string, body: ExportFilingInput) =>
+  api.post(`/filing/${id}/export`, body, { responseType: 'blob', timeout: 30000 })
