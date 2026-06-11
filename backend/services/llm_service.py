@@ -24,6 +24,7 @@ class ModelType(str, Enum):
     GPT4O = "gpt-4o"
     GPT4O_MINI = "gpt-4o-mini"
     GPT52 = "gpt-5.2"
+    GPT5_5 = "gpt-5.5"
     EMBEDDING = "text-embedding-ada-002"
 
 
@@ -180,6 +181,7 @@ class LLMService:
             model_name = (
                 "gpt-4o" if model == ModelType.GPT4O
                 else "gpt-5.2" if model == ModelType.GPT52
+                else "gpt-5.5" if model == ModelType.GPT5_5
                 else "gpt-4o-mini"
             )
 
@@ -188,13 +190,11 @@ class LLMService:
             {"role": "user",   "content": user_prompt},
         ]
 
-        if model == ModelType.GPT52:
+        if model in (ModelType.GPT52, ModelType.GPT5_5):
             create_kwargs = dict(
                 model=model_name,
                 messages=messages,
-                temperature=temperature,
                 stream=True,
-                top_p=1.0,
                 extra_body={"max_completion_tokens": max_tokens} if max_tokens else {},
             )
         else:
@@ -280,6 +280,8 @@ class LLMService:
                 model_name = "gpt-4o"
             elif model == ModelType.GPT52:
                 model_name = "gpt-5.2"
+            elif model == ModelType.GPT5_5:
+                model_name = "gpt-5.5"
             else:
                 model_name = "gpt-4o-mini"
         
@@ -291,7 +293,7 @@ class LLMService:
             try:
                 # gpt-5.2 uses max_completion_tokens (via extra_body to support
                 # older SDK versions); all other models use max_tokens directly.
-                if model == ModelType.GPT52:
+                if model in (ModelType.GPT52, ModelType.GPT5_5):
                     create_kwargs = dict(
                         model=model_name,
                         messages=[
@@ -499,6 +501,61 @@ class LLMService:
                 raise LLMError(f"Failed to generate response: {e}")
 
         raise LLMError("Unknown error in chat completion")
+
+    async def call_chat_completion_stream(
+        self,
+        system_prompt: str,
+        messages: List[Dict[str, str]],
+        model: ModelType = ModelType.GPT4O_MINI,
+        max_tokens: Optional[int] = None,
+        firm_id: Optional[str] = None,
+    ) -> AsyncGenerator[str, None]:
+        """Streaming multi-turn chat completion. Yields text chunks as they arrive."""
+        if self.use_azure:
+            model_name = (
+                settings.GPT4O_DEPLOYMENT if model == ModelType.GPT4O
+                else settings.GPT52_DEPLOYMENT if model == ModelType.GPT52
+                else settings.GPT4O_MINI_DEPLOYMENT
+            )
+        else:
+            model_name = (
+                "gpt-4o" if model == ModelType.GPT4O
+                else "gpt-5.2" if model == ModelType.GPT52
+                else "gpt-5.5" if model == ModelType.GPT5_5
+                else "gpt-4o-mini"
+            )
+
+        full_messages = [{"role": "system", "content": system_prompt}] + messages
+
+        if model in (ModelType.GPT52, ModelType.GPT5_5):
+            create_kwargs = dict(
+                model=model_name,
+                messages=full_messages,
+                stream=True,
+                extra_body={"max_completion_tokens": max_tokens} if max_tokens else {},
+            )
+        else:
+            create_kwargs = dict(
+                model=model_name,
+                messages=full_messages,
+                max_tokens=max_tokens,
+                stream=True,
+                top_p=1.0,
+            )
+
+        try:
+            stream = await self.client.chat.completions.create(**create_kwargs)
+            total_chars = 0
+            async for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    text = chunk.choices[0].delta.content
+                    total_chars += len(text)
+                    yield text
+            if firm_id:
+                await self._track_firm_tokens(firm_id, total_chars // 4)
+        except Exception as exc:
+            logger.error(f"Streaming chat failed: {exc}")
+            raise LLMError(f"Stream failed: {exc}") from exc
 
     def _estimate_tokens(self, text: str) -> int:
         """

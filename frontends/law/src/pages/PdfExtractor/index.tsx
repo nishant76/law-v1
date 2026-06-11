@@ -1,20 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useMutation } from '@tanstack/react-query'
 import DropZone from '@/components/ui/DropZone'
 import Button from '@/components/ui/Button'
-import MarkdownText, { renderInline } from '@/components/ui/MarkdownText'
-import { streamExtractUpload, chatWithDocument } from '@/api/extract'
+import MarkdownText from '@/components/ui/MarkdownText'
+import { streamExtractUpload, chatWithDocument, streamChatWithDocument } from '@/api/extract'
 import { toast } from '@/store/toastStore'
-import type {
-  UniversalExtraction,
-  ExtractionCaseNarrative,
-  ExtractionIdentityField,
-  ExtractionStakeholder,
-  ExtractionDeadline,
-  ExtractionConstraint,
-  ExtractionActionItem,
-  ExtractionCitation,
-} from '@/types'
 
 interface ChatMsg { role: 'user' | 'assistant'; content: string }
 
@@ -26,24 +15,20 @@ const MAX_HISTORY = 8
 interface HistoryEntry {
   id: string
   filename: string
-  sub_type: string
-  category: string
   timestamp: string
-  extraction: UniversalExtraction
+  markdown: string   // the streamed analysis text
 }
 
 function loadHistory(): HistoryEntry[] {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') } catch { return [] }
 }
 
-function saveToHistory(filename: string, extraction: UniversalExtraction) {
+function saveToHistory(filename: string, markdown: string) {
   const entry: HistoryEntry = {
     id: `${Date.now()}`,
     filename,
-    sub_type: extraction.document_type?.sub_type || '',
-    category: extraction.document_type?.category || '',
     timestamp: new Date().toISOString(),
-    extraction,
+    markdown,
   }
   const prev = loadHistory().filter(h => h.filename !== filename)
   const next = [entry, ...prev].slice(0, MAX_HISTORY)
@@ -74,7 +59,14 @@ function toLabel(key: string) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+
 function isAmber(confidence: number) { return confidence > 0 && confidence < AMBER }
+
+// ── Incremental JSON parser ───────────────────────────────────────────────────
+// Attempts to parse a partial/incomplete JSON string by repairing truncated
+// content. Returns whatever top-level fields are complete enough to render.
+
+
 
 // Convert summary.value (string[] from new backend, legacy string from history)
 // into a bullet array — no regex splitting needed.
@@ -578,66 +570,24 @@ function ExtractionContent({ extraction }: { extraction: UniversalExtraction }) 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 // Loading stage labels shown to the user
-const STAGE_LABELS: Record<string, string> = {
-  reading:   'Reading document…',
-  analysing: 'Analysing with AI…',
-  generating:'Extracting fields…',
-}
-
 export default function PdfExtractorPage() {
   const [filename, setFilename] = useState('')
-  const [extraction, setExtraction] = useState<UniversalExtraction | null>(null)
+  const [streamText, setStreamText] = useState('')   // the rendered result — stays forever
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [loadingStage, setLoadingStage] = useState<string>('reading')
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([])
   const [question, setQuestion] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
-  const [loadingStage, setLoadingStage] = useState<string | null>(null)
-  const [loadingPct, setLoadingPct] = useState(0)
-  const [streamingText, setStreamingText] = useState('')
 
-  // Token accumulation refs — avoid React batching eating our updates
-  // Tokens land in the ref synchronously; a 50ms interval flushes them to state
-  const pendingTokensRef = useRef('')
+  const tokenBufRef = useRef('')
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const streamBoxRef = useRef<HTMLDivElement>(null)
+  const streamScrollRef = useRef<HTMLDivElement>(null)
   const chatBottomRef = useRef<HTMLDivElement>(null)
 
-  const isExtracting = loadingStage !== null
+  const hasContent = streamText.length > 0
 
-  // Auto-scroll the streaming text box as tokens arrive
-  useEffect(() => {
-    if (streamBoxRef.current) {
-      streamBoxRef.current.scrollTop = streamBoxRef.current.scrollHeight
-    }
-  }, [streamingText])
-
-  // Start 50ms flush interval — gives smooth ~20fps text updates
-  const startFlushTimer = useCallback(() => {
-    if (flushTimerRef.current) clearInterval(flushTimerRef.current)
-    flushTimerRef.current = setInterval(() => {
-      if (pendingTokensRef.current) {
-        const chunk = pendingTokensRef.current
-        pendingTokensRef.current = ''
-        setStreamingText(prev => prev + chunk)
-      }
-    }, 50)
-  }, [])
-
-  const stopFlushTimer = useCallback(() => {
-    if (flushTimerRef.current) {
-      clearInterval(flushTimerRef.current)
-      flushTimerRef.current = null
-    }
-    // Flush any remaining tokens that arrived after the last tick
-    if (pendingTokensRef.current) {
-      const chunk = pendingTokensRef.current
-      pendingTokensRef.current = ''
-      setStreamingText(prev => prev + chunk)
-    }
-  }, [])
-
-  // Chat still uses React Query mutation
+  // No auto-scroll — content grows downward, user reads from the top.
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -645,81 +595,78 @@ export default function PdfExtractorPage() {
 
   useEffect(() => { setChatMsgs([]) }, [documentId])
 
-  const chatMutation = useMutation({
-    mutationFn: ({ id, msgs }: { id: string; msgs: ChatMsg[] }) =>
-      chatWithDocument(id, msgs),
-    onSuccess: ({ data }, { msgs }) => {
-      setChatMsgs([
-        ...msgs,
-        { role: 'assistant', content: (data.data as any).answer as string },
-      ])
-    },
-    onError: () => toast('Could not get an answer. Try again.'),
-  })
+  const [isChatPending, setIsChatPending] = useState(false)
 
   const handleFile = useCallback(async (file: File) => {
     if (file.size > 50 * 1024 * 1024) { toast('File too large — max 50MB'); return }
 
-    // Reset all state + refs
-    pendingTokensRef.current = ''
+    tokenBufRef.current = ''
     setFilename(file.name)
-    setExtraction(null)
+    setStreamText('')
     setDocumentId(null)
     setChatMsgs([])
-    setStreamingText('')
+    setIsExtracting(true)
     setLoadingStage('reading')
-    setLoadingPct(0)
+    // Ensure the document panel starts at the top when a new file is loaded
+    if (streamScrollRef.current) streamScrollRef.current.scrollTop = 0
 
-    // Start the 50ms flush interval — React 18 batches synchronous state updates,
-    // so we write tokens to a ref and flush to state on a timer instead.
-    startFlushTimer()
+    flushTimerRef.current = setInterval(() => {
+      if (tokenBufRef.current) {
+        const chunk = tokenBufRef.current
+        tokenBufRef.current = ''
+        setStreamText(prev => prev + chunk)
+      }
+    }, 50)
+
+    const cleanup = () => {
+      clearInterval(flushTimerRef.current!)
+      flushTimerRef.current = null
+      if (tokenBufRef.current) {
+        const chunk = tokenBufRef.current
+        tokenBufRef.current = ''
+        setStreamText(prev => prev + chunk)
+      }
+    }
 
     try {
       await streamExtractUpload(
         file,
-        // onToken — write to ref only (no React re-render per token)
-        // the 50ms interval flushes these to state → smooth visible streaming
-        (text) => { pendingTokensRef.current += text },
-        // onProgress — real stage/pct from SSE
-        (stage, pct) => {
-          setLoadingStage(stage)
-          if (pct !== undefined) setLoadingPct(pct)
+        (text) => { tokenBufRef.current += text },
+        (stage) => setLoadingStage(stage),
+        ({ document_id }) => {
+          cleanup()
+          setDocumentId(document_id)
+          setIsExtracting(false)
+          // save current streamText to history — use a callback to get latest value
+          setStreamText(prev => {
+            saveToHistory(file.name, prev)
+            setHistory(loadHistory())
+            return prev   // no change to text
+          })
         },
-        // onResult — flush last tokens, then show structured view
-        (data) => {
-          stopFlushTimer()
-          setExtraction(data)
-          saveToHistory(file.name, data)
-          setHistory(loadHistory())
-          setDocumentId(data.document_id ?? null)
-          setLoadingStage(null)
-          setLoadingPct(0)
-          setStreamingText('')
-        },
-        // onError
         (_code, message) => {
-          stopFlushTimer()
+          cleanup()
           toast(message || 'Extraction failed. Check file format and try again.')
           setFilename('')
-          setLoadingStage(null)
-          setStreamingText('')
+          setStreamText('')
+          setIsExtracting(false)
         },
       )
     } catch {
-      stopFlushTimer()
+      cleanup()
       toast('Extraction failed. Check file format and try again.')
       setFilename('')
-      setLoadingStage(null)
-      setStreamingText('')
+      setStreamText('')
+      setIsExtracting(false)
     }
-  }, [startFlushTimer, stopFlushTimer])
+  }, [])
 
   const handleLoadHistory = (entry: HistoryEntry) => {
     setFilename(entry.filename)
-    setExtraction(entry.extraction)
+    setStreamText(entry.markdown)
     setDocumentId(null)
     setChatMsgs([])
-    setLoadingStage(null)
+    setIsExtracting(false)
   }
 
   const handleDeleteHistory = (e: React.MouseEvent, id: string) => {
@@ -728,63 +675,64 @@ export default function PdfExtractorPage() {
     setHistory(loadHistory())
   }
 
-  const handleAsk = () => {
-    if (!question.trim() || !documentId) return
+  const handleAsk = async () => {
+    if (!question.trim() || !documentId || isChatPending) return
     const updatedMsgs: ChatMsg[] = [...chatMsgs, { role: 'user', content: question }]
     setChatMsgs(updatedMsgs)
-    chatMutation.mutate({ id: documentId, msgs: updatedMsgs })
     setQuestion('')
+    setIsChatPending(true)
+    try {
+      const { data } = await chatWithDocument(documentId, updatedMsgs)
+      setChatMsgs([...updatedMsgs, { role: 'assistant', content: (data.data as any).answer as string }])
+    } catch {
+      toast('Could not get an answer. Try again.')
+    } finally {
+      setIsChatPending(false)
+    }
+  }
+
+  const handleQuickPrompt = async (prompt: string) => {
+    if (!documentId || isChatPending) return
+    const userMsgs: ChatMsg[] = [...chatMsgs, { role: 'user', content: prompt }]
+    const allMsgs: ChatMsg[] = [...userMsgs, { role: 'assistant', content: '' }]
+    setChatMsgs(allMsgs)
+    setIsChatPending(true)
+    setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+    await streamChatWithDocument(
+      documentId,
+      userMsgs,
+      (chunk) => {
+        setChatMsgs(prev => {
+          const next = [...prev]
+          next[next.length - 1] = { role: 'assistant', content: next[next.length - 1].content + chunk }
+          return next
+        })
+        chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      },
+      () => setIsChatPending(false),
+      (msg) => { toast(msg || 'Could not get an answer. Try again.'); setIsChatPending(false) },
+    )
   }
 
   const handleReset = () => {
-    stopFlushTimer()
-    pendingTokensRef.current = ''
+    clearInterval(flushTimerRef.current!)
+    flushTimerRef.current = null
+    tokenBufRef.current = ''
     setFilename('')
-    setExtraction(null)
+    setStreamText('')
     setDocumentId(null)
     setChatMsgs([])
-    setLoadingStage(null)
-    setLoadingPct(0)
-    setStreamingText('')
+    setIsExtracting(false)
   }
 
   // ── Landing screen ────────────────────────────────────────────────────────
 
-  if (!filename || (!isExtracting && !extraction)) {
+  if (!filename) {
     return (
       <div className="max-w-[520px] mx-auto mt-9 px-2">
         <DropZone onFile={handleFile} />
 
-        {isExtracting && (
-          <div className="mt-5">
-            <div className="flex items-center justify-center gap-2 text-[12px] text-text-2 mb-3">
-              <svg className="animate-spin h-4 w-4 text-ink flex-shrink-0" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-              {STAGE_LABELS[loadingStage!] ?? 'Processing…'}
-            </div>
-            {loadingStage === 'generating' && loadingPct > 0 && (
-              <>
-                <div className="w-full bg-surface-3 rounded-full h-[3px] overflow-hidden mb-3">
-                  <div
-                    className="bg-ink h-[3px] rounded-full transition-all duration-300"
-                    style={{ width: `${loadingPct}%` }}
-                  />
-                </div>
-                {/* Mini streaming preview on landing */}
-                {streamingText && (
-                  <div className="mt-2 max-h-[80px] overflow-hidden rounded-sm bg-surface-2 border border-border-1 px-[10px] py-[8px] font-mono text-[9.5px] text-text-3 leading-[1.6] whitespace-pre-wrap relative">
-                    {streamingText.slice(-300)}
-                    <div className="absolute bottom-0 left-0 right-0 h-[24px] bg-gradient-to-t from-surface-2 to-transparent" />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {history.length > 0 && !isExtracting && (
+        {history.length > 0 && (
           <div className="mt-6">
             <div className="text-[9.5px] font-bold tracking-[0.6px] uppercase text-text-3 mb-[8px]">
               Recently Extracted
@@ -799,14 +747,7 @@ export default function PdfExtractorPage() {
                   <span className="text-[14px] flex-shrink-0">📄</span>
                   <div className="flex-1 min-w-0">
                     <div className="text-[12px] font-medium text-text-1 truncate">{h.filename}</div>
-                    <div className="flex items-center gap-[6px] mt-[1px]">
-                      {h.sub_type && (
-                        <span className="text-[9.5px] text-text-3 bg-surface-3 px-[5px] py-[1px] rounded-full">
-                          {h.sub_type}
-                        </span>
-                      )}
-                      <span className="text-[10px] text-text-3">{timeAgo(h.timestamp)}</span>
-                    </div>
+                    <span className="text-[10px] text-text-3">{timeAgo(h.timestamp)}</span>
                   </div>
                   <button
                     onClick={e => handleDeleteHistory(e, h.id)}
@@ -822,84 +763,83 @@ export default function PdfExtractorPage() {
     )
   }
 
-  // ── Extraction view ───────────────────────────────────────────────────────
-
-  const docType = extraction?.document_type
+  // ── Document view ─────────────────────────────────────────────────────────
 
   return (
     <div
       className="h-[calc(100vh-50px-44px)] md:h-[calc(100vh-50px)] grid border border-border-1 rounded-DEFAULT overflow-hidden shadow-[0_1px_4px_rgba(0,0,0,0.05)]"
       style={{ gridTemplateColumns: '1fr 1fr' }}
     >
-      {/* LEFT: Extracted intelligence */}
+      {/* LEFT: Document analysis */}
       <div className="flex flex-col bg-white overflow-x-hidden">
-        <div className="h-11 flex-shrink-0 px-[14px] border-b border-border-1 flex items-center justify-between">
-          <div className="flex items-center gap-[7px] min-w-0">
-            <span className="text-[12px] font-bold text-text-1 truncate">📄 {filename}</span>
-            {docType && (
-              <span className="text-[9.5px] font-semibold px-[7px] py-[2px] bg-surface-3 text-text-2 rounded-full flex-shrink-0">
-                {docType.sub_type || docType.category}
-              </span>
-            )}
-          </div>
-          <Button size="sm" onClick={handleReset} className="flex-shrink-0 ml-2">← Back</Button>
+        <div className="h-11 flex-shrink-0 px-[14px] border-b border-border-1 flex items-center justify-between gap-2">
+          <span className="text-[12px] font-bold text-text-1 truncate min-w-0">📄 {filename}</span>
+          {isExtracting && (
+            <span className="text-[10px] text-text-3 flex items-center gap-[6px] flex-shrink-0">
+              <svg className="animate-spin h-[11px] w-[11px]" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5"/>
+                <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {loadingStage === 'reading' ? 'Reading…' : 'Analysing…'}
+            </span>
+          )}
+          <Button size="sm" onClick={handleReset} className="flex-shrink-0">← Back</Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
-          {isExtracting ? (
-            <div className="flex flex-col items-center justify-center h-full gap-[20px] px-[32px]">
-
-              {/* Spinner */}
-              <svg className="animate-spin h-[22px] w-[22px] text-text-3" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" />
-                <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-
-              {/* Stage label */}
-              <div className="text-center">
-                <div className="text-[13px] font-semibold text-text-1 mb-[4px]">
-                  {STAGE_LABELS[loadingStage!] ?? 'Processing…'}
-                </div>
-                <div className="text-[11px] text-text-3">
-                  {loadingStage === 'reading'   && 'Extracting text from document'}
-                  {loadingStage === 'analysing' && 'AI is reading the document'}
-                  {loadingStage === 'generating' && 'Building structured intelligence'}
-                </div>
-              </div>
-
-              {/* Progress bar — only during generating stage */}
-              {loadingStage === 'generating' && loadingPct > 0 && (
-                <div className="w-full max-w-[240px]">
-                  <div className="w-full bg-surface-3 rounded-full h-[4px] overflow-hidden">
-                    <div
-                      className="bg-ink h-full rounded-full transition-all duration-300"
-                      style={{ width: `${loadingPct}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-[5px]">
-                    <span className="text-[10px] text-text-3">Extracting fields…</span>
-                    <span className="text-[10px] text-text-3 font-medium">{loadingPct}%</span>
+        <div ref={streamScrollRef} className="flex-1 overflow-y-auto">
+          {hasContent ? (
+            <div className="px-[20px] py-[18px]">
+              <MarkdownText text={streamText} />
+              {isExtracting && (
+                <span className="inline-block w-[2px] h-[14px] bg-text-3 align-middle animate-pulseDot ml-[1px]" />
+              )}
+              {!isExtracting && documentId && (
+                <div className="mt-[24px] pt-[16px] border-t border-border-1">
+                  <div className="text-[10px] font-bold tracking-[0.6px] uppercase text-text-3 mb-[10px]">Generate More</div>
+                  <div className="flex flex-wrap gap-[8px]">
+                    <button
+                      onClick={() => handleQuickPrompt('Please provide a detailed analysis of this document including all witnesses, exhibits, procedural history, issue-wise findings, and evidence relied upon by the court.')}
+                      disabled={isChatPending}
+                      className="px-[12px] py-[7px] text-[12px] font-medium border border-border-2 rounded-sm bg-white text-text-1 hover:bg-surface-2 hover:border-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Detailed Analysis
+                    </button>
+                    <button
+                      onClick={() => handleQuickPrompt('Based on this judgment, identify the strongest grounds for appeal. For each ground state: the legal basis, the specific error in the judgment, relevant authorities, and realistic prospects of success.')}
+                      disabled={isChatPending}
+                      className="px-[12px] py-[7px] text-[12px] font-medium border border-border-2 rounded-sm bg-white text-text-1 hover:bg-surface-2 hover:border-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Appeal Grounds
+                    </button>
+                    <button
+                      onClick={() => handleQuickPrompt('Create a chronological timeline of all key events in this case. For each event state the date and what happened. List events in date order from earliest to latest.')}
+                      disabled={isChatPending}
+                      className="px-[12px] py-[7px] text-[12px] font-medium border border-border-2 rounded-sm bg-white text-text-1 hover:bg-surface-2 hover:border-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Case Timeline
+                    </button>
                   </div>
                 </div>
               )}
-
-              {/* Animated dots showing activity during analysing */}
-              {loadingStage === 'analysing' && (
-                <div className="flex gap-[5px]">
-                  {[0, 1, 2].map(i => (
-                    <span
-                      key={i}
-                      className="w-[6px] h-[6px] rounded-full bg-text-3 animate-pulseDot"
-                      style={{ animationDelay: `${i * 0.3}s` }}
-                    />
-                  ))}
-                </div>
-              )}
-
             </div>
-          ) : extraction ? (
-            <ExtractionContent extraction={extraction} />
-          ) : null}
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-[20px] px-[32px]">
+              <svg className="animate-spin h-[22px] w-[22px] text-text-3" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5"/>
+                <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              <div className="text-center">
+                <div className="text-[13px] font-semibold text-text-1 mb-[4px]">Reading document…</div>
+                <div className="text-[11px] text-text-3">Extracting text from file</div>
+              </div>
+              <div className="flex gap-[5px]">
+                {[0,1,2].map(i => (
+                  <span key={i} className="w-[6px] h-[6px] rounded-full bg-text-3 animate-pulseDot"
+                    style={{ animationDelay: `${i * 0.3}s` }} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -908,10 +848,9 @@ export default function PdfExtractorPage() {
         <div className="h-11 flex-shrink-0 px-[14px] border-b border-border-1 flex items-center justify-between">
           <span className="text-[12px] font-bold text-text-1">💬 Chat with Document</span>
           {chatMsgs.length > 0 && (
-            <button
-              onClick={() => setChatMsgs([])}
-              className="text-[11px] text-text-3 hover:text-text-1 transition-colors"
-            >Clear</button>
+            <button onClick={() => setChatMsgs([])} className="text-[11px] text-text-3 hover:text-text-1 transition-colors">
+              Clear
+            </button>
           )}
         </div>
 
@@ -919,7 +858,7 @@ export default function PdfExtractorPage() {
           <div className="bg-surface-2 rounded-sm px-[11px] py-[9px] mb-2 text-[12.5px] text-text-2">
             {documentId
               ? <><strong>{filename}</strong> is ready. Ask me anything.</>
-              : <span className="text-text-3 italic">Indexing document for chat…</span>
+              : <span className="text-text-3 italic">{isExtracting ? 'Analysis in progress…' : 'Upload a document to start chatting.'}</span>
             }
           </div>
           {chatMsgs.map((m, i) => (
@@ -929,22 +868,20 @@ export default function PdfExtractorPage() {
                 <div className="text-[12.5px] text-text-1">{m.content}</div>
               </div>
             ) : (
-              <div key={i} className="bg-surface-2 border-l-[3px] border-ink rounded-r-sm px-[11px] py-[9px] mb-2">
+              <div key={i} className="bg-white border border-border-1 border-l-[3px] border-l-ink rounded-r-sm px-[11px] py-[9px] mb-2">
                 <MarkdownText text={m.content} />
               </div>
             )
           ))}
-          {chatMutation.isPending && (
-            <div className="text-[11px] text-text-3 italic px-1">Thinking…</div>
-          )}
+          {isChatPending && <div className="text-[11px] text-text-3 italic px-1">Thinking…</div>}
           <div ref={chatBottomRef} />
         </div>
 
         <div className="border-t border-border-1 p-[11px] bg-surface-2 flex-shrink-0">
           <input
             className="w-full px-[11px] py-2 border border-border-1 rounded-sm bg-white text-text-1 font-sans text-[12.5px] outline-none focus:border-border-2 transition-colors disabled:opacity-50"
-            placeholder={documentId ? 'Ask a question about this document…' : 'Indexing for chat…'}
-            disabled={!documentId || chatMutation.isPending}
+            placeholder={documentId ? 'Ask a question about this document…' : 'Chat available after analysis…'}
+            disabled={!documentId || isChatPending}
             value={question}
             onChange={e => setQuestion(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAsk()}

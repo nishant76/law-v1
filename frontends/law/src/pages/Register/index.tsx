@@ -48,7 +48,7 @@ export default function RegisterPage() {
               <path d="M8 1v3h3" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="font-serif text-[20px] tracking-[-0.2px] text-text-1">Nikhar</span>
+          <span className="font-serif text-[20px] tracking-[-0.2px] text-text-1">SuperAdvocate</span>
         </div>
 
         <div className="bg-white border border-border-1 rounded-DEFAULT p-6 shadow-sm">

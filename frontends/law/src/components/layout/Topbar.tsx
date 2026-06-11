@@ -25,7 +25,7 @@ export default function Topbar({ onHamburger, userName }: Props) {
   const basePath = '/' + pathname.split('/')[1]
   const title = basePath === '/' && userName
     ? `Good morning, ${userName}`
-    : (PAGE_TITLES[basePath] ?? 'Nikhar')
+    : (PAGE_TITLES[basePath] ?? 'SuperAdvocate')
 
   return (
     <header className="h-[48px] flex-shrink-0 bg-paper border-b border-border-1 flex items-center px-5 gap-[10px]">

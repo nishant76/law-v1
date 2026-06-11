@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { login } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
@@ -10,6 +10,8 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const { setAuth } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  const sessionExpired = (location.state as { sessionExpired?: boolean } | null)?.sessionExpired
 
   const mutation = useMutation({
     mutationFn: () => login(email, password),
@@ -43,12 +45,18 @@ export default function LoginPage() {
               <path d="M8 1v3h3" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="font-serif text-[20px] tracking-[-0.2px] text-text-1">Nikhar</span>
+          <span className="font-serif text-[20px] tracking-[-0.2px] text-text-1">SuperAdvocate</span>
         </div>
 
         <div className="bg-white border border-border-1 rounded-DEFAULT p-6 shadow-sm">
           <h1 className="font-serif text-[18px] text-text-1 mb-[2px]">Welcome back</h1>
           <p className="text-[12px] text-text-3 mb-5">Sign in to your workspace</p>
+
+          {sessionExpired && (
+            <div className="text-[11.5px] text-amber bg-amber-bg border border-amber/25 rounded-sm px-3 py-2 mb-4">
+              Your session has expired. Please sign in again.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <label className="block text-[10px] font-bold tracking-[0.5px] uppercase text-text-3 mb-1">Email</label>

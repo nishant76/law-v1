@@ -16,6 +16,7 @@ class ModelType(str, Enum):
     GPT4O_MINI = "gpt-4o-mini"
     GPT52 = "gpt-5.2"
     GPT5_2 = "gpt-5.2"
+    GPT5_5 = "gpt-5.5"
 
 
 class PromptTemplate:

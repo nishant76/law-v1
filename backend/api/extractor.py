@@ -283,7 +283,7 @@ async def extract_from_upload_stream(
 
         service = get_pdf_extractor_service()
         raw_text = ""
-        result_data: dict | None = None
+        stream_done = False
 
         try:
             async for event in service.extract_fields_stream(
@@ -292,9 +292,8 @@ async def extract_from_upload_stream(
                 firm_id=str(current_user.firm_id),
             ):
                 if event["type"] == "result":
-                    # Hold the result — persist document first, then send
-                    result_data = event["data"]
                     raw_text = event.get("raw_text", "")
+                    stream_done = True
                 else:
                     # Forward progress + token events immediately to browser
                     yield _sse(event)
@@ -310,13 +309,14 @@ async def extract_from_upload_stream(
             yield _sse({"type": "done"})
             return
 
-        if result_data is None:
+        if not stream_done:
             yield _sse({"type": "error", "code": "extraction_failed",
                         "message": "No result received from AI."})
             yield _sse({"type": "done"})
             return
 
-        # ── Persist for /extract/chat ─────────────────────────────────────────
+        # ── Persist raw text so /extract/chat can answer questions ────────────
+        document_id = "direct"
         try:
             doc_service = get_document_service()
             doc = await doc_service.store_document_in_db(
@@ -335,14 +335,13 @@ async def extract_from_upload_stream(
                 chunk_count=0,
                 ocr_text=raw_text or "",
             )
-            result_data["document_id"] = str(doc.id)
+            document_id = str(doc.id)
         except Exception as exc:
             logger.warning(f"Could not persist streamed doc for chat: {exc}")
 
-        extraction = _build_extraction_data(
-            {"document_id": result_data.get("document_id", "direct"), **result_data}
-        )
-        yield _sse({"type": "result", "data": extraction.model_dump()})
+        # The markdown content is already in the token stream.
+        # Only the document_id is needed by the frontend (to enable chat).
+        yield _sse({"type": "result", "document_id": document_id})
         yield _sse({"type": "done"})
 
     return StreamingResponse(
@@ -352,6 +351,85 @@ async def extract_from_upload_stream(
             "Cache-Control": "no-cache, no-transform",
             "X-Accel-Buffering": "no",
             "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post(
+    "/chat/stream",
+    summary="Stream an answer about an indexed document token by token",
+)
+async def chat_with_document_stream(
+    body: ChatRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Document).where(
+        Document.id == uuid.UUID(body.document_id),
+        Document.deleted_at.is_(None),
+    )
+    result = await db.execute(stmt)
+    doc: Optional[Document] = result.scalar_one_or_none()
+
+    if doc is None or str(doc.firm_id) != str(current_user.firm_id):
+        async def _err():
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Document not found.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return StreamingResponse(_err(), media_type="text/event-stream")
+
+    if not doc.ocr_text:
+        async def _err():
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Document has no extractable text.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return StreamingResponse(_err(), media_type="text/event-stream")
+
+    safe_text = sanitise_document_text(doc.ocr_text)
+    doc_context = safe_text[:100_000]
+
+    system_prompt = (
+        "You are a senior legal research assistant for Indian lawyers practising in "
+        "Punjab, Haryana and Chandigarh courts.\n\n"
+        "You have two modes:\n"
+        "A) DOCUMENT MODE — answer from the document provided below.\n"
+        "B) GENERAL MODE — answer general Indian law questions from your legal knowledge.\n\n"
+        "RULES:\n"
+        "1. FOLLOW-UP QUESTIONS — read prior turns to understand what 'it' or 'that' refers to.\n"
+        "2. CONCEPTUAL EQUIVALENCE — before saying a concept is absent, check for different terminology.\n"
+        "3. GENERAL LEGAL QUESTIONS — if the concept is NOT in the document, answer from general Indian law knowledge.\n"
+        "4. NEVER FABRICATE — do not invent case law or statutory provisions.\n"
+        "5. DOCUMENT FIRST — if the concept IS in the document, always answer from it.\n"
+        "6. Write in clear professional markdown. Use headings and bullets where appropriate.\n\n"
+        f"Document content:\n{doc_context}"
+    )
+
+    history = body.messages[-10:]
+    llm_messages = [{"role": msg.role, "content": msg.content} for msg in history]
+    llm = get_llm_service()
+
+    def _sse(payload: dict) -> str:
+        return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    async def generate():
+        try:
+            async for chunk in llm.call_chat_completion_stream(
+                system_prompt=system_prompt,
+                messages=llm_messages,
+                model=ModelType.GPT4O_MINI,
+                max_tokens=2000,
+                firm_id=str(current_user.firm_id),
+            ):
+                yield _sse({"type": "token", "text": chunk})
+        except Exception as exc:
+            logger.error(f"Stream chat error user={current_user.user_id}: {exc}")
+            yield _sse({"type": "error", "message": "Could not answer. Please try again."})
+        yield _sse({"type": "done"})
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
         },
     )
 
@@ -400,21 +478,29 @@ async def chat_with_document(
     system_prompt = (
         "You are a senior legal research assistant for Indian lawyers practising in "
         "Punjab, Haryana and Chandigarh courts.\n\n"
-        "You answer questions about the document provided below.\n\n"
+        "You have two modes:\n"
+        "A) DOCUMENT MODE — answer from the document provided below.\n"
+        "B) GENERAL MODE — answer general Indian law questions from your legal knowledge.\n\n"
 
         "RULES:\n"
-        "1. CONCEPTUAL EQUIVALENCE — check whether the concept is present under "
-        "different terminology before saying not found.\n"
-        "   • 'vicarious liability'  = employer liable before MACT, recovery from "
-        "employee, Corporation paid compensation\n"
-        "   • 'natural justice'      = opportunity of hearing, show cause notice, "
-        "audi alteram partem\n"
-        "   • 'estoppel'             = cannot change stand, Section 115 Evidence Act\n"
-        "   • 'res judicata'         = matter already decided, cannot reopen\n"
-        "2. NEVER FABRICATE — do not infer beyond what the document states.\n"
-        "3. CITE THE DOCUMENT — mention paragraph, heading, or page when visible.\n"
-        "4. COMPLETELY UNRELATED question — set answer to the single sentence "
-        "'This document does not cover that topic.' and confidence to 0.\n\n"
+        "1. FOLLOW-UP QUESTIONS — the conversation has history. Short messages like "
+        "'explain more', 'elaborate', 'can you explain a bit more about it?', 'why?', "
+        "'what does that mean?', 'give an example' are ALWAYS continuations of the "
+        "previous question. Read the prior assistant turn to understand what 'it' or "
+        "'that' refers to, then answer accordingly. Never treat a follow-up as "
+        "unrelated.\n"
+        "2. CONCEPTUAL EQUIVALENCE — before saying a concept is absent, check whether "
+        "it appears under different terminology in the document.\n"
+        "3. GENERAL LEGAL QUESTIONS — if the question asks about a legal concept, "
+        "doctrine, statute, procedure, or term (e.g. 'what is vicarious liability?', "
+        "'explain res judicata', 'what does Section 138 NI Act say?') and that concept "
+        "is NOT present in the document, answer it from your general knowledge of "
+        "Indian law. Set concept_found_as to null and sources to []. Set confidence "
+        "to 9 if you are sure of the answer.\n"
+        "4. NEVER FABRICATE — do not invent case law or statutory provisions you are "
+        "not certain of.\n"
+        "5. DOCUMENT FIRST — if the concept IS present in the document, always "
+        "answer from the document and cite the location.\n\n"
         "Always respond with valid JSON only. No markdown. No preamble.\n\n"
         "Response format:\n"
         "{\n"
@@ -423,9 +509,9 @@ async def chat_with_document(
         '  "concept_found_as": "exact terminology the document uses, or null",\n'
         '  "sources": [{"location": "para 5 / page 3 / heading X"}]\n'
         "}\n\n"
-        "Confidence scale: 10=exact phrase present, 8=concept clearly present under "
-        "different term, 6=partially addressed, 4=tangential, 2=barely related, "
-        "0=not present or unrelated.\n\n"
+        "Confidence scale: 10=exact phrase present in document, 8=concept clearly "
+        "present under different term, 6=partially addressed, 9=general law answer "
+        "(not from document).\n\n"
         f"Document content:\n{doc_context}"
     )
 

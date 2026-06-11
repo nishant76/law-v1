@@ -22,7 +22,12 @@ from sqlalchemy import select
 
 from backend.models.law_document import Document, DocumentStatus
 from backend.services.llm_service import get_llm_service, LLMService, ModelType as LLMModelType
-from backend.services.prompts.pdf_extractor import pdf_extractor_prompt
+from backend.services.prompts.pdf_extractor import (
+    pdf_extractor_prompt,
+    READABLE_SYSTEM_PROMPT,
+    READABLE_USER_TEMPLATE,
+    READABLE_MODEL,
+)
 from backend.services.pdf_extractor_validator import validate_and_correct
 from backend.core.logger import get_logger
 from backend.core.sanitiser import sanitise_document_text
@@ -155,17 +160,22 @@ class PDFExtractorService:
         firm_id: str,
     ) -> AsyncGenerator[dict, None]:
         """
-        Stream extraction events for the upload/stream endpoint.
+        Two-phase streaming extraction:
 
-        Yields dicts that the endpoint serialises as SSE:
-          {"type": "progress", "stage": "reading",   "message": "..."}
-          {"type": "progress", "stage": "analysing", "message": "..."}
-          {"type": "progress", "stage": "generating","pct": 0-100}
-          {"type": "result",   "data": {...}, "raw_text": "..."}
+        Phase 1 — readable markdown prose streams token by token so the
+                   lawyer can start reading immediately.
+        Phase 2 — full JSON extraction runs after Phase 1 completes;
+                   the 'result' event carries the structured data.
+
+        SSE event types:
+          progress  {"stage": "reading"|"analysing"|"extracting", "message": str}
+          token     {"text": str}   ← Phase 1 markdown tokens
+          result    {"data": {...}, "raw_text": str}
+          (errors raised as exceptions — caller emits error SSE)
         """
         ft = file_ext.lower().lstrip(".")
 
-        # ── 1. Extract text ───────────────────────────────────────────────────
+        # ── 1. Extract raw text from file ─────────────────────────────────────
         yield {"type": "progress", "stage": "reading", "message": "Reading document…"}
         try:
             if ft == "pdf":
@@ -189,41 +199,28 @@ class PDFExtractorService:
             logger.error(f"Text extraction failed for {ft}: {exc}")
             raise RuntimeError(f"Could not read file: {exc}") from exc
 
-        # ── 2. Start LLM stream ───────────────────────────────────────────────
-        yield {"type": "progress", "stage": "analysing", "message": "Analysing with AI…"}
-
         safe_text = sanitise_document_text(raw_text)
-        user_prompt = pdf_extractor_prompt.format_user_prompt(document_text=safe_text)
 
-        full_text = ""
-        # Approximate expected tokens to drive a progress %
-        # Typical response: ~2 000 tokens. We emit a progress event every 200 chars (~50 tokens).
-        EXPECTED_CHARS = 8_000  # ~2 000 tokens × ~4 chars/token
-        FLUSH_EVERY = 200
-        buffered = 0
+        # ── 2. Phase 1: stream a readable markdown analysis ───────────────────
+        yield {"type": "progress", "stage": "analysing", "message": "Analysing document…"}
+
+        readable_user_prompt = READABLE_USER_TEMPLATE.format(
+            document_text=safe_text[:80_000]  # ~60 pages — covers any district court document
+        )
 
         async for chunk in self._llm.call_completion_stream(
-            system_prompt=pdf_extractor_prompt.system_prompt,
-            user_prompt=user_prompt,
-            model=LLMModelType(pdf_extractor_prompt.model.value),
+            system_prompt=READABLE_SYSTEM_PROMPT,
+            user_prompt=readable_user_prompt,
+            model=LLMModelType(READABLE_MODEL.value),
             temperature=0.0,
-            max_tokens=pdf_extractor_prompt.max_tokens,
+            max_tokens=6000,  # complex judgments with witnesses/exhibits need more room
             firm_id=firm_id,
         ):
-            full_text += chunk
-            buffered += len(chunk)
-            # Send the actual token text so the frontend can display it as it arrives
             yield {"type": "token", "text": chunk}
-            if buffered >= FLUSH_EVERY:
-                pct = min(int(len(full_text) / EXPECTED_CHARS * 100), 95)
-                yield {"type": "progress", "stage": "generating", "pct": pct}
-                buffered = 0
 
-        # ── 3. Parse and validate ─────────────────────────────────────────────
-        parsed = _parse_llm_json(full_text, "stream_extract")
-        validated = validate_and_correct(parsed, document_text=safe_text)
-
-        yield {"type": "result", "data": validated, "raw_text": raw_text}
+        # Phase 1 complete — the streamed markdown IS the result.
+        # No second LLM call, no JSON extraction, no restructuring.
+        yield {"type": "result", "raw_text": raw_text}
 
 
 _pdf_extractor_service: Optional[PDFExtractorService] = None

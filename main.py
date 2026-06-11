@@ -3,10 +3,9 @@ Nikhar backend — FastAPI application
 Main entry point for all API routes and middleware
 """
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 from fastapi.middleware.cors import CORSMiddleware
 from backend.core.config import settings
@@ -40,46 +39,46 @@ if frontend_url:
     ALLOWED_ORIGINS.append(frontend_url.rstrip("/"))
 
 
-class SelectiveGZipMiddleware(BaseHTTPMiddleware):
+class SelectiveGZipMiddleware:
     """
     GZip compression that explicitly skips SSE (text/event-stream) endpoints.
 
-    Starlette's built-in GZipMiddleware compresses streaming responses, which
-    causes the browser to buffer the entire gzip stream before decompressing —
-    destroying the real-time streaming effect on /extract/upload/stream and any
-    other SSE endpoints we add in future.
+    Implemented as a raw ASGI middleware (not BaseHTTPMiddleware) so that we
+    have direct access to the ASGI `send` callable — BaseHTTPMiddleware wraps
+    the request into a _CachedRequest which does NOT expose `send`, causing
+    an AttributeError at runtime.
 
-    This middleware skips compression when:
+    Skips compression when:
       - The request path ends with /stream
       - The client sends Accept-Encoding: identity
-      - The response Content-Type is text/event-stream
+    All other requests are forwarded to Starlette's GZipMiddleware.
     """
 
     def __init__(self, app: ASGIApp, minimum_size: int = 1000) -> None:
-        super().__init__(app)
+        self._app = app
         self._gzip_app = GZipMiddleware(app, minimum_size=minimum_size)
 
-    async def dispatch(self, request: Request, call_next):
-        # Skip gzip for streaming / SSE endpoints
-        path = request.url.path
-        accept_enc = request.headers.get("accept-encoding", "")
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        headers = dict(scope.get("headers", []))
+        accept_enc = headers.get(b"accept-encoding", b"").decode("latin-1")
+
         if path.endswith("/stream") or "identity" in accept_enc:
-            return await call_next(request)
-        # All other responses go through normal gzip compression
-        return await self._gzip_app(request.scope, request.receive, request.send)
+            # Bypass gzip — pass straight through to the inner app
+            await self._app(scope, receive, send)
+        else:
+            await self._gzip_app(scope, receive, send)
 
-
-# Middleware stack
-middleware = [
-    Middleware(SelectiveGZipMiddleware, minimum_size=1000),
-]
 
 # Create FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="0.1.0",
     description="AI-powered legal workspace for solo lawyers in Punjab, Haryana, and Chandigarh",
-    middleware=middleware,
 )
 
 app.add_middleware(
@@ -90,8 +89,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add request logging middleware after FastAPI app initialization
-# (must be added after other middleware)
+# Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
 # Include routers
@@ -117,6 +115,13 @@ async def startup_event():
 async def shutdown_event():
     """Application shutdown"""
     logger.info("Nikhar shutting down")
+
+
+# Wrap the fully-configured FastAPI app with selective gzip.
+# Done last so all routers and lifecycle hooks are registered first.
+# Raw ASGI middleware — avoids the _CachedRequest.send AttributeError
+# that BaseHTTPMiddleware causes on newer Starlette versions.
+app = SelectiveGZipMiddleware(app, minimum_size=1000)  # type: ignore[assignment]
 
 
 if __name__ == "__main__":

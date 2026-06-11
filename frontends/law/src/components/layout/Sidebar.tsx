@@ -190,7 +190,7 @@ export default function Sidebar({ open, onClose }: Props) {
               <path d="M8 1v3h3" stroke="#111827" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="font-serif text-[17px] text-white tracking-[-0.2px]">Nikhar</span>
+          <span className="font-serif text-[17px] text-white tracking-[-0.2px]">SuperAdvocate</span>
         </div>
 
         {/* ── Nav ── */}
@@ -243,7 +243,7 @@ export default function Sidebar({ open, onClose }: Props) {
           </div>
 
           {/* User card */}
-          <div className="flex items-center gap-[9px] px-[10px] py-[8px] rounded-[8px] cursor-pointer hover:bg-white/[0.06] transition-colors group">
+          <div className="flex items-center gap-[9px] px-[10px] py-[8px] rounded-[8px] hover:bg-white/[0.06] transition-colors group">
             <div className="w-[28px] h-[28px] rounded-full bg-gold flex items-center justify-center text-[10px] font-bold text-sidebar flex-shrink-0 ring-2 ring-gold/30">
               {initials}
             </div>
@@ -251,12 +251,17 @@ export default function Sidebar({ open, onClose }: Props) {
               <div className="text-[12px] font-semibold text-white/85 truncate leading-tight">{fullName}</div>
               <div className="text-[10px] text-white/30 leading-tight capitalize">{plan} plan</div>
             </div>
+            {/* Sign out — always visible */}
             <button
               onClick={handleLogout}
-              className="text-[10px] text-white/20 group-hover:text-white/50 transition-colors flex-shrink-0"
+              className="flex-shrink-0 text-white/35 hover:text-white/80 transition-colors p-[4px] rounded-[5px] hover:bg-white/[0.08]"
               title="Sign out"
             >
-              ↪
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-[14px] h-[14px]">
+                <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3" strokeLinecap="round"/>
+                <path d="M10.5 11l3-3-3-3" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M13.5 8H6.5" strokeLinecap="round"/>
+              </svg>
             </button>
           </div>
 
