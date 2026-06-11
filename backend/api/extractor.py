@@ -239,7 +239,7 @@ async def extract_from_upload(
 
 @router.post(
     "/upload/stream",
-    summary="Upload and extract with real-time SSE progress",
+    summary="Upload and extract with real-time token streaming",
 )
 async def extract_from_upload_stream(
     file: UploadFile = File(...),
@@ -247,12 +247,12 @@ async def extract_from_upload_stream(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Runs the extraction as a background asyncio task and sends heartbeat
-    SSE events every 2 seconds while it runs. Heartbeats force nginx/proxy
-    buffers to flush so the client sees stage updates immediately.
+    Uses extract_fields_stream() so every LLM token is forwarded to the browser
+    as it arrives — no more waiting for the full response before anything shows.
 
     SSE event types:
       progress  {"stage": "reading"|"analysing"|"generating", "message": str, "pct"?: int}
+      token     {"text": str}   ← one per LLM chunk, arrives character by character
       result    {"data": <ExtractionData dict>}
       error     {"code": str, "message": str}
       done      {}
@@ -263,9 +263,9 @@ async def extract_from_upload_stream(
     file_bytes = await file.read()
 
     def _sse(payload: dict) -> str:
-        # Pad to 256 bytes so proxies that buffer on minimum-chunk-size flush immediately
-        line = f"data: {json.dumps(payload)}"
-        padding = max(0, 256 - len(line) - 4)
+        # Minimal padding so proxies flush immediately
+        line = f"data: {json.dumps(payload, ensure_ascii=False)}"
+        padding = max(0, 64 - len(line) - 4)
         return line + (" " * padding) + "\n\n"
 
     async def generate():
@@ -281,40 +281,24 @@ async def extract_from_upload_stream(
             yield _sse({"type": "done"})
             return
 
-        # ── Fire extraction as a background task ─────────────────────────────
-        # This lets the generator keep running (heartbeats) while the LLM works.
         service = get_pdf_extractor_service()
-        task = asyncio.create_task(
-            service.extract_fields_from_bytes(
+        raw_text = ""
+        result_data: dict | None = None
+
+        try:
+            async for event in service.extract_fields_stream(
                 file_bytes=file_bytes,
                 file_ext=ext,
                 firm_id=str(current_user.firm_id),
-            )
-        )
+            ):
+                if event["type"] == "result":
+                    # Hold the result — persist document first, then send
+                    result_data = event["data"]
+                    raw_text = event.get("raw_text", "")
+                else:
+                    # Forward progress + token events immediately to browser
+                    yield _sse(event)
 
-        # Immediate first event — arrives at browser in < 1 s
-        yield _sse({"type": "progress", "stage": "reading",
-                    "message": "Reading document…"})
-
-        # Let the event loop hand control to the task for a moment
-        await asyncio.sleep(0.05)
-        yield _sse({"type": "progress", "stage": "analysing",
-                    "message": "Analysing with AI…"})
-
-        # ── Heartbeat loop — every 2 s until task completes ───────────────────
-        # Regular yields force nginx / any proxy to flush its write buffer.
-        elapsed = 0
-        EXPECTED_SECONDS = 35   # conservative estimate for progress %
-        while not task.done():
-            await asyncio.sleep(2)
-            elapsed += 2
-            pct = min(int(elapsed / EXPECTED_SECONDS * 100), 94)
-            yield _sse({"type": "progress", "stage": "generating",
-                        "message": "Extracting fields…", "pct": pct})
-
-        # ── Task finished — get result ────────────────────────────────────────
-        try:
-            result, raw_text = task.result()
         except ValueError as exc:
             yield _sse({"type": "error", "code": "validation_error", "message": str(exc)})
             yield _sse({"type": "done"})
@@ -323,6 +307,12 @@ async def extract_from_upload_stream(
             logger.error(f"Stream extraction error user={current_user.user_id}: {exc}")
             yield _sse({"type": "error", "code": "extraction_failed",
                         "message": "Extraction failed. Please try again."})
+            yield _sse({"type": "done"})
+            return
+
+        if result_data is None:
+            yield _sse({"type": "error", "code": "extraction_failed",
+                        "message": "No result received from AI."})
             yield _sse({"type": "done"})
             return
 
@@ -345,12 +335,12 @@ async def extract_from_upload_stream(
                 chunk_count=0,
                 ocr_text=raw_text or "",
             )
-            result["document_id"] = str(doc.id)
+            result_data["document_id"] = str(doc.id)
         except Exception as exc:
             logger.warning(f"Could not persist streamed doc for chat: {exc}")
 
         extraction = _build_extraction_data(
-            {"document_id": result.get("document_id", "direct"), **result}
+            {"document_id": result_data.get("document_id", "direct"), **result_data}
         )
         yield _sse({"type": "result", "data": extraction.model_dump()})
         yield _sse({"type": "done"})
@@ -360,7 +350,7 @@ async def extract_from_upload_stream(
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache, no-transform",
-            "X-Accel-Buffering": "no",       # nginx: disable proxy buffering
+            "X-Accel-Buffering": "no",
             "X-Content-Type-Options": "nosniff",
         },
     )

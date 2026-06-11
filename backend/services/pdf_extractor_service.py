@@ -212,6 +212,8 @@ class PDFExtractorService:
         ):
             full_text += chunk
             buffered += len(chunk)
+            # Send the actual token text so the frontend can display it as it arrives
+            yield {"type": "token", "text": chunk}
             if buffered >= FLUSH_EVERY:
                 pct = min(int(len(full_text) / EXPECTED_CHARS * 100), 95)
                 yield {"type": "progress", "stage": "generating", "pct": pct}

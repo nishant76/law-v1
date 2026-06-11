@@ -3,9 +3,11 @@ Nikhar backend — FastAPI application
 Main entry point for all API routes and middleware
 """
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 from fastapi.middleware.cors import CORSMiddleware
 from backend.core.config import settings
 import celery_app  # noqa: F401 — ensures Celery app is initialised before any shared_task calls
@@ -37,11 +39,39 @@ if frontend_url:
     ALLOWED_ORIGINS.append(frontend_url)
     ALLOWED_ORIGINS.append(frontend_url.rstrip("/"))
 
-# Middleware stack in correct order
-# 1. GZipMiddleware (compress responses)
-# 2. RequestLoggingMiddleware (log all requests)
+
+class SelectiveGZipMiddleware(BaseHTTPMiddleware):
+    """
+    GZip compression that explicitly skips SSE (text/event-stream) endpoints.
+
+    Starlette's built-in GZipMiddleware compresses streaming responses, which
+    causes the browser to buffer the entire gzip stream before decompressing —
+    destroying the real-time streaming effect on /extract/upload/stream and any
+    other SSE endpoints we add in future.
+
+    This middleware skips compression when:
+      - The request path ends with /stream
+      - The client sends Accept-Encoding: identity
+      - The response Content-Type is text/event-stream
+    """
+
+    def __init__(self, app: ASGIApp, minimum_size: int = 1000) -> None:
+        super().__init__(app)
+        self._gzip_app = GZipMiddleware(app, minimum_size=minimum_size)
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip gzip for streaming / SSE endpoints
+        path = request.url.path
+        accept_enc = request.headers.get("accept-encoding", "")
+        if path.endswith("/stream") or "identity" in accept_enc:
+            return await call_next(request)
+        # All other responses go through normal gzip compression
+        return await self._gzip_app(request.scope, request.receive, request.send)
+
+
+# Middleware stack
 middleware = [
-    Middleware(GZipMiddleware, minimum_size=1000),
+    Middleware(SelectiveGZipMiddleware, minimum_size=1000),
 ]
 
 # Create FastAPI app

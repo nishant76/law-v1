@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import DropZone from '@/components/ui/DropZone'
 import Button from '@/components/ui/Button'
 import MarkdownText, { renderInline } from '@/components/ui/MarkdownText'
-import { extractFromUpload, chatWithDocument } from '@/api/extract'
+import { streamExtractUpload, chatWithDocument } from '@/api/extract'
 import { toast } from '@/store/toastStore'
 import type {
   UniversalExtraction,
@@ -593,9 +593,49 @@ export default function PdfExtractorPage() {
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
   const [loadingStage, setLoadingStage] = useState<string | null>(null)
   const [loadingPct, setLoadingPct] = useState(0)
+  const [streamingText, setStreamingText] = useState('')
+
+  // Token accumulation refs — avoid React batching eating our updates
+  // Tokens land in the ref synchronously; a 50ms interval flushes them to state
+  const pendingTokensRef = useRef('')
+  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const streamBoxRef = useRef<HTMLDivElement>(null)
   const chatBottomRef = useRef<HTMLDivElement>(null)
 
   const isExtracting = loadingStage !== null
+
+  // Auto-scroll the streaming text box as tokens arrive
+  useEffect(() => {
+    if (streamBoxRef.current) {
+      streamBoxRef.current.scrollTop = streamBoxRef.current.scrollHeight
+    }
+  }, [streamingText])
+
+  // Start 50ms flush interval — gives smooth ~20fps text updates
+  const startFlushTimer = useCallback(() => {
+    if (flushTimerRef.current) clearInterval(flushTimerRef.current)
+    flushTimerRef.current = setInterval(() => {
+      if (pendingTokensRef.current) {
+        const chunk = pendingTokensRef.current
+        pendingTokensRef.current = ''
+        setStreamingText(prev => prev + chunk)
+      }
+    }, 50)
+  }, [])
+
+  const stopFlushTimer = useCallback(() => {
+    if (flushTimerRef.current) {
+      clearInterval(flushTimerRef.current)
+      flushTimerRef.current = null
+    }
+    // Flush any remaining tokens that arrived after the last tick
+    if (pendingTokensRef.current) {
+      const chunk = pendingTokensRef.current
+      pendingTokensRef.current = ''
+      setStreamingText(prev => prev + chunk)
+    }
+  }, [])
 
   // Chat still uses React Query mutation
 
@@ -619,47 +659,60 @@ export default function PdfExtractorPage() {
 
   const handleFile = useCallback(async (file: File) => {
     if (file.size > 50 * 1024 * 1024) { toast('File too large — max 50MB'); return }
+
+    // Reset all state + refs
+    pendingTokensRef.current = ''
     setFilename(file.name)
     setExtraction(null)
     setDocumentId(null)
     setChatMsgs([])
+    setStreamingText('')
     setLoadingStage('reading')
     setLoadingPct(0)
 
-    // Timer-based stage simulation while the API call runs
-    const stageTimer1 = setTimeout(() => setLoadingStage('analysing'), 2000)
-    const stageTimer2 = setTimeout(() => { setLoadingStage('generating'); setLoadingPct(10) }, 5000)
-
-    // Tick progress % from 10 → 90 while in generating stage (~1 second per tick)
-    let pct = 10
-    const pctInterval = setInterval(() => {
-      pct = Math.min(pct + 3, 90)
-      setLoadingPct(pct)
-    }, 1000)
-
-    const clearTimers = () => {
-      clearTimeout(stageTimer1)
-      clearTimeout(stageTimer2)
-      clearInterval(pctInterval)
-    }
+    // Start the 50ms flush interval — React 18 batches synchronous state updates,
+    // so we write tokens to a ref and flush to state on a timer instead.
+    startFlushTimer()
 
     try {
-      const resp = await extractFromUpload(file)
-      clearTimers()
-      const result = resp.data.data as UniversalExtraction
-      setExtraction(result)
-      saveToHistory(file.name, result)
-      setHistory(loadHistory())
-      setDocumentId(result.document_id ?? null)
-      setLoadingStage(null)
-      setLoadingPct(0)
+      await streamExtractUpload(
+        file,
+        // onToken — write to ref only (no React re-render per token)
+        // the 50ms interval flushes these to state → smooth visible streaming
+        (text) => { pendingTokensRef.current += text },
+        // onProgress — real stage/pct from SSE
+        (stage, pct) => {
+          setLoadingStage(stage)
+          if (pct !== undefined) setLoadingPct(pct)
+        },
+        // onResult — flush last tokens, then show structured view
+        (data) => {
+          stopFlushTimer()
+          setExtraction(data)
+          saveToHistory(file.name, data)
+          setHistory(loadHistory())
+          setDocumentId(data.document_id ?? null)
+          setLoadingStage(null)
+          setLoadingPct(0)
+          setStreamingText('')
+        },
+        // onError
+        (_code, message) => {
+          stopFlushTimer()
+          toast(message || 'Extraction failed. Check file format and try again.')
+          setFilename('')
+          setLoadingStage(null)
+          setStreamingText('')
+        },
+      )
     } catch {
-      clearTimers()
+      stopFlushTimer()
       toast('Extraction failed. Check file format and try again.')
       setFilename('')
       setLoadingStage(null)
+      setStreamingText('')
     }
-  }, [])
+  }, [startFlushTimer, stopFlushTimer])
 
   const handleLoadHistory = (entry: HistoryEntry) => {
     setFilename(entry.filename)
@@ -684,12 +737,15 @@ export default function PdfExtractorPage() {
   }
 
   const handleReset = () => {
+    stopFlushTimer()
+    pendingTokensRef.current = ''
     setFilename('')
     setExtraction(null)
     setDocumentId(null)
     setChatMsgs([])
     setLoadingStage(null)
     setLoadingPct(0)
+    setStreamingText('')
   }
 
   // ── Landing screen ────────────────────────────────────────────────────────
@@ -701,7 +757,6 @@ export default function PdfExtractorPage() {
 
         {isExtracting && (
           <div className="mt-5">
-            {/* Stage label */}
             <div className="flex items-center justify-center gap-2 text-[12px] text-text-2 mb-3">
               <svg className="animate-spin h-4 w-4 text-ink flex-shrink-0" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
@@ -709,14 +764,22 @@ export default function PdfExtractorPage() {
               </svg>
               {STAGE_LABELS[loadingStage!] ?? 'Processing…'}
             </div>
-            {/* Progress bar — visible during generating stage */}
             {loadingStage === 'generating' && loadingPct > 0 && (
-              <div className="w-full bg-surface-3 rounded-full h-[3px] overflow-hidden">
-                <div
-                  className="bg-ink h-[3px] rounded-full transition-all duration-300"
-                  style={{ width: `${loadingPct}%` }}
-                />
-              </div>
+              <>
+                <div className="w-full bg-surface-3 rounded-full h-[3px] overflow-hidden mb-3">
+                  <div
+                    className="bg-ink h-[3px] rounded-full transition-all duration-300"
+                    style={{ width: `${loadingPct}%` }}
+                  />
+                </div>
+                {/* Mini streaming preview on landing */}
+                {streamingText && (
+                  <div className="mt-2 max-h-[80px] overflow-hidden rounded-sm bg-surface-2 border border-border-1 px-[10px] py-[8px] font-mono text-[9.5px] text-text-3 leading-[1.6] whitespace-pre-wrap relative">
+                    {streamingText.slice(-300)}
+                    <div className="absolute bottom-0 left-0 right-0 h-[24px] bg-gradient-to-t from-surface-2 to-transparent" />
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -782,27 +845,57 @@ export default function PdfExtractorPage() {
           <Button size="sm" onClick={handleReset} className="flex-shrink-0 ml-2">← Back</Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
           {isExtracting ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
-              <svg className="animate-spin h-5 w-5 text-text-3" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            <div className="flex flex-col items-center justify-center h-full gap-[20px] px-[32px]">
+
+              {/* Spinner */}
+              <svg className="animate-spin h-[22px] w-[22px] text-text-3" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" />
+                <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
               </svg>
-              <div className="text-[12px] text-text-2 font-medium">
-                {STAGE_LABELS[loadingStage!] ?? 'Processing…'}
+
+              {/* Stage label */}
+              <div className="text-center">
+                <div className="text-[13px] font-semibold text-text-1 mb-[4px]">
+                  {STAGE_LABELS[loadingStage!] ?? 'Processing…'}
+                </div>
+                <div className="text-[11px] text-text-3">
+                  {loadingStage === 'reading'   && 'Extracting text from document'}
+                  {loadingStage === 'analysing' && 'AI is reading the document'}
+                  {loadingStage === 'generating' && 'Building structured intelligence'}
+                </div>
               </div>
+
+              {/* Progress bar — only during generating stage */}
               {loadingStage === 'generating' && loadingPct > 0 && (
-                <div className="w-full max-w-[200px]">
-                  <div className="w-full bg-surface-3 rounded-full h-[3px] overflow-hidden">
+                <div className="w-full max-w-[240px]">
+                  <div className="w-full bg-surface-3 rounded-full h-[4px] overflow-hidden">
                     <div
-                      className="bg-ink h-[3px] rounded-full transition-all duration-300"
+                      className="bg-ink h-full rounded-full transition-all duration-300"
                       style={{ width: `${loadingPct}%` }}
                     />
                   </div>
-                  <div className="text-[10px] text-text-3 text-center mt-1">{loadingPct}%</div>
+                  <div className="flex justify-between mt-[5px]">
+                    <span className="text-[10px] text-text-3">Extracting fields…</span>
+                    <span className="text-[10px] text-text-3 font-medium">{loadingPct}%</span>
+                  </div>
                 </div>
               )}
+
+              {/* Animated dots showing activity during analysing */}
+              {loadingStage === 'analysing' && (
+                <div className="flex gap-[5px]">
+                  {[0, 1, 2].map(i => (
+                    <span
+                      key={i}
+                      className="w-[6px] h-[6px] rounded-full bg-text-3 animate-pulseDot"
+                      style={{ animationDelay: `${i * 0.3}s` }}
+                    />
+                  ))}
+                </div>
+              )}
+
             </div>
           ) : extraction ? (
             <ExtractionContent extraction={extraction} />
