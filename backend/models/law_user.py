@@ -45,6 +45,16 @@ class User(BaseModel):
         default=UserRole.LAWYER, nullable=False, index=True
     )
 
+    # eCourts — identification for the mobile API auto-sync.
+    # bar_council_number: enrollment number as issued by the state bar council,
+    #   e.g. "P/1234/2020" for Punjab. Used with searchByAdvocateName.php (bar code mode).
+    # ecourts_state_code: eCourts numeric state code, e.g. "3" for Punjab.
+    #   Fetch the list via ECourtsService.get_states() to validate.
+    # ecourts_advocate_name: kept for display and name-search fallback.
+    bar_council_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    ecourts_state_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    ecourts_advocate_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
 

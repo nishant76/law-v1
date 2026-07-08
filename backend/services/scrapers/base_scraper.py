@@ -72,13 +72,25 @@ class BaseScraper(ABC):
             logger.warning(f"Error checking robots.txt: {e}. Proceeding with caution.")
             return True
     
-    async def rate_limited_request(self, url: str, **kwargs) -> Optional[httpx.Response]:
-        """Make HTTP request with rate limiting"""
+    async def rate_limited_request(self, url: str, silent_404: bool = False, **kwargs) -> Optional[httpx.Response]:
+        """Make HTTP request with rate limiting.
+
+        silent_404: if True, 404 responses are logged at DEBUG level and not
+        added to self.errors (used for probing optional/date-based listing URLs).
+        """
         try:
             await asyncio.sleep(self.RATE_LIMIT_DELAY)
             response = await self.http_client.get(url, **kwargs)
             response.raise_for_status()
             return response
+        except httpx.HTTPStatusError as e:
+            if silent_404 and e.response.status_code == 404:
+                logger.debug(f"404 (expected) {url}")
+                return None
+            error_msg = f"HTTP error fetching {url}: {e}"
+            logger.error(error_msg)
+            self.errors.append(error_msg)
+            return None
         except httpx.HTTPError as e:
             error_msg = f"HTTP error fetching {url}: {e}"
             logger.error(error_msg)
@@ -91,7 +103,12 @@ class BaseScraper(ABC):
             return None
     
     @abstractmethod
-    async def get_judgment_urls(self, limit: int = 5000) -> List[str]:
+    async def get_judgment_urls(
+        self,
+        limit: int = 5000,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> List[str]:
         """Get list of judgment URLs to scrape. Implement in subclass."""
         pass
     
@@ -192,8 +209,27 @@ class BaseScraper(ABC):
         else:
             return "DC"  # District Court
     
-    async def scrape_all(self, limit: int = 5000, progress_interval: int = 100) -> Dict[str, Any]:
-        """Main scraping method"""
+    async def scrape_all(
+        self,
+        limit: int = 5000,
+        progress_interval: int = 100,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Main scraping method.
+
+        date_from / date_to: if provided, only judgments whose judgment_date
+        falls within [date_from, date_to] are stored.  Judgments with no
+        parseable date are stored only when no date filter is active.
+        """
+        date_filter_active = date_from is not None or date_to is not None
+        if date_filter_active:
+            logger.info(
+                f"{self.SOURCE_NAME}: date filter active — "
+                f"from={date_from.date() if date_from else '—'} "
+                f"to={date_to.date() if date_to else '—'}"
+            )
+
         try:
             logger.info(f"Starting {self.SOURCE_NAME} scraper (target: {limit} judgments)")
 
@@ -208,9 +244,12 @@ class BaseScraper(ABC):
                     "errors": self.errors
                 }
 
-            # Get list of judgment URLs
-            urls = await self.get_judgment_urls(limit)
+            # Get list of judgment URLs — pass date range so subclasses can
+            # use date-based listing pages instead of the generic recent-only listing
+            urls = await self.get_judgment_urls(limit, date_from=date_from, date_to=date_to)
             logger.info(f"{self.SOURCE_NAME}: Found {len(urls)} judgment URLs to scrape")
+
+            date_skipped = 0
 
             for url in urls:
                 try:
@@ -219,18 +258,39 @@ class BaseScraper(ABC):
                     if not judgment_data:
                         continue
 
+                    # Date range filter
+                    if date_filter_active:
+                        jdate: Optional[datetime] = judgment_data.get("judgment_date")
+                        if jdate is None:
+                            # No date parseable — skip when filter is active
+                            date_skipped += 1
+                            logger.debug(f"{self.SOURCE_NAME}: skipping (no date) {url}")
+                            continue
+                        # Make timezone-aware for comparison
+                        if jdate.tzinfo is None:
+                            jdate = jdate.replace(tzinfo=timezone.utc)
+                        if date_from and jdate < date_from:
+                            date_skipped += 1
+                            continue
+                        if date_to and jdate > date_to:
+                            date_skipped += 1
+                            continue
+
                     # Store in database
                     await self.store_citation(judgment_data, progress_interval=progress_interval)
-                    
+
                 except Exception as e:
                     error_msg = f"Error processing {url}: {e}"
                     logger.error(error_msg)
                     self.errors.append(error_msg)
                     continue
-                
+
                 # Stop if we've reached the limit
                 if self.citations_added >= limit:
                     break
+
+            if date_filter_active:
+                logger.info(f"{self.SOURCE_NAME}: {date_skipped} judgments skipped (outside date range or no date)")
             
             # Commit all changes
             await self.session.commit()

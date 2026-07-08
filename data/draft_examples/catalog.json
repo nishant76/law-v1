@@ -1,0 +1,76 @@
+{
+  "_note": "P&H HC filing examples for Draft Generation prompt. text_file = extracted text for use in prompts.",
+  "filing_types": {
+    "CWP": {
+      "label": "Civil Writ Petition (CWP) — Article 226",
+      "court": "Punjab and Haryana High Court",
+      "primary_example": "cwp_sample_fatehpal_singh.pdf",
+      "text_file": "cwp_sample_fatehpal_singh.txt",
+      "rules_file": "phc_rules_vol5_ch4F.txt",
+      "checklist_file": "phc_writ_petition_format.txt",
+      "notes": "Real P&H HC CWP filed in 2010. Includes index, memo of parties, list of dates, petition body, prayer, verification."
+    },
+    "CRWP": {
+      "label": "Criminal Writ Petition (CRWP) — Habeas Corpus / Article 226 Criminal",
+      "court": "Punjab and Haryana High Court",
+      "primary_example": "cwp_sudha_bharadwaj_sample.pdf",
+      "text_file": "cwp_sudha_bharadwaj_sample.txt",
+      "rules_file": "phc_rules_vol5_ch4F.txt",
+      "notes": "Real CRWP filed before P&H HC in 2018. Good example of habeas corpus / illegal detention petition structure."
+    },
+    "CRM-M_BAIL": {
+      "label": "Regular Bail Application (CRM-M) — Section 439 CrPC / Section 483 BNSS",
+      "court": "Punjab and Haryana High Court",
+      "primary_example": "phc_crm_m_bail_sample.pdf",
+      "text_file": "phc_crm_m_bail_sample.txt",
+      "notes": "Real CRM-M bail petition from P&H HC 2023 (Hussain Abbas v State of Haryana). Shows standard format: case details, grounds, prayer."
+    },
+    "CRM-M_ANTICIPATORY": {
+      "label": "Anticipatory Bail (CRM-M) — Section 438 CrPC / Section 482 BNSS",
+      "court": "Punjab and Haryana High Court",
+      "primary_example": "anticipatory_bail_438_crpc_guide.pdf",
+      "text_file": "anticipatory_bail_438_crpc_guide.txt",
+      "notes": "48-page comprehensive guide by Former District Judge SS Upadhyay (2026). Contains full draft formats for anticipatory bail u/s 438 CrPC and 482 BNSS. NOTE: BNSS applies for FIRs on/after 1 July 2024."
+    },
+    "CRM-M_QUASHING": {
+      "label": "FIR Quashing Petition (CRM-M) — Section 482 CrPC / Section 528 BNSS",
+      "court": "Punjab and Haryana High Court",
+      "primary_example": "quashing_482_compromise_proforma.pdf",
+      "text_file": "quashing_482_compromise_proforma.txt",
+      "notes": "Proforma for compromise quashing before P&H HC. Includes required documents list, format of petition, and compromise deed."
+    },
+    "CRM-M_BAIL_CANCEL": {
+      "label": "Bail Cancellation (CRM-M) — Section 439(2) CrPC",
+      "court": "Punjab and Haryana High Court",
+      "primary_example": "phc_bail_cancellation_crm_m.pdf",
+      "text_file": "phc_bail_cancellation_crm_m.txt",
+      "notes": "Real P&H HC bail cancellation order (21 pages). Shows structure of bail cancellation petitions."
+    },
+    "CIVIL_SUIT": {
+      "label": "Civil Suit Plaint — CPC Order VII",
+      "court": "Punjab / Haryana District Court",
+      "primary_example": "drafting_pleadings_du_law.pdf",
+      "text_file": "drafting_pleadings_du_law.txt",
+      "notes": "DU Law Faculty 140-page reference covering plaints, written statements, and all civil pleadings under CPC. Use for district court civil suits."
+    }
+  },
+  "format_rules": {
+    "phc_rules": "phc_rules_vol5_ch4F.txt",
+    "phc_objections_checklist": "phc_writ_petition_format.txt",
+    "phc_official_proforma": "phc_official_proforma.txt",
+    "general_drafting_reference": "drafting_pleadings_du_law.txt"
+  },
+  "phc_format_requirements": {
+    "font": "Roman, size 14",
+    "spacing": "Double spacing",
+    "paper": "One side only, plain watermarked paper or legible computer print",
+    "margins": "1.25 inches top/left/right, 0.75 inch bottom",
+    "heading": "IN THE HIGH COURT OF PUNJAB AND HARYANA AT CHANDIGARH",
+    "index_required": true,
+    "memo_of_parties_required": true,
+    "list_of_dates_required": true,
+    "verification_required": true,
+    "affidavit_required": true,
+    "advance_copy_required": "For urgent cases"
+  }
+}

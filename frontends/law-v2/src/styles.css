@@ -1,0 +1,190 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-serif: "Libre Baskerville", ui-serif, Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-sand: var(--sand);
+  --color-sand-foreground: var(--sand-foreground);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Amber accent — third colour, Indian saffron-amber, used for CTAs, active indicators, AI elements */
+  --color-amber-accent: var(--amber-accent);
+  --color-amber-accent-fg: var(--amber-accent-fg);
+  --color-amber-accent-subtle: var(--amber-accent-subtle);
+}
+
+:root {
+  --radius: 0.5rem;
+
+  /* Monochrome + warm sand */
+  --paper: oklch(0.985 0.004 80);          /* #FAF8F4 */
+  --ink: oklch(0.18 0.005 60);             /* near-black */
+  --sand: oklch(0.945 0.012 80);           /* #F4F1EC warm cream */
+  --sand-foreground: oklch(0.25 0.01 60);
+
+  --background: oklch(0.985 0.004 80);
+  --foreground: oklch(0.16 0.005 60);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.16 0.005 60);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.16 0.005 60);
+
+  --primary: oklch(0.16 0.005 60);
+  --primary-foreground: oklch(0.985 0.004 80);
+
+  --secondary: oklch(0.945 0.012 80);
+  --secondary-foreground: oklch(0.2 0.005 60);
+
+  --muted: oklch(0.945 0.012 80);
+  --muted-foreground: oklch(0.48 0.012 70);
+
+  --accent: oklch(0.83 0.045 80);          /* #C9B79C warm tan accent */
+  --accent-foreground: oklch(0.18 0.005 60);
+
+  --destructive: oklch(0.5 0.16 28);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --border: oklch(0.88 0.01 75);
+  --input: oklch(0.9 0.008 75);
+  --ring: oklch(0.18 0.005 60);
+
+  --chart-1: oklch(0.18 0.005 60);
+  --chart-2: oklch(0.55 0.04 70);
+  --chart-3: oklch(0.75 0.05 80);
+  --chart-4: oklch(0.83 0.045 80);
+  --chart-5: oklch(0.35 0.02 60);
+
+  /* Amber — Indian saffron-amber, warm and distinct against cream & dark sidebar */
+  --amber-accent:        oklch(0.60 0.20 52);   /* rich amber ≈ #C47A0C */
+  --amber-accent-fg:     oklch(0.985 0.004 80);  /* cream text on amber */
+  --amber-accent-subtle: oklch(0.96 0.04 65);    /* light amber tint for hovers */
+
+  --sidebar: oklch(0.16 0.005 60);
+  --sidebar-foreground: oklch(0.88 0.008 80);
+  --sidebar-primary: oklch(0.83 0.045 80);
+  --sidebar-primary-foreground: oklch(0.16 0.005 60);
+  --sidebar-accent: oklch(0.22 0.005 60);
+  --sidebar-accent-foreground: oklch(0.985 0.004 80);
+  --sidebar-border: oklch(0.28 0.005 60);
+  --sidebar-ring: oklch(0.83 0.045 80);
+}
+
+.dark {
+  --background: oklch(0.14 0.004 60);
+  --foreground: oklch(0.96 0.005 80);
+  --card: oklch(0.18 0.005 60);
+  --card-foreground: oklch(0.96 0.005 80);
+  --popover: oklch(0.18 0.005 60);
+  --popover-foreground: oklch(0.96 0.005 80);
+  --primary: oklch(0.96 0.005 80);
+  --primary-foreground: oklch(0.16 0.005 60);
+  --secondary: oklch(0.24 0.005 60);
+  --secondary-foreground: oklch(0.96 0.005 80);
+  --muted: oklch(0.24 0.005 60);
+  --muted-foreground: oklch(0.7 0.01 75);
+  --accent: oklch(0.83 0.045 80);
+  --accent-foreground: oklch(0.16 0.005 60);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.83 0.045 80);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    zoom: 0.9;
+  }
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, h4, .font-serif {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-foreground);
+  }
+}
+
+@utility hairline {
+  border: 1px solid var(--color-border);
+}
+
+@utility rule-top {
+  border-top: 1px solid var(--color-border);
+}
+
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+@utility serif-display {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+/* Compensate for zoom: 0.9 on html.
+   h-screen / min-h-screen use 100vh which, after 0.9× zoom, only fills 90% of the
+   viewport. Dividing by 0.9 restores full coverage. Unlayered rules beat @layer utilities. */
+.h-screen    { height:     calc(100vh / 0.9); }
+.min-h-screen { min-height: calc(100vh / 0.9); }

@@ -18,6 +18,7 @@ class Citation(BaseModel):
         Index("ix_citations_deleted_at", "deleted_at"),
         Index("ix_citations_citation_key", "citation_key"),
         Index("ix_citations_case_name", "case_name"),
+        Index("ix_citations_link_status", "link_status"),
         {"schema": "law"},
     )
 
@@ -53,8 +54,14 @@ class Citation(BaseModel):
 
     # Sources
     official_source: Mapped[str] = mapped_column(String(100), nullable=False)  # eSCR, P&H HC, Punjab district court portals
-    source_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    source_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # official government link (secondary "View on official source")
     source_doc_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Document ID on source website
+
+    # Link integrity (LAUNCH QUALITY MANDATE — see CLAUDE.md)
+    # Primary "View Judgment" link serves our self-hosted Blob copy → can never break.
+    blob_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # our copy of the public-domain PDF
+    link_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")  # pending|verified|self_hosted|dead
+    link_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Embedding for semantic search
     embedding_vector: Mapped[Optional[str]] = mapped_column(String(10000), nullable=True)  # JSON array or string representation

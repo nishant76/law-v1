@@ -48,63 +48,130 @@ class PHCScraper(BaseScraper):
     )
 
     # Candidate listing pages — tried in order until one yields PDF links
-    # /index.php?linkid=218 is the only confirmed working path (returns CDN PDF links)
+    # /index.php?linkid=218 is confirmed working (returns CDN PDF links for today)
     # /sub_pages/snap_today_judgement.php — 404 as of April 2026
     # /lts_judgments/ — directory listing returns 403 (direct file URLs still work)
     # /judgments.php — 404 as of April 2026
     _LISTING_PATHS = [
-        "/index.php?linkid=218",        # Confirmed 200 — CDN judgment links
+        "/index.php?linkid=218",        # Confirmed 200 — CDN judgment links (today)
+    ]
+
+    # Date-based listing URL templates — tried when date_from/date_to are provided
+    # snap_today_judgement.php confirmed dead (404) as of June 2026 — kept as comment only.
+    # index.php?linkid=218&hdate=... returns 200 but ignores the hdate param (serves today only).
+    # Only the bare linkid=218 path reliably returns CDN judgment links.
+    _DATE_LISTING_TEMPLATES = [
+        "/index.php?linkid=218&hdate={dmy}",   # hdate param ignored but worth trying
     ]
 
     def __init__(self, session: AsyncSession):
         super().__init__(session)
+        # Maps URL → listing date injected by get_judgment_urls() during daily sweep
+        self._url_date_map: Dict[str, datetime] = {}
 
-    async def get_judgment_urls(self, limit: int = 5000) -> List[str]:
+    async def get_judgment_urls(
+        self,
+        limit: int = 5000,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> List[str]:
         """
         Find judgment PDF URLs from P&H HC listing pages.
-        Tries each candidate listing path until one returns results.
+
+        When date_from/date_to are provided, iterates over each calendar day
+        in the range and hits the per-date listing page, tagging each URL with
+        its listing date so the base scraper can filter accurately.
+        Falls back to the standard listing path for undated/current listings.
         """
+        from datetime import date as date_type, timedelta as td
+
         urls: List[str] = []
 
-        for path in self._LISTING_PATHS:
-            if len(urls) >= limit:
-                break
+        if date_from and date_to:
+            # Iterate day by day over the requested range
+            current = date_from.date()
+            end = date_to.date()
+            days_tried = 0
+            days_hit = 0
 
-            listing_url = f"{self.BASE_URL}{path}"
-            logger.info(f"P&H HC: Trying listing page {listing_url}")
-            response = await self.rate_limited_request(listing_url)
-            if not response:
-                continue
+            while current <= end and len(urls) < limit:
+                dmy = current.strftime("%d-%m-%Y")
+                days_tried += 1
+                found_for_day = False
 
-            page_urls = self._extract_pdf_urls(response.text)
-            if not page_urls:
-                logger.warning(f"P&H HC: No PDF links found at {listing_url}")
-                continue
+                for tmpl in self._DATE_LISTING_TEMPLATES:
+                    path = tmpl.format(dmy=dmy)
+                    listing_url = f"{self.BASE_URL}{path}"
+                    logger.info(f"P&H HC: Fetching {current} → {listing_url}")
+                    response = await self.rate_limited_request(listing_url, silent_404=True)
+                    if not response or response.status_code >= 400:
+                        continue
 
-            logger.info(f"P&H HC: Found {len(page_urls)} PDF links at {listing_url}")
-            for u in page_urls:
-                if u not in urls:
-                    urls.append(u)
+                    page_urls = self._extract_pdf_urls(response.text)
+                    if not page_urls:
+                        logger.debug(f"P&H HC: No PDF links for {current} at {listing_url}")
+                        continue
 
-            # If this listing path worked, try paginating it
-            if page_urls and "?" not in path:
-                page = 2
-                max_pages = max(1, (limit // max(len(page_urls), 1)) + 1)
-                while len(urls) < limit and page <= max_pages:
-                    paginated = f"{listing_url}?page={page}"
-                    r = await self.rate_limited_request(paginated)
-                    if not r:
-                        break
-                    more = self._extract_pdf_urls(r.text)
-                    if not more:
-                        break
-                    before = len(urls)
-                    for u in more:
+                    logger.info(f"P&H HC: {current} — {len(page_urls)} PDF links")
+                    for u in page_urls:
                         if u not in urls:
                             urls.append(u)
-                    if len(urls) == before:
-                        break
-                    page += 1
+                            # Tag URL with its listing date so base scraper can use it
+                            self._url_date_map[u] = datetime(
+                                current.year, current.month, current.day,
+                                tzinfo=timezone.utc,
+                            )
+                    found_for_day = True
+                    days_hit += 1
+                    break  # one template worked — skip the rest for this day
+
+                current += td(days=1)
+
+            logger.info(
+                f"P&H HC: Daily sweep complete — {days_hit}/{days_tried} days had judgments, "
+                f"{len(urls)} URLs collected"
+            )
+        else:
+            # No date filter — use the standard listing page(s)
+            for path in self._LISTING_PATHS:
+                if len(urls) >= limit:
+                    break
+
+                listing_url = f"{self.BASE_URL}{path}"
+                logger.info(f"P&H HC: Trying listing page {listing_url}")
+                response = await self.rate_limited_request(listing_url)
+                if not response:
+                    continue
+
+                page_urls = self._extract_pdf_urls(response.text)
+                if not page_urls:
+                    logger.warning(f"P&H HC: No PDF links found at {listing_url}")
+                    continue
+
+                logger.info(f"P&H HC: Found {len(page_urls)} PDF links at {listing_url}")
+                for u in page_urls:
+                    if u not in urls:
+                        urls.append(u)
+
+                # Try paginating if path has no existing query param
+                if page_urls and "?" not in path:
+                    page = 2
+                    max_pages = max(1, (limit // max(len(page_urls), 1)) + 1)
+                    while len(urls) < limit and page <= max_pages:
+                        paginated = f"{listing_url}?page={page}"
+                        r = await self.rate_limited_request(paginated)
+                        if not r:
+                            break
+                        more = self._extract_pdf_urls(r.text)
+                        if not more:
+                            break
+                        before = len(urls)
+                        for u in more:
+                            if u not in urls:
+                                urls.append(u)
+                        if len(urls) == before:
+                            break
+                        page += 1
 
         logger.info(f"P&H HC: Collected {len(urls)} judgment URLs total")
         return urls[:limit]
@@ -141,7 +208,12 @@ class PHCScraper(BaseScraper):
         """
         try:
             if url.lower().endswith(".pdf"):
-                return self._parse_from_pdf_url(url)
+                data = self._parse_from_pdf_url(url)
+                # If date couldn't be parsed from filename, use the listing date
+                # injected by get_judgment_urls() during a daily sweep
+                if data and data.get("judgment_date") is None and url in self._url_date_map:
+                    data["judgment_date"] = self._url_date_map[url]
+                return data
 
             response = await self.rate_limited_request(url)
             if not response:

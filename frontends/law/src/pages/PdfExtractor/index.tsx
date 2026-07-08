@@ -567,6 +567,113 @@ function ExtractionContent({ extraction }: { extraction: UniversalExtraction }) 
   )
 }
 
+// ── Case Snapshot card ────────────────────────────────────────────────────────
+// Populated from the SNAPSHOT: line the model emits as the very first line of
+// the stream — appears within 1-2 seconds, long before streaming completes.
+
+interface SnapshotData {
+  document_type?: string | null
+  outcome?: string | null
+  court?: string | null
+  judge?: string | null
+  date?: string | null
+  case_no?: string | null
+  appellant?: string | null
+  respondent?: string | null
+}
+
+function formatSnapshotDate(d: string): string {
+  if (!d) return d
+  try {
+    // YYYY-MM-DD
+    const iso = d.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (iso) {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      return `${parseInt(iso[3])} ${months[parseInt(iso[2]) - 1]} ${iso[1]}`
+    }
+    // DD.MM.YYYY
+    const dmy = d.match(/^(\d{1,2})\.(\d{2})\.(\d{4})$/)
+    if (dmy) {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      return `${parseInt(dmy[1])} ${months[parseInt(dmy[2]) - 1]} ${dmy[3]}`
+    }
+  } catch {}
+  return d
+}
+
+function CaseSnapshotCard({ snapshot }: { snapshot: SnapshotData }) {
+  const outcome = snapshot.outcome
+  const outcomeLabel =
+    outcome === 'allowed'   ? 'Appeal Allowed' :
+    outcome === 'dismissed' ? 'Dismissed'       :
+    outcome === 'pending'   ? 'Pending'         : null
+  const outcomeColor =
+    outcome === 'allowed'   ? 'text-green'   :
+    outcome === 'dismissed' ? 'text-red-600' : 'text-text-2'
+  const outcomeIcon =
+    outcome === 'allowed'   ? '✓' :
+    outcome === 'dismissed' ? '✗' : '○'
+
+  // Strip title prefixes (Sh., Shri, Hon., Dr.) and designation suffixes
+  const judgeDisplay = snapshot.judge
+    ?.replace(/^(sh\.|shri\.?|hon\.?|dr\.?)\s*/i, '')
+    ?.replace(/,\s*(district\s+judge|additional\s+district\s+judge|senior\s+civil\s+judge|civil\s+judge|sessions\s+judge|additional\s+sessions|chief\s+judicial|judicial\s+magistrate)[^,]*/i, '')
+    ?.trim() || null
+
+  const metaParts = [
+    snapshot.date   && `Decision: ${formatSnapshotDate(snapshot.date)}`,
+    judgeDisplay    && `Judge: ${judgeDisplay}`,
+    snapshot.case_no && `Case No: ${snapshot.case_no}`,
+  ].filter(Boolean)
+
+  const docType = snapshot.document_type
+
+  // Don't render an empty card — only show what the document actually supports.
+  if (!docType && !outcomeLabel && !snapshot.court && !snapshot.appellant && !snapshot.respondent) return null
+
+  return (
+    <div className="border border-border-1 rounded-sm mb-[16px] overflow-hidden">
+      {/* Document type + outcome + court + meta */}
+      <div className="px-[14px] pt-[11px] pb-[10px] bg-surface-2 border-b border-border-1">
+        {docType && (
+          <div className="text-[9.5px] font-bold uppercase tracking-[0.5px] text-text-3 mb-[5px]">
+            {docType}
+          </div>
+        )}
+        {outcomeLabel && (
+          <div className={`text-[13px] font-bold mb-[3px] ${outcomeColor}`}>
+            {outcomeIcon} {outcomeLabel}
+          </div>
+        )}
+        {snapshot.court && <div className="text-[12px] text-text-2 leading-[1.4]">{snapshot.court}</div>}
+        {metaParts.length > 0 && (
+          <div className="text-[11px] text-text-3 mt-[4px] leading-[1.5]">
+            {metaParts.join(' · ')}
+          </div>
+        )}
+      </div>
+
+      {/* Parties */}
+      {(snapshot.appellant || snapshot.respondent) && (
+        <div className="flex divide-x divide-border-1">
+          {snapshot.appellant && (
+            <div className="flex-1 px-[14px] py-[9px] min-w-0">
+              <div className="text-[9.5px] font-bold uppercase tracking-[0.5px] text-text-3 mb-[2px]">Appellant</div>
+              <div className="text-[12px] font-semibold text-text-1 leading-[1.35] truncate">{snapshot.appellant}</div>
+            </div>
+          )}
+          {snapshot.respondent && (
+            <div className="flex-1 px-[14px] py-[9px] min-w-0">
+              <div className="text-[9.5px] font-bold uppercase tracking-[0.5px] text-text-3 mb-[2px]">Respondent</div>
+              <div className="text-[12px] font-semibold text-text-1 leading-[1.35] truncate">{snapshot.respondent}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 // Loading stage labels shown to the user
@@ -579,9 +686,13 @@ export default function PdfExtractorPage() {
   const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([])
   const [question, setQuestion] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
+  const [rightTab, setRightTab] = useState<'pdf' | 'chat'>('pdf')
+  const [fileUrl, setFileUrl] = useState<string | null>(null)
 
   const tokenBufRef = useRef('')
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const snapshotParsedRef = useRef(false)
+  const snapshotBufRef = useRef('')
   const streamScrollRef = useRef<HTMLDivElement>(null)
   const chatBottomRef = useRef<HTMLDivElement>(null)
 
@@ -596,17 +707,23 @@ export default function PdfExtractorPage() {
   useEffect(() => { setChatMsgs([]) }, [documentId])
 
   const [isChatPending, setIsChatPending] = useState(false)
+  const [snapshot, setSnapshot] = useState<SnapshotData | null>(null)
 
   const handleFile = useCallback(async (file: File) => {
     if (file.size > 50 * 1024 * 1024) { toast('File too large — max 50MB'); return }
 
     tokenBufRef.current = ''
+    snapshotParsedRef.current = false
+    snapshotBufRef.current = ''
     setFilename(file.name)
     setStreamText('')
     setDocumentId(null)
     setChatMsgs([])
+    setSnapshot(null)
     setIsExtracting(true)
     setLoadingStage('reading')
+    setRightTab('pdf')
+    setFileUrl(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file) })
     // Ensure the document panel starts at the top when a new file is loaded
     if (streamScrollRef.current) streamScrollRef.current.scrollTop = 0
 
@@ -621,6 +738,12 @@ export default function PdfExtractorPage() {
     const cleanup = () => {
       clearInterval(flushTimerRef.current!)
       flushTimerRef.current = null
+      // Flush any unprocessed snapshot buffer as plain text
+      if (!snapshotParsedRef.current) {
+        snapshotParsedRef.current = true
+        tokenBufRef.current += snapshotBufRef.current
+        snapshotBufRef.current = ''
+      }
       if (tokenBufRef.current) {
         const chunk = tokenBufRef.current
         tokenBufRef.current = ''
@@ -628,20 +751,44 @@ export default function PdfExtractorPage() {
       }
     }
 
+    // Token handler — intercepts the first line to extract SNAPSHOT: data.
+    // The model outputs SNAPSHOT:{...json...} as the very first line of the
+    // stream. We parse it immediately (within 1-2s) to populate the card,
+    // then discard that line so it never appears in the rendered markdown.
+    const handleToken = (text: string) => {
+      if (!snapshotParsedRef.current) {
+        snapshotBufRef.current += text
+        const newlineIdx = snapshotBufRef.current.indexOf('\n')
+        if (newlineIdx !== -1) {
+          snapshotParsedRef.current = true
+          const firstLine = snapshotBufRef.current.slice(0, newlineIdx)
+          const rest = snapshotBufRef.current.slice(newlineIdx + 1)
+          snapshotBufRef.current = ''
+          if (firstLine.startsWith('SNAPSHOT:')) {
+            try { setSnapshot(JSON.parse(firstLine.slice(9))) } catch {}
+            tokenBufRef.current += rest   // skip the SNAPSHOT line itself
+          } else {
+            tokenBufRef.current += firstLine + '\n' + rest   // not a snapshot — keep it
+          }
+        }
+        return
+      }
+      tokenBufRef.current += text
+    }
+
     try {
       await streamExtractUpload(
         file,
-        (text) => { tokenBufRef.current += text },
+        handleToken,
         (stage) => setLoadingStage(stage),
         ({ document_id }) => {
           cleanup()
           setDocumentId(document_id)
           setIsExtracting(false)
-          // save current streamText to history — use a callback to get latest value
           setStreamText(prev => {
             saveToHistory(file.name, prev)
             setHistory(loadHistory())
-            return prev   // no change to text
+            return prev
           })
         },
         (_code, message) => {
@@ -651,6 +798,9 @@ export default function PdfExtractorPage() {
           setStreamText('')
           setIsExtracting(false)
         },
+        // document_ready fires when text is saved to DB, before LLM tokens start.
+        // Set documentId here so chat is available during streaming (not just after).
+        (document_id) => { setDocumentId(document_id) },
       )
     } catch {
       cleanup()
@@ -693,6 +843,8 @@ export default function PdfExtractorPage() {
 
   const handleQuickPrompt = async (prompt: string) => {
     if (!documentId || isChatPending) return
+    // The answer streams into the chat panel — surface it so the user sees it arrive.
+    setRightTab('chat')
     const userMsgs: ChatMsg[] = [...chatMsgs, { role: 'user', content: prompt }]
     const allMsgs: ChatMsg[] = [...userMsgs, { role: 'assistant', content: '' }]
     setChatMsgs(allMsgs)
@@ -718,11 +870,16 @@ export default function PdfExtractorPage() {
     clearInterval(flushTimerRef.current!)
     flushTimerRef.current = null
     tokenBufRef.current = ''
+    snapshotParsedRef.current = false
+    snapshotBufRef.current = ''
     setFilename('')
     setStreamText('')
     setDocumentId(null)
     setChatMsgs([])
+    setSnapshot(null)
     setIsExtracting(false)
+    setFileUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    setRightTab('pdf')
   }
 
   // ── Landing screen ────────────────────────────────────────────────────────
@@ -789,6 +946,12 @@ export default function PdfExtractorPage() {
         <div ref={streamScrollRef} className="flex-1 overflow-y-auto">
           {hasContent ? (
             <div className="px-[20px] py-[18px]">
+              {snapshot && <CaseSnapshotCard snapshot={snapshot} />}
+              {!isExtracting && streamText && (
+                <div className="text-[10.5px] text-text-3 mb-[12px]">
+                  ⏱ ~{Math.max(1, Math.round(streamText.trim().split(/\s+/).length / 200))} min read
+                </div>
+              )}
               <MarkdownText text={streamText} />
               {isExtracting && (
                 <span className="inline-block w-[2px] h-[14px] bg-text-3 align-middle animate-pulseDot ml-[1px]" />
@@ -843,50 +1006,101 @@ export default function PdfExtractorPage() {
         </div>
       </div>
 
-      {/* RIGHT: Chat */}
-      <div className="flex flex-col bg-white border-l border-border-1 overflow-x-hidden">
-        <div className="h-11 flex-shrink-0 px-[14px] border-b border-border-1 flex items-center justify-between">
-          <span className="text-[12px] font-bold text-text-1">💬 Chat with Document</span>
-          {chatMsgs.length > 0 && (
-            <button onClick={() => setChatMsgs([])} className="text-[11px] text-text-3 hover:text-text-1 transition-colors">
+      {/* RIGHT: PDF viewer + Chat tabs */}
+      <div className="flex flex-col bg-white border-l border-border-1 overflow-hidden">
+
+        {/* Tab bar */}
+        <div className="h-11 flex-shrink-0 border-b border-border-1 flex items-stretch">
+          <button
+            onClick={() => setRightTab('pdf')}
+            className={`flex items-center gap-[6px] px-[16px] text-[12px] font-semibold border-b-[2px] transition-colors ${
+              rightTab === 'pdf'
+                ? 'border-gold text-text-1'
+                : 'border-transparent text-text-3 hover:text-text-2'
+            }`}
+          >
+            📄 Document
+          </button>
+          <button
+            onClick={() => setRightTab('chat')}
+            className={`flex items-center gap-[6px] px-[16px] text-[12px] font-semibold border-b-[2px] transition-colors ${
+              rightTab === 'chat'
+                ? 'border-gold text-text-1'
+                : 'border-transparent text-text-3 hover:text-text-2'
+            }`}
+          >
+            💬 Chat
+            {chatMsgs.length > 0 && (
+              <span className="text-[9px] font-bold bg-gold text-sidebar px-[5px] py-[1px] rounded-full">
+                {chatMsgs.filter(m => m.role === 'user').length}
+              </span>
+            )}
+          </button>
+          {rightTab === 'chat' && chatMsgs.length > 0 && (
+            <button
+              onClick={() => setChatMsgs([])}
+              className="ml-auto mr-[12px] text-[11px] text-text-3 hover:text-text-1 transition-colors self-center"
+            >
               Clear
             </button>
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
-          <div className="bg-surface-2 rounded-sm px-[11px] py-[9px] mb-2 text-[12.5px] text-text-2">
-            {documentId
-              ? <><strong>{filename}</strong> is ready. Ask me anything.</>
-              : <span className="text-text-3 italic">{isExtracting ? 'Analysis in progress…' : 'Upload a document to start chatting.'}</span>
-            }
-          </div>
-          {chatMsgs.map((m, i) => (
-            m.role === 'user' ? (
-              <div key={i} className="bg-white border border-border-1 rounded-sm px-[11px] py-[9px] mb-[7px]">
-                <div className="text-[10px] font-bold text-text-3 mb-[3px] uppercase tracking-[0.4px]">You asked</div>
-                <div className="text-[12.5px] text-text-1">{m.content}</div>
-              </div>
-            ) : (
-              <div key={i} className="bg-white border border-border-1 border-l-[3px] border-l-ink rounded-r-sm px-[11px] py-[9px] mb-2">
-                <MarkdownText text={m.content} />
-              </div>
-            )
-          ))}
-          {isChatPending && <div className="text-[11px] text-text-3 italic px-1">Thinking…</div>}
-          <div ref={chatBottomRef} />
+        {/* PDF tab — always mounted, hidden via CSS to prevent iframe reload on tab switch */}
+        <div className={`flex-1 overflow-hidden bg-surface-2 ${rightTab === 'pdf' ? 'flex flex-col' : 'hidden'}`}>
+          {fileUrl ? (
+            <iframe
+              src={fileUrl}
+              className="w-full h-full border-0"
+              title="Document preview"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-[12px] text-text-3">
+              No document loaded
+            </div>
+          )}
         </div>
 
-        <div className="border-t border-border-1 p-[11px] bg-surface-2 flex-shrink-0">
-          <input
-            className="w-full px-[11px] py-2 border border-border-1 rounded-sm bg-white text-text-1 font-sans text-[12.5px] outline-none focus:border-border-2 transition-colors disabled:opacity-50"
-            placeholder={documentId ? 'Ask a question about this document…' : 'Chat available after analysis…'}
-            disabled={!documentId || isChatPending}
-            value={question}
-            onChange={e => setQuestion(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAsk()}
-          />
-        </div>
+        {/* Chat tab — always mounted, hidden via CSS */}
+        {true && (
+          <div className={`${rightTab === 'chat' ? 'flex flex-col flex-1 overflow-hidden' : 'hidden'}`}>
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="bg-surface-2 rounded-sm px-[11px] py-[9px] mb-2 text-[12.5px] text-text-2">
+                {documentId
+                  ? <><strong>{filename}</strong> is ready. Ask me anything.</>
+                  : <span className="text-text-3 italic">{isExtracting ? 'Analysis in progress…' : 'Upload a document to start chatting.'}</span>
+                }
+              </div>
+              {chatMsgs.map((m, i) => (
+                m.role === 'user' ? (
+                  <div key={i} className="bg-white border border-border-1 rounded-sm px-[11px] py-[9px] mb-[7px]">
+                    <div className="text-[10px] font-bold text-text-3 mb-[3px] uppercase tracking-[0.4px]">You asked</div>
+                    <div className="text-[12.5px] text-text-1">{m.content}</div>
+                  </div>
+                ) : (
+                  <div key={i} className="bg-white border border-border-1 border-l-[3px] border-l-ink rounded-r-sm px-[11px] py-[9px] mb-2">
+                    <MarkdownText text={m.content} />
+                  </div>
+                )
+              ))}
+              {isChatPending && <div className="text-[11px] text-text-3 italic px-1">Thinking…</div>}
+              <div ref={chatBottomRef} />
+            </div>
+
+            <div className="border-t border-border-1 p-[11px] bg-surface-2 flex-shrink-0">
+              <input
+                className="w-full px-[11px] py-2 border border-border-1 rounded-sm bg-white text-text-1 font-sans text-[12.5px] outline-none focus:border-border-2 transition-colors disabled:opacity-50"
+                placeholder={documentId ? 'Ask a question about this document…' : 'Chat available after analysis…'}
+                disabled={!documentId || isChatPending}
+                value={question}
+                onChange={e => setQuestion(e.target.value)}
+                onFocus={() => setRightTab('chat')}
+                onKeyDown={e => e.key === 'Enter' && handleAsk()}
+              />
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )

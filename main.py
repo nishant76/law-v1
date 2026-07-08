@@ -1,8 +1,19 @@
 """
-Nikhar backend — FastAPI application
+SuperAdvocate backend — FastAPI application
 Main entry point for all API routes and middleware
 """
 import os
+import sys
+import asyncio
+
+# On Windows, asyncio.new_event_loop() creates SelectorEventLoop by default.
+# SelectorEventLoop cannot spawn subprocesses (raises NotImplementedError in
+# _make_subprocess_transport). Playwright's sync_api internally creates a new
+# event loop to drive its Node.js driver subprocess — so we must switch to
+# ProactorEventLoop before anything starts.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from fastapi import FastAPI
 from fastapi.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -14,6 +25,7 @@ from backend.middleware.logging import RequestLoggingMiddleware
 from backend.api.health import router as health_router
 from backend.api.documents import router as documents_router
 from backend.api.search import router as search_router
+from backend.api.citations import router as citations_router
 from backend.api.auth import router as auth_router
 from backend.api.synopsis import router as synopsis_router
 from backend.api.extractor import router as extractor_router
@@ -21,6 +33,8 @@ from backend.api.deadlines import router as deadlines_router
 from backend.api.reply import router as reply_router
 from backend.api.filing import router as filing_router
 from backend.api.legal_process import router as legal_process_router
+from backend.api.ecourts import router as ecourts_router
+from backend.api.matters import router as matters_router
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -30,6 +44,8 @@ ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:4173",
+    "http://localhost:8081",
+    "http://localhost:8082",
 ]
 
 # Add production frontend URL from environment
@@ -97,24 +113,27 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(documents_router)
 app.include_router(search_router)
+app.include_router(citations_router)
 app.include_router(synopsis_router)
 app.include_router(extractor_router)
 app.include_router(deadlines_router)
 app.include_router(reply_router)
 app.include_router(filing_router)
 app.include_router(legal_process_router)
+app.include_router(ecourts_router)
+app.include_router(matters_router)
 
 
 @app.on_event("startup")
 async def startup_event():
     """Application startup"""
-    logger.info(f"Nikhar starting — environment={settings.ENVIRONMENT}")
+    logger.info(f"SuperAdvocate starting — environment={settings.ENVIRONMENT}")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown"""
-    logger.info("Nikhar shutting down")
+    logger.info("SuperAdvocate shutting down")
 
 
 # Wrap the fully-configured FastAPI app with selective gzip.

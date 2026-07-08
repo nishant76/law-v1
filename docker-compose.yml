@@ -34,6 +34,8 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=60
       - REFRESH_TOKEN_EXPIRE_DAYS=30
       - APPLICATIONINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING}
+      # Run Chrome headlessly inside the container (no display)
+      - ECOURTS_HEADLESS=1
     volumes:
       - .:/app
     depends_on:
@@ -87,6 +89,23 @@ services:
       context: .
       dockerfile: Dockerfile
     command: python -m alembic -c backend/migrations/alembic.ini upgrade head
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@postgres:5432/nikhar
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nikhar-network
+
+  # One-shot dev user seeder — run once after migrate
+  # Usage: docker-compose run --rm seed
+  # Creates: dev@superadvocate.ai / devpassword123
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python scripts/seed_dev_user.py
     working_dir: /app
     environment:
       - DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@postgres:5432/nikhar

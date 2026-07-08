@@ -27,6 +27,7 @@ export const streamExtractUpload = async (
   onProgress: (stage: string) => void,
   onResult: (result: StreamResult) => void,
   onError: (code: string, message: string) => void,
+  onDocumentReady?: (document_id: string) => void,
 ): Promise<void> => {
   const form = new FormData()
   form.append('file', file)
@@ -79,11 +80,12 @@ export const streamExtractUpload = async (
       if (!line.startsWith('data:')) continue
       try {
         const payload = JSON.parse(line.slice(5).trim())
-        if (payload.type === 'token')    onToken(payload.text ?? '')
-        if (payload.type === 'progress') onProgress(payload.stage)
-        if (payload.type === 'result')   onResult({ document_id: payload.document_id ?? 'direct' })
-        if (payload.type === 'error')    onError(payload.code ?? 'error', payload.message ?? 'Unknown error')
-        if (payload.type === 'done')     return
+        if (payload.type === 'token')           onToken(payload.text ?? '')
+        if (payload.type === 'progress')        onProgress(payload.stage)
+        if (payload.type === 'document_ready')  onDocumentReady?.(payload.document_id ?? 'direct')
+        if (payload.type === 'result')          onResult({ document_id: payload.document_id ?? 'direct' })
+        if (payload.type === 'error')           onError(payload.code ?? 'error', payload.message ?? 'Unknown error')
+        if (payload.type === 'done')            return
       } catch {
         // malformed SSE line — skip
       }

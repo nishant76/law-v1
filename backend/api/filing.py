@@ -1,13 +1,14 @@
 """
 Filing API — Strategic Filing Drafter endpoints
 """
+import io
+import re
 import uuid
 from typing import Dict, Any, Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-import io
 
 from backend.core.dependencies import get_db, get_current_user, CurrentUser
 from backend.core.rbac import require_permission
@@ -116,6 +117,131 @@ async def generate_filing(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate filing",
         )
+
+
+# ---------------------------------------------------------------------------
+# Fill-in-the-blanks TEMPLATE flow (new Draft-a-Filing)
+# ---------------------------------------------------------------------------
+
+class TemplateCitationItem(BaseModel):
+    case_name: str
+    citation: Optional[str] = None
+
+
+class GenerateTemplateRequest(BaseModel):
+    court: str = ""
+    input_text: str
+    selected_citations: Optional[List[TemplateCitationItem]] = None
+
+
+@router.post("/template", response_model=Dict[str, Any])
+@require_permission("create_drafts")
+async def generate_template(
+    body: GenerateTemplateRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """Generate a fill-in-the-blanks filing template from a free-text description."""
+    try:
+        result = await filing_service.generate_template(
+            firm_id=str(current_user.firm_id),
+            court=body.court,
+            input_text=body.input_text,
+            selected_citations=[c.model_dump() for c in (body.selected_citations or [])],
+            is_existing_draft=False,
+        )
+        return {"success": True, **result}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to generate filing template: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate template")
+
+
+@router.post("/template/upload", response_model=Dict[str, Any])
+@require_permission("create_drafts")
+async def generate_template_from_file(
+    file: UploadFile = File(...),
+    court: str = Form(""),
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """Upload a pre-written draft (PDF/DOCX); rewrite + templatize it."""
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in ("pdf", "docx"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF and DOCX files are supported.")
+    file_bytes = await file.read()
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File exceeds 50 MB limit.")
+    try:
+        text = await filing_service.extract_text(file_bytes, ext)
+        if not text.strip():
+            raise ValueError("No selectable text found — the file may be a scanned image.")
+        result = await filing_service.generate_template(
+            firm_id=str(current_user.firm_id),
+            court=court,
+            input_text=text,
+            selected_citations=[],
+            is_existing_draft=True,
+        )
+        return {"success": True, **result}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to templatize uploaded draft: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to process the uploaded draft")
+
+
+class ExportTemplateRequest(BaseModel):
+    title: str = "Draft"
+    filled_markdown: str
+    court: str = ""
+
+
+def _markdown_to_docx(title: str, text: str) -> bytes:
+    """Render the filled draft markdown to a .docx (headings + paragraphs)."""
+    from docx import Document as DocxDocument
+    from docx.shared import Pt
+
+    doc = DocxDocument()
+    if title:
+        doc.add_heading(title, level=1)
+    for raw in (text or "").split("\n"):
+        line = raw.rstrip()
+        if not line.strip():
+            doc.add_paragraph("")
+        elif line.startswith("### "):
+            doc.add_heading(line[4:], level=3)
+        elif line.startswith("## "):
+            doc.add_heading(line[3:], level=2)
+        elif line.startswith("# "):
+            doc.add_heading(line[2:], level=1)
+        else:
+            p = doc.add_paragraph(re.sub(r"\*\*([^*]+)\*\*", r"\1", line))
+            if p.runs:
+                p.runs[0].font.size = Pt(11)
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+@router.post("/template/export")
+@require_permission("create_drafts")
+async def export_template(
+    body: ExportTemplateRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Export the filled-in template as a .docx."""
+    try:
+        docx_bytes = _markdown_to_docx(body.title, body.filled_markdown)
+        return StreamingResponse(
+            io.BytesIO(docx_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": 'attachment; filename="draft.docx"'},
+        )
+    except Exception as e:
+        logger.error(f"Failed to export template: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to export draft")
 
 
 @router.get("/{draft_id}", response_model=Dict[str, Any])

@@ -2,9 +2,20 @@
 Database connection and session management
 """
 import os
+import ssl
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from backend.core.config import settings
+
+# Managed Postgres (Neon/Railway) requires SSL. asyncpg takes an SSL context via
+# connect_args, not the libpq 'sslmode' URL param (stripped in config).
+_connect_args = {
+    "timeout": 10,
+    "command_timeout": 10,
+    "server_settings": {"search_path": "law,shared,public"},
+}
+if settings.DB_SSL_REQUIRED:
+    _connect_args["ssl"] = ssl.create_default_context()
 
 # Celery prefork workers inherit the parent process's asyncpg connections.
 # Those connections are bound to the parent's event loop, which is gone in
@@ -19,11 +30,7 @@ if _in_celery_worker:
         settings.DATABASE_URL,
         echo=settings.DEBUG,
         poolclass=NullPool,
-        connect_args={
-            "timeout": 10,
-            "command_timeout": 10,
-            "server_settings": {"search_path": "law,shared,public"},
-        },
+        connect_args=_connect_args,
     )
 else:
     engine = create_async_engine(
@@ -31,11 +38,7 @@ else:
         echo=settings.DEBUG,
         pool_size=5,
         max_overflow=10,
-        connect_args={
-            "timeout": 10,
-            "command_timeout": 10,
-            "server_settings": {"search_path": "law,shared,public"},
-        },
+        connect_args=_connect_args,
     )
 
 # Create async session factory

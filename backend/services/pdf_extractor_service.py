@@ -201,6 +201,10 @@ class PDFExtractorService:
 
         safe_text = sanitise_document_text(raw_text)
 
+        # Signal that raw text is ready — API route saves to DB immediately
+        # so document_id can be emitted to frontend before LLM streaming starts.
+        yield {"type": "text_ready", "raw_text": raw_text}
+
         # ── 2. Phase 1: stream a readable markdown analysis ───────────────────
         yield {"type": "progress", "stage": "analysing", "message": "Analysing document…"}
 

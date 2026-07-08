@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { extractFromUpload } from '@/api/extract'
+import { getCnrCase } from '@/api/ecourts'
+import type { EcourtsCase } from '@/api/ecourts'
 import { useCaseStore } from '@/store/caseStore'
 import { toast } from '@/store/toastStore'
 import { Input, Textarea, FieldLabel } from '@/components/ui/FormField'
@@ -50,6 +52,7 @@ interface FormState {
   // Step 1 — Core
   title: string
   case_number: string
+  cnr_number: string
   court: string
   matter_type: MatterType
   status: CaseStatus
@@ -68,7 +71,7 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
-  title: '', case_number: '', court: '', matter_type: 'civil',
+  title: '', case_number: '', cnr_number: '', court: '', matter_type: 'civil',
   status: 'active', filing_date: '', notes: '',
   client_name: '', client_phone: '', opponent_name: '',
   opponent_counsel: '', judge_name: '', next_hearing: '',
@@ -220,6 +223,8 @@ interface Props {
   onCreated: (id: string) => void
 }
 
+type CnrState = 'idle' | 'loading' | 'found' | 'not_found' | 'error'
+
 export default function NewCaseModal({ open, onClose, onCreated }: Props) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -227,6 +232,7 @@ export default function NewCaseModal({ open, onClose, onCreated }: Props) {
   const [autoFilled, setAutoFilled] = useState(false)
   const [docWarning, setDocWarning] = useState<DocWarning | null>(null)
   const [detectedType, setDetectedType] = useState<string | null>(null)
+  const [cnrState, setCnrState] = useState<CnrState>('idle')
   const fileRef = useRef<HTMLInputElement>(null)
   const addCase = useCaseStore((s) => s.addCase)
 
@@ -262,6 +268,32 @@ export default function NewCaseModal({ open, onClose, onCreated }: Props) {
   const set = (k: keyof FormState, v: unknown) =>
     setForm((f) => ({ ...f, [k]: v }))
 
+  const handleCnrBlur = async () => {
+    const cnr = form.cnr_number.trim().toUpperCase()
+    if (!cnr || cnr.length < 10) return
+    setCnrState('loading')
+    try {
+      const res = await getCnrCase(cnr)
+      const c: EcourtsCase = res.data.case
+      if (!c) { setCnrState('not_found'); return }
+
+      const petitioner = c.petitioner || ''
+      const respondent = c.respondent || ''
+      setForm((f) => ({
+        ...f,
+        title: f.title || (petitioner && respondent ? `${petitioner} v. ${respondent}` : f.title),
+        court: f.court || c.court || '',
+        case_number: f.case_number || c.case_number || '',
+        client_name: f.client_name || petitioner,
+        opponent_name: f.opponent_name || respondent,
+        next_hearing: f.next_hearing || c.next_hearing_date || '',
+      }))
+      setCnrState('found')
+    } catch {
+      setCnrState('error')
+    }
+  }
+
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
@@ -288,6 +320,7 @@ export default function NewCaseModal({ open, onClose, onCreated }: Props) {
     setAutoFilled(false)
     setDocWarning(null)
     setDetectedType(null)
+    setCnrState('idle')
   }
 
   const handleCreate = () => {
@@ -489,6 +522,50 @@ export default function NewCaseModal({ open, onClose, onCreated }: Props) {
                   </select>
                 </div>
               </div>
+
+              {/* CNR auto-fill */}
+              <div className="mb-[11px]">
+                <div className="flex items-center justify-between mb-[4px]">
+                  <FieldLabel label="CNR Number" className="mb-0" />
+                  {cnrState === 'found' && (
+                    <span className="text-[10.5px] font-semibold text-green">✓ Filled from eCourts</span>
+                  )}
+                  {cnrState === 'not_found' && (
+                    <span className="text-[10.5px] text-amber">Case not found on eCourts</span>
+                  )}
+                  {cnrState === 'error' && (
+                    <span className="text-[10.5px] text-text-3">eCourts unavailable</span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    className={[
+                      'w-full px-[10px] py-[7px] border rounded-sm bg-surface-2 text-text-1 font-sans text-[12.5px] outline-none transition-all',
+                      'uppercase tracking-[0.5px] placeholder:normal-case placeholder:tracking-normal',
+                      cnrState === 'found'
+                        ? 'border-green bg-green-bg focus:border-green'
+                        : 'border-border-1 focus:border-border-2 focus:bg-white',
+                    ].join(' ')}
+                    placeholder="e.g. PBLU010012342020"
+                    maxLength={16}
+                    value={form.cnr_number}
+                    onChange={(e) => { set('cnr_number', e.target.value.toUpperCase()); setCnrState('idle') }}
+                    onBlur={handleCnrBlur}
+                  />
+                  {cnrState === 'loading' && (
+                    <div className="absolute right-[10px] top-1/2 -translate-y-1/2">
+                      <svg className="animate-spin h-[14px] w-[14px] text-text-3" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div className="text-[10.5px] text-text-3 mt-[3px]">
+                  Paste CNR from your eCourts app — court, parties &amp; hearing date will fill automatically
+                </div>
+              </div>
+
               <Input label="Court *" placeholder="e.g. High Court of Punjab & Haryana, Chandigarh" value={form.court} onChange={(e) => set('court', e.target.value)} />
               <div className="grid grid-cols-2 gap-[10px]">
                 <div>

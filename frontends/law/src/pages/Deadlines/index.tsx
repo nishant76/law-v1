@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
 import { useDeadlineStore, type Deadline, type DeadlineType } from '@/store/deadlineStore'
 import Button from '@/components/ui/Button'
 import { toast } from '@/store/toastStore'
+import { getEcourtsStatus, setEcourtsAdvocateName, syncEcourtsHearings } from '@/api/ecourts'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -272,6 +273,123 @@ function DeadlineRow({ d, onDelete }: { d: Deadline; onDelete: () => void }) {
   )
 }
 
+// ── eCourts sync panel ──────────────────────────────────────────────────────
+
+function ECourtsPanel({
+  deadlines, addDeadline,
+}: {
+  deadlines: Deadline[]
+  addDeadline: (d: Deadline) => void
+}) {
+  const [configured, setConfigured] = useState(false)
+  const [advocateName, setAdvocateName] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [draftName, setDraftName] = useState('')
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [available, setAvailable] = useState(false) // backend reachable
+
+  useEffect(() => {
+    let alive = true
+    getEcourtsStatus()
+      .then(({ data }) => {
+        if (!alive) return
+        setAvailable(true)
+        setConfigured(!!data.configured)
+        setAdvocateName(data.advocate_name ?? '')
+        setEditing(!data.advocate_name)
+      })
+      .catch(() => { /* backend not reachable / not logged in — hide gracefully */ })
+    return () => { alive = false }
+  }, [])
+
+  if (!available) return null
+
+  const saveName = async () => {
+    const name = draftName.trim()
+    if (name.length < 2) { toast('Enter your eCourts advocate name'); return }
+    try {
+      await setEcourtsAdvocateName(name)
+      setAdvocateName(name)
+      setEditing(false)
+      toast('Advocate name saved')
+    } catch {
+      toast('Could not save advocate name.')
+    }
+  }
+
+  const sync = async () => {
+    if (isSyncing) return
+    setIsSyncing(true)
+    try {
+      const { data } = await syncEcourtsHearings()
+      // Map fetched hearings into the deadline tracker (dedupe by CNR + date).
+      let added = 0
+      for (const h of data.upcoming ?? []) {
+        const dup = deadlines.some(d => d.case_number === h.cnr && d.due_date === h.next_hearing_date)
+        if (dup) continue
+        addDeadline({
+          id: `ec-${h.cnr}-${h.next_hearing_date}`,
+          matter_title: h.case_name,
+          court: h.court ?? 'eCourts',
+          case_number: h.cnr,
+          deadline_type: 'hearing',
+          due_date: h.next_hearing_date,
+          notes: 'Synced from eCourts',
+          whatsapp_enabled: false,
+          created_at: new Date().toISOString(),
+        })
+        added++
+      }
+      toast(`eCourts: ${data.fetched} case${data.fetched !== 1 ? 's' : ''} found · ${added} hearing${added !== 1 ? 's' : ''} added`)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast(msg || 'eCourts sync failed.')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-border-1 rounded-DEFAULT px-[15px] py-[12px] mb-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <div className="text-[12px] font-bold text-text-1 flex items-center gap-[6px]">⚖ eCourts sync</div>
+          <p className="text-[11px] text-text-3 mt-[1px]">
+            {configured
+              ? 'Auto-pull your hearing dates from eCourts into your deadlines.'
+              : 'eCourts API not configured on the server — ask your admin to set ECOURTS_API_TOKEN.'}
+          </p>
+        </div>
+        {!editing && advocateName && (
+          <div className="flex items-center gap-[8px] flex-shrink-0">
+            <span className="text-[11.5px] text-text-2">Advocate: <strong className="text-text-1">{advocateName}</strong></span>
+            <button onClick={() => { setDraftName(advocateName); setEditing(true) }} className="text-[11px] text-text-3 hover:text-text-1">Edit</button>
+            <Button onClick={sync} disabled={isSyncing || !configured}>
+              {isSyncing ? 'Syncing…' : '↻ Sync now'}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {editing && (
+        <div className="flex items-center gap-[8px] mt-[10px]">
+          <input
+            className="flex-1 px-[9px] py-[6px] border border-border-1 rounded-sm bg-white text-text-1 text-[12.5px] outline-none focus:border-border-2"
+            placeholder="Your advocate name as registered on eCourts"
+            value={draftName}
+            onChange={e => setDraftName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && saveName()}
+          />
+          <Button onClick={saveName}>Save</Button>
+          {advocateName && (
+            <button onClick={() => setEditing(false)} className="text-[11px] text-text-3 hover:text-text-1">Cancel</button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DeadlinesPage() {
@@ -306,6 +424,9 @@ export default function DeadlinesPage() {
           {showForm ? '✕ Cancel' : '+ Add Deadline'}
         </Button>
       </div>
+
+      {/* eCourts sync */}
+      <ECourtsPanel deadlines={deadlines} addDeadline={addDeadline} />
 
       {/* Add form */}
       {showForm && (

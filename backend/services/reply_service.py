@@ -35,7 +35,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models.law_document import Document
 from backend.models.law_draft import Draft, DraftType, DraftStatus
 from backend.services.llm_service import get_llm_service, ModelType
-from backend.services.prompts.reply_generator import allegation_extraction_prompt
+from backend.services.prompts.reply_generator import (
+    allegation_extraction_prompt,
+    grounds_rewrite_prompt,
+)
 from backend.core.logger import get_logger
 from backend.core.sanitiser import sanitise_document_text
 
@@ -88,6 +91,16 @@ def _parse_json(raw: str) -> dict:
 REPLY_SYSTEM_PROMPT = """You are an expert Indian lawyer drafting a formal reply to a legal notice for a client practising in Punjab/Haryana courts.
 Generate a complete, professional reply notice in formal legal English.
 
+PERSPECTIVE — CRITICAL: You represent the RECIPIENT of the notice. "My client" always
+means the recipient (the party you are replying for). Refer to the party who SENT the
+notice by name, or as "the Sender" / "the addressor of the notice" (or he/she/they) —
+NEVER call the sender "my client". The notice's own use of "my client" refers to the
+sender; do not carry it over.
+
+GRAMMAR: Refer to my client consistently. If my client is an organisation/company, use
+the singular "it"/"its" (e.g. "it acted lawfully", "its cabin crew") — NEVER "they / their
+/ are" for a single corporate client. If my client is an individual, use he/she.
+
 Format the reply as a proper legal letter:
 - Date line
 - TO: [Sender's details from notice]
@@ -104,21 +117,33 @@ ADMIT: State the fact cleanly. End the sentence there.
   WRONG: "My client admits X, which is a matter of public record and contradicts Y."
   RIGHT: "My client admits that X."
 
-DENY: State your client's POSITIVE CONTRARY POSITION. NEVER use double negatives.
-  Always use "My client avers that..." — never "My client denies that..."
+DENY: State my client's POSITIVE CONTRARY POSITION in a single clean assertion.
+  Open with "My client avers that..." — NEVER "My client denies that...".
+  NEVER use a double negative. Above all, do NOT literally deny a negatively-phrased
+  allegation — "My client denies that there was no X" absurdly asserts the OPPOSITE of
+  your point. State the affirmative position directly instead.
 
-  MANDATORY REWRITE TABLE — apply these transformations when drafting DENY paragraphs:
-  | Allegation contains...         | Draft must say...                                      |
-  | "no complaint was made"        | "a complaint was duly made by the Pilot-in-Command"    |
-  | "was not informed"             | "was duly informed of the complaints against him"      |
-  | "no intervention by crew"      | "the cabin crew duly intervened"                       |
-  | "was not constituted"          | "was duly constituted in accordance with the CAR"      |
-  | "did not apologize"            | "did not in fact apologize" OR drop this framing       |
-  | "nor was he uninformed"        | DELETE — replace with "was duly informed of..."        |
-  | "denies that no"               | NEVER WRITE THIS — always rephrase as positive avers   |
+  GENERAL RULE — applies to ANY allegation, whatever the subject matter:
+  - Allegation says "no X happened" / "X did not happen" / "there was no X":
+      • If the lawyer's grounds assert X DID happen → "My client avers that X did in
+        fact occur, in that ..." (state the positive).
+      • If the lawyer's grounds are LEGAL (X is not required / irrelevant), NOT factual →
+        "My client avers that X is not a precondition / is irrelevant, because ..."
+      • NEVER write "denies that there was no X".
+  - Allegation says "my client did Y wrongly/illegally":
+      → "My client avers that it acted lawfully and correctly, in that ...".
 
-  SELF-CHECK before writing each DENY paragraph: read your draft sentence.
-  If it contains "not un-", "nor was he un-", "denies that no", or "denies that...not" — rewrite it.
+  Only assert a fact (a complaint exists, a step was taken, a document exists) if the
+  lawyer's grounds provided it — never invent one merely to phrase a positive averment.
+  If the ground is purely legal, keep the averment legal, not factual.
+  Do NOT assert a step was ALREADY taken (e.g. "you were informed", "a hearing was given")
+  unless the grounds explicitly say so. If the grounds describe an ongoing or future
+  process (e.g. "the Committee will hear him"), state it in that tense — do not convert
+  it into an accomplished past fact.
+
+  SELF-CHECK each DENY sentence before finalising: if it contains "denies that no",
+  "denies that ... not", "no ... not", "not un-", or any double negative — rewrite it
+  as a clean positive averment.
 
 PARTIAL: Identify the specific part admitted and the specific part denied, each stated clearly.
 
@@ -174,10 +199,13 @@ class ReplyService:
     # ------------------------------------------------------------------
 
     async def _run_allegation_extraction(self, safe_text: str, firm_id: str) -> dict:
-        # Truncate to ~12000 chars — legal notices can run 8-10 pages and the
-        # strongest legal arguments (CAR violations, demands) are typically in
-        # the latter paragraphs. 6000 chars only covered ~first 3 pages.
-        truncated = safe_text[:12000]
+        # Truncate to ~30000 chars (~15 pages). The strongest legal arguments
+        # (CAR/procedure violations, natural-justice grounds) AND the operative
+        # demands are typically in the LATTER paragraphs of a notice — a 12000
+        # cap dropped the back half of longer notices (e.g. a 21k-char notice
+        # lost its CAR arguments + the prayer/demands), so the reply missed the
+        # heart of the dispute.
+        truncated = safe_text[:30000]
 
         system_prompt = allegation_extraction_prompt.system_prompt
         user_prompt = allegation_extraction_prompt.format_user_prompt(notice_text=truncated)
@@ -188,11 +216,11 @@ class ReplyService:
                     user_prompt=user_prompt,
                     model=ModelType(allegation_extraction_prompt.model.value),
                     temperature=0.0,
-                    max_tokens=3000,  # increased for longer notices with more allegations
+                    max_tokens=4000,  # room for ~20-25 allegations in longer notices
                     firm_id=firm_id,
-                    timeout=90,
+                    timeout=120,
                 ),
-                timeout=90.0,
+                timeout=120.0,
             )
         except asyncio.TimeoutError:
             raise ValueError("AI request timed out — please try again")
@@ -240,6 +268,53 @@ class ReplyService:
             raise ValueError("Document has no extractable text. Re-upload the file.")
         safe_text = sanitise_document_text(document.ocr_text)
         return await self._run_allegation_extraction(safe_text, firm_id)
+
+    # ------------------------------------------------------------------
+    # Grounds rewrite — lawyer's rough notes → formal legal language
+    # ------------------------------------------------------------------
+
+    async def rewrite_grounds(
+        self,
+        allegation: str,
+        stance: str,
+        facts: str,
+        firm_id: str,
+    ) -> str:
+        """Rewrite the lawyer's plain-language notes into formal legal grounds.
+        Improves language only — never adds facts or citations."""
+        safe_facts = sanitise_document_text(facts or "").strip()
+        if not safe_facts:
+            raise ValueError("No facts provided to rewrite.")
+
+        user_prompt = grounds_rewrite_prompt.format_user_prompt(
+            allegation=sanitise_document_text(allegation or "")[:2000],
+            stance=(stance or "deny").lower(),
+            facts=safe_facts[:4000],
+        )
+        try:
+            response_text = await asyncio.wait_for(
+                self.llm.call_completion(
+                    system_prompt=grounds_rewrite_prompt.system_prompt,
+                    user_prompt=user_prompt,
+                    model=ModelType(grounds_rewrite_prompt.model.value),
+                    temperature=0.0,
+                    max_tokens=500,
+                    firm_id=firm_id,
+                    timeout=60,
+                ),
+                timeout=60.0,
+            )
+        except asyncio.TimeoutError:
+            raise ValueError("AI request timed out — please try again")
+        except Exception as exc:
+            raise RuntimeError(f"Grounds rewrite failed: {exc}") from exc
+
+        data = _parse_json(response_text)
+        rewritten = (data.get("rewritten_grounds") or "").strip()
+        if not rewritten:
+            raise ValueError("Could not rewrite the provided notes.")
+        logger.info(f"Rewrote grounds for reply firm={firm_id}")
+        return rewritten
 
     # ------------------------------------------------------------------
     # Reply generation
@@ -367,7 +442,7 @@ Generate the complete reply notice text, properly formatted as a legal letter re
                 doc.add_paragraph("")
 
         doc.add_paragraph("")
-        footer = doc.add_paragraph("Generated by Nikhar Legal Workspace")
+        footer = doc.add_paragraph("Generated by SuperAdvocate Legal Workspace")
         if footer.runs:
             footer.runs[0].font.size = Pt(8)
             footer.runs[0].font.color.rgb = RGBColor(0x88, 0x88, 0x88)

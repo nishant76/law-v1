@@ -66,6 +66,12 @@ class ReplyGeneratedData(BaseModel):
     reply_text: str
 
 
+class RewriteGroundsRequest(BaseModel):
+    allegation: str = ""
+    stance: str = "deny"
+    facts: str = Field(..., min_length=1)
+
+
 class StandardResponse(BaseModel):
     success: bool
     data: Optional[dict] = None
@@ -218,6 +224,41 @@ async def generate_reply(
         data={"draft_id": draft_id, "reply_text": reply_text},
         meta=_meta(),
     )
+
+
+@router.post(
+    "/rewrite-grounds",
+    status_code=status.HTTP_200_OK,
+    summary="Rewrite a lawyer's rough factual notes into formal legal grounds",
+)
+async def rewrite_grounds(
+    body: RewriteGroundsRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Improve the language of the lawyer's notes — never adds facts or citations."""
+    service = get_reply_service()
+    try:
+        rewritten = await service.rewrite_grounds(
+            allegation=body.allegation,
+            stance=body.stance,
+            facts=body.facts,
+            firm_id=str(current_user.firm_id),
+        )
+    except ValueError as exc:
+        return StandardResponse(
+            success=False,
+            error={"code": "validation_error", "message": str(exc), "action": "retry"},
+            meta=_meta(),
+        )
+    except RuntimeError as exc:
+        logger.error(f"Grounds rewrite error user={current_user.user_id}: {exc}")
+        return StandardResponse(
+            success=False,
+            error={"code": "rewrite_failed", "message": "Could not rewrite the notes. Please try again.", "action": "retry"},
+            meta=_meta(),
+        )
+
+    return StandardResponse(success=True, data={"rewritten_grounds": rewritten}, meta=_meta())
 
 
 @router.get(

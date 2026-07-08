@@ -51,10 +51,17 @@ def do_run_migrations(connection) -> None:
 
 
 async def run_migrations_online() -> None:
+    # Managed Postgres (Neon) requires SSL via an asyncpg SSL context, since the
+    # libpq 'sslmode' URL param is stripped in config for asyncpg compatibility.
+    engine_kwargs = {"poolclass": pool.NullPool}
+    if settings.DB_SSL_REQUIRED:
+        import ssl as _ssl
+        engine_kwargs["connect_args"] = {"ssl": _ssl.create_default_context()}
+
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+        **engine_kwargs,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

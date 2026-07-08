@@ -4,7 +4,9 @@ import {
   uploadAndExtractAllegations,
   generateReply,
   exportReplyDocx,
+  rewriteGrounds,
   type NoticeExtraction,
+  type Allegation,
   type AllegationResponse,
 } from '@/api/reply'
 import DropZone from '@/components/ui/DropZone'
@@ -30,6 +32,104 @@ const STANCE_CLS: Record<Stance, string> = {
   partial: 'bg-amber-bg text-amber border-amber/30',
 }
 
+// ── Allegation card (per-point stance + facts) ──────────────────────────────────
+
+function AllegationCard({
+  a,
+  stance,
+  grounds,
+  onStance,
+  onGrounds,
+}: {
+  a: Allegation
+  stance: Stance
+  grounds: string
+  onStance: (s: Stance) => void
+  onGrounds: (text: string) => void
+}) {
+  const [rewriting, setRewriting] = useState(false)
+
+  // Plain async/await (NOT useMutation) per CLAUDE.md GAP-050 — this is a
+  // user-triggered call that must not be cancelled in React 18 Strict Mode.
+  const handleRewrite = async () => {
+    const facts = grounds.trim()
+    if (!facts || rewriting) return
+    setRewriting(true)
+    try {
+      const res = await rewriteGrounds(a.allegation, stance, facts)
+      const rewritten = res.data?.data?.rewritten_grounds
+      if (rewritten) {
+        onGrounds(rewritten)
+        toast('Rewritten in legal language')
+      } else {
+        toast(res.data?.error?.message ?? 'Could not rewrite the notes.')
+      }
+    } catch {
+      toast('Rewrite failed. Please try again.')
+    } finally {
+      setRewriting(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-border-1 rounded-DEFAULT px-[15px] py-[12px]">
+      <div className="flex items-start gap-[10px]">
+        <span className="text-[11px] font-bold text-text-3 flex-shrink-0 mt-[2px] w-[18px]">
+          {a.point_number}.
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[12.5px] text-text-1 leading-[1.55] mb-[9px]">{a.allegation}</p>
+          {a.legal_basis_claimed && (
+            <p className="text-[11px] text-text-3 mb-[9px]">
+              Claimed basis: <span className="text-text-2">{a.legal_basis_claimed}</span>
+            </p>
+          )}
+
+          {/* Stance buttons */}
+          <div className="flex gap-[6px] mb-[11px]">
+            {(['admit', 'deny', 'partial'] as Stance[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => onStance(s)}
+                className={[
+                  'text-[11px] font-semibold px-[11px] py-[4px] rounded-full border transition-all',
+                  stance === s
+                    ? STANCE_CLS[s]
+                    : 'bg-surface-2 text-text-2 border-border-1 hover:bg-surface-3',
+                ].join(' ')}
+              >
+                {STANCE_LABEL[s]}
+              </button>
+            ))}
+          </div>
+
+          {/* Facts / grounds textbox */}
+          <label className="block text-[10px] font-bold tracking-[0.5px] uppercase text-text-3 mb-[5px]">
+            Your facts / grounds
+          </label>
+          <textarea
+            value={grounds}
+            onChange={(e) => onGrounds(e.target.value)}
+            rows={3}
+            placeholder="Note your version of the facts in plain language. The tool will rewrite it into formal legal language."
+            className="w-full text-[12px] text-text-1 leading-[1.55] bg-surface-2 border border-border-2 rounded-sm px-[10px] py-[8px] resize-y focus:outline-none focus:border-ink placeholder:text-text-3"
+          />
+
+          <div className="flex flex-wrap items-center gap-[6px] mt-[8px]">
+            <button
+              onClick={handleRewrite}
+              disabled={rewriting || !grounds.trim()}
+              className="text-[11px] font-semibold px-[10px] py-[4px] rounded-full border border-border-1 bg-surface-2 text-text-2 hover:bg-surface-3 disabled:opacity-40 transition-all"
+            >
+              {rewriting ? 'Rewriting…' : '✎ Rewrite in legal language'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ReplyPage() {
@@ -37,6 +137,7 @@ export default function ReplyPage() {
   const [filename, setFilename] = useState('')
   const [extraction, setExtraction] = useState<NoticeExtraction | null>(null)
   const [stances, setStances] = useState<Record<number, Stance>>({})
+  const [grounds, setGrounds] = useState<Record<number, string>>({})
   const [replyText, setReplyText] = useState('')
   const [draftId, setDraftId] = useState('')
 
@@ -54,6 +155,7 @@ export default function ReplyPage() {
       const defaultStances: Record<number, Stance> = {}
       data.allegations.forEach(a => { defaultStances[a.point_number] = 'deny' })
       setStances(defaultStances)
+      setGrounds({})
       setExtraction(data)
       setStage('stances')
     },
@@ -68,7 +170,7 @@ export default function ReplyPage() {
         point_number: a.point_number,
         allegation: a.allegation,
         stance: stances[a.point_number] ?? 'deny',
-        grounds: '',
+        grounds: grounds[a.point_number] ?? '',
         legal_basis_claimed: a.legal_basis_claimed ?? null,
       }))
       return generateReply(extraction!.document_id, responses)
@@ -93,7 +195,7 @@ export default function ReplyPage() {
 
   const reset = () => {
     setStage('upload'); setFilename(''); setExtraction(null)
-    setStances({}); setReplyText(''); setDraftId('')
+    setStances({}); setGrounds({}); setReplyText(''); setDraftId('')
   }
 
   // ── Stage: upload ──────────────────────────────────────────────────────────
@@ -159,50 +261,21 @@ export default function ReplyPage() {
 
         {/* Info banner */}
         <div className="bg-surface-2 border border-border-1 rounded-DEFAULT px-[13px] py-[9px] mb-4 text-[11.5px] text-text-3">
-          Review each allegation and select <strong className="text-text-2">Admit</strong>, <strong className="text-text-2">Deny</strong>, or <strong className="text-text-2">Partial</strong>. The reply will be drafted accordingly.
+          For each allegation, choose <strong className="text-text-2">Admit</strong>, <strong className="text-text-2">Deny</strong>, or <strong className="text-text-2">Partial</strong>, and note your facts — we'll rewrite them into formal legal language.
         </div>
 
         {/* Allegations */}
         <div className="space-y-[8px] mb-5">
-          {extraction.allegations.map((a) => {
-            const stance = stances[a.point_number] ?? 'deny'
-            return (
-              <div key={a.point_number} className="bg-white border border-border-1 rounded-DEFAULT px-[15px] py-[12px]">
-                <div className="flex items-start gap-[10px]">
-                  <span className="text-[11px] font-bold text-text-3 flex-shrink-0 mt-[2px] w-[18px]">
-                    {a.point_number}.
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12.5px] text-text-1 leading-[1.55] mb-[9px]">
-                      {a.allegation}
-                    </p>
-                    {a.legal_basis_claimed && (
-                      <p className="text-[11px] text-text-3 mb-[9px]">
-                        Claimed basis: <span className="text-text-2">{a.legal_basis_claimed}</span>
-                      </p>
-                    )}
-                    {/* Stance buttons */}
-                    <div className="flex gap-[6px]">
-                      {(['admit', 'deny', 'partial'] as Stance[]).map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => setStances(prev => ({ ...prev, [a.point_number]: s }))}
-                          className={[
-                            'text-[11px] font-semibold px-[11px] py-[4px] rounded-full border transition-all',
-                            stance === s
-                              ? STANCE_CLS[s]
-                              : 'bg-surface-2 text-text-2 border-border-1 hover:bg-surface-3',
-                          ].join(' ')}
-                        >
-                          {STANCE_LABEL[s]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+          {extraction.allegations.map((a) => (
+            <AllegationCard
+              key={a.point_number}
+              a={a}
+              stance={stances[a.point_number] ?? 'deny'}
+              grounds={grounds[a.point_number] ?? ''}
+              onStance={(s) => setStances(prev => ({ ...prev, [a.point_number]: s }))}
+              onGrounds={(text) => setGrounds(prev => ({ ...prev, [a.point_number]: text }))}
+            />
+          ))}
         </div>
 
         {/* Generate button */}

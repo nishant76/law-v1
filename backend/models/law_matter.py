@@ -42,6 +42,13 @@ class Matter(BaseModel):
     next_hearing_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     limitation_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)  # For deadline tracking
 
+    # eCourts integration — CNR is the 16-char Case Number Record used to fetch
+    # case status / hearing dates from the eCourts data API.
+    cnr_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    case_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # PENDING/DISPOSED/etc from eCourts
+    ecourts_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    ecourts_tracked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # auto-created/maintained from eCourts sync
+
     # Matter metadata
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)

@@ -1,1 +1,1 @@
-"""Nikhar backend application"""
+"""SuperAdvocate backend application"""

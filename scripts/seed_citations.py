@@ -12,6 +12,7 @@ Usage:
 
 import asyncio
 import json
+import os
 import logging
 import sys
 import uuid
@@ -48,7 +49,7 @@ CITATIONS = [
         "primary_citation": "(2014) 8 SCC 273",
         "source_doc_id": "(2014) 8 SCC 273",
         "official_source": "eSCR",
-        "source_url": "https://main.sci.gov.in/supremecourt/2014/22530/22530_2014_Judgement_01-Jul-2014.pdf",
+        "source_url": "https://digiscr.sci.gov.in/admin/judgement_file/judgement_pdf/2014/volume%208/Part%20I/2014_8_128-143_1703243046.pdf",
         "matter_type": "criminal",
         "subject_tags": json.dumps(["bail", "arrest", "personal liberty", "section 41 CrPC"]),
         "judgment_date": datetime(2014, 7, 1, tzinfo=timezone.utc),
@@ -64,7 +65,7 @@ CITATIONS = [
         "primary_citation": "(2022) 10 SCC 51",
         "source_doc_id": "(2022) 10 SCC 51",
         "official_source": "eSCR",
-        "source_url": "https://main.sci.gov.in/supremecourt/2021/19866/19866_2021_Judgement_11-Jul-2022.pdf",
+        "source_url": "https://digiscr.sci.gov.in/admin/judgement_file/judgement_pdf/2022/volume%2010/Part%20I/2022_10_351-447_1702542866.pdf",
         "matter_type": "criminal",
         "subject_tags": json.dumps(["bail", "personal liberty", "default bail", "section 436A CrPC"]),
         "judgment_date": datetime(2022, 7, 11, tzinfo=timezone.utc),
@@ -96,7 +97,7 @@ CITATIONS = [
         "primary_citation": "(2020) 5 SCC 1",
         "source_doc_id": "(2020) 5 SCC 1",
         "official_source": "eSCR",
-        "source_url": "https://main.sci.gov.in/supremecourt/2018/22278/22278_2018_Judgement_29-Jan-2020.pdf",
+        "source_url": "https://digiscr.sci.gov.in/admin/judgement_file/judgement_pdf/2020/volume%2011/Part%20I/2020_11_117-135_1702449912.pdf",
         "matter_type": "criminal",
         "subject_tags": json.dumps(["bail", "anticipatory bail", "section 438 CrPC", "constitution bench"]),
         "judgment_date": datetime(2020, 1, 29, tzinfo=timezone.utc),
@@ -1550,10 +1551,15 @@ async def seed(session: AsyncSession) -> None:
     skipped = 0
     now = datetime.now(timezone.utc)
 
-    for case in CITATIONS:
+    # Cap how many citations to seed (default 20 for local functional testing;
+    # the full set stays in CITATIONS for when we scale on cloud).
+    limit = int(os.getenv("SEED_LIMIT", "20"))
+    for case in CITATIONS[:limit]:
         key = _citation_key(case)
 
-        # Skip if already present (check by citation_key OR source_doc_id)
+        # Already present? Refresh its source_url if the seed has a newer one
+        # (so re-running after correcting a URL re-arms it for verification),
+        # otherwise skip.
         existing = await session.execute(
             select(Citation).where(
                 and_(
@@ -1562,8 +1568,15 @@ async def seed(session: AsyncSession) -> None:
                 )
             )
         )
-        if existing.scalar_one_or_none():
-            logger.info(f"  SKIP (exists): {case['case_name']}")
+        existing_row = existing.scalar_one_or_none()
+        if existing_row:
+            if case.get("source_url") and existing_row.source_url != case["source_url"]:
+                existing_row.source_url = case["source_url"]
+                existing_row.link_status = "pending"   # re-verify on next run
+                existing_row.blob_path = None
+                logger.info(f"  UPDATE url: {case['case_name']}")
+            else:
+                logger.info(f"  SKIP (exists): {case['case_name']}")
             skipped += 1
             continue
 

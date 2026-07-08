@@ -1,8 +1,11 @@
 import { useState, useRef } from 'react'
-import { unifiedSearch } from '@/api/search'
+import { unifiedSearch, openJudgmentPdf, downloadJudgmentPdf, getCitationSummary } from '@/api/search'
+import { toast } from '@/store/toastStore'
 import VerifiedBadge from '@/components/ui/VerifiedBadge'
 import Button from '@/components/ui/Button'
 import type { PublicJudgmentResult, OwnFileResult } from '@/types'
+
+const PAGE_SIZE = 10
 
 // ── Outcome grouping ──────────────────────────────────────────────────────────
 
@@ -18,7 +21,6 @@ function getOutcomeLabel(outcome: string): string {
   for (const g of OUTCOME_GROUP_MAP) {
     if (g.values.some(v => o.includes(v))) return g.label
   }
-  // Fallback: capitalise and replace underscores
   return outcome.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
@@ -37,7 +39,7 @@ function normaliseCourt(court: string): string {
 // ── Filter state & logic ──────────────────────────────────────────────────────
 
 interface ActiveFilters {
-  outcome: string   // '' = no filter
+  outcome: string
   court:   string
   type:    string
 }
@@ -68,15 +70,12 @@ function applyFilters(
 interface FilterOption { value: string; label: string; count: number }
 interface FilterGroup  { dimension: keyof ActiveFilters; label: string; options: FilterOption[] }
 
-// For each dimension, count results while ignoring that dimension's own filter.
-// This gives correct counts: "if I pick this option, how many results will I see?"
 function deriveFilterGroups(
   all: PublicJudgmentResult[],
   active: ActiveFilters,
 ): FilterGroup[] {
   const groups: FilterGroup[] = []
 
-  // ── Outcome ─────────────────────────────────────────────────────────────────
   const outcomeBase = applyFilters(all, { ...active, outcome: '' })
   const outcomeMap = new Map<string, number>()
   for (const r of outcomeBase) {
@@ -95,7 +94,6 @@ function deriveFilterGroups(
     })
   }
 
-  // ── Court ────────────────────────────────────────────────────────────────────
   const courtBase = applyFilters(all, { ...active, court: '' })
   const courtMap = new Map<string, number>()
   for (const r of courtBase) {
@@ -114,7 +112,6 @@ function deriveFilterGroups(
     })
   }
 
-  // ── Matter type ──────────────────────────────────────────────────────────────
   const typeBase = applyFilters(all, { ...active, type: '' })
   const typeMap = new Map<string, number>()
   for (const r of typeBase) {
@@ -136,16 +133,7 @@ function deriveFilterGroups(
   return groups
 }
 
-// ── Source URL helpers ────────────────────────────────────────────────────────
-
 const VERIFIED_SOURCES = ['eSCR', 'P&H HC', 'escr', 'panhc']
-const ESCR_HOME = 'https://digiscr.sci.gov.in/'
-
-function resolveSourceUrl(url: string | undefined): string | null {
-  if (!url) return null
-  if (url.includes('main.sci.gov.in')) return ESCR_HOME
-  return url
-}
 
 // ── Dynamic filter bar ────────────────────────────────────────────────────────
 
@@ -168,12 +156,9 @@ function FilterBar({
     <div className="mb-5 space-y-[7px]">
       {groups.map(group => (
         <div key={group.dimension} className="flex items-center gap-[7px] flex-wrap">
-          {/* Dimension label */}
           <span className="text-[10px] font-bold tracking-[0.5px] uppercase text-text-3 w-[44px] flex-shrink-0">
             {group.label}
           </span>
-
-          {/* Option chips */}
           {group.options.map(opt => {
             const isActive = active[group.dimension] === opt.value
             return (
@@ -188,10 +173,7 @@ function FilterBar({
                 ].join(' ')}
               >
                 {opt.label}
-                <span className={[
-                  'ml-[5px] text-[10px]',
-                  isActive ? 'text-white/70' : 'text-text-3',
-                ].join(' ')}>
+                <span className={['ml-[5px] text-[10px]', isActive ? 'text-white/70' : 'text-text-3'].join(' ')}>
                   {opt.count}
                 </span>
               </button>
@@ -200,15 +182,11 @@ function FilterBar({
         </div>
       ))}
 
-      {/* Clear all — only when at least one filter active */}
       {anyActive && (
         <div className="flex items-center gap-[6px] pt-[2px]">
           <span className="text-[10px] text-text-3 italic">
-            {[
-              active.outcome,
-              active.court,
-              active.type && active.type.toLowerCase(),
-            ].filter(Boolean).join(' · ')}
+            {[active.outcome, active.court, active.type && active.type.toLowerCase()]
+              .filter(Boolean).join(' · ')}
           </span>
           <button
             onClick={onClearAll}
@@ -232,7 +210,7 @@ export default function SearchPage() {
   const [hasSearched, setHasSearched] = useState(false)
   const [isPending, setIsPending] = useState(false)
   const [errorMsg, setErrorMsg]   = useState<string | null>(null)
-  // Guard against stale responses if user triggers two searches quickly
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const searchIdRef = useRef(0)
 
   const handleSearch = async () => {
@@ -244,13 +222,13 @@ export default function SearchPage() {
     setErrorMsg(null)
 
     try {
-      const resp = await unifiedSearch(q)
-      // Ignore stale responses from a previous search
+      const resp = await unifiedSearch(q, 50)
       if (thisId !== searchIdRef.current) return
       const data = resp.data
       setAllOwn(data.from_your_files ?? [])
       setAllPublic(data.from_public_judgments ?? [])
       setActive(NO_FILTERS)
+      setVisibleCount(PAGE_SIZE)
       setHasSearched(true)
     } catch (err: unknown) {
       if (thisId !== searchIdRef.current) return
@@ -259,22 +237,21 @@ export default function SearchPage() {
           ? String((err as { message: unknown }).message)
           : 'Search failed. Please try again.'
       setErrorMsg(msg)
-      console.error('[Search] error:', err)
     } finally {
       if (thisId === searchIdRef.current) setIsPending(false)
     }
   }
 
   const handleToggle = (dim: keyof ActiveFilters, value: string) => {
-    setActive(prev => ({
-      ...prev,
-      [dim]: prev[dim] === value ? '' : value,  // toggle off if same chip clicked again
-    }))
+    setActive(prev => ({ ...prev, [dim]: prev[dim] === value ? '' : value }))
+    setVisibleCount(PAGE_SIZE)
   }
 
   const filteredPublic = applyFilters(allPublic, active)
   const filterGroups   = hasSearched ? deriveFilterGroups(allPublic, active) : []
   const anyActive      = !!(active.outcome || active.court || active.type)
+  const visiblePublic  = filteredPublic.slice(0, visibleCount)
+  const remaining      = filteredPublic.length - visibleCount
 
   return (
     <div className="max-w-[800px]">
@@ -285,7 +262,7 @@ export default function SearchPage() {
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
-          placeholder={'Search judgments, e.g. “section 138 partner liability favour”'}
+          placeholder='Search judgments, e.g. "section 138 partner liability"'
         />
         <Button variant="primary" onClick={handleSearch} disabled={isPending}>
           {isPending ? (
@@ -297,22 +274,19 @@ export default function SearchPage() {
         </Button>
       </div>
 
-      {/* Dynamic filter bar — only appears after search with ≥ 2 distinct values per dimension */}
       <FilterBar
         groups={filterGroups}
         active={active}
         onToggle={handleToggle}
-        onClearAll={() => setActive(NO_FILTERS)}
+        onClearAll={() => { setActive(NO_FILTERS); setVisibleCount(PAGE_SIZE) }}
       />
 
-      {/* Error banner */}
       {errorMsg && (
         <div className="mb-4 px-[12px] py-[10px] bg-red-50 border border-red-200 rounded-sm text-[12px] text-red-700">
           ⚠ {errorMsg}
         </div>
       )}
 
-      {/* Results */}
       {hasSearched && (
         <>
           {allOwn.length > 0 && (
@@ -332,14 +306,29 @@ export default function SearchPage() {
                 : allPublic.length}
               )
             </div>
+
             {filteredPublic.length === 0 ? (
               <div className="text-[12px] text-text-3 py-6 text-center">
-                {anyActive
-                  ? 'No results match the selected filters.'
-                  : 'No public judgments found.'}
+                {anyActive ? 'No results match the selected filters.' : 'No public judgments found.'}
               </div>
             ) : (
-              filteredPublic.map(r => <PublicJudgmentCard key={r.id} result={r} />)
+              <>
+                {visiblePublic.map(r => (
+                  <PublicJudgmentCard key={r.id} result={r} />
+                ))}
+
+                {remaining > 0 && (
+                  <button
+                    onClick={() => setVisibleCount(v => v + PAGE_SIZE)}
+                    className="w-full mt-2 py-[10px] text-[12px] font-semibold text-text-2 border border-border-1 rounded-sm hover:bg-surface-2 hover:text-text-1 transition-colors"
+                  >
+                    Load {Math.min(PAGE_SIZE, remaining)} more
+                    <span className="ml-[6px] text-text-3 font-normal">
+                      ({remaining} remaining)
+                    </span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </>
@@ -361,63 +350,202 @@ export default function SearchPage() {
 // ── Result cards ──────────────────────────────────────────────────────────────
 
 function PublicJudgmentCard({ result }: { result: PublicJudgmentResult }) {
-  const isVerified  = VERIFIED_SOURCES.includes(result.official_source ?? '')
-  const excerpt     = result.enrichment?.facts || result.enrichment?.relevance || result.summary || ''
-  const sourceUrl   = resolveSourceUrl(result.source_url)
+  const [expanded, setExpanded]         = useState(false)
+  const [summary, setSummary]           = useState<string | null>(
+    result.enrichment?.facts || result.enrichment?.relevance || result.summary || null
+  )
+  const [summaryState, setSummaryState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [opening, setOpening]           = useState(false)
+  const [downloading, setDownloading]   = useState(false)
+
+  const isVerified   = VERIFIED_SOURCES.includes(result.official_source ?? '')
+  const judgmentUrl  = result.judgment_url
+  const officialUrl  = result.official_source_url || result.source_url
   const outcomeLabel = result.outcome ? getOutcomeLabel(result.outcome) : null
   const isPositive   = outcomeLabel
     ? ['Petitioner won', 'Bail granted'].includes(outcomeLabel)
     : false
+  const safeFilename = (result.citation_key || result.id).replace(/[^a-z0-9-]/gi, '-') + '.pdf'
+
+  const handleExpand = async () => {
+    const nowExpanded = !expanded
+    setExpanded(nowExpanded)
+    if (nowExpanded && !summary && summaryState === 'idle') {
+      setSummaryState('loading')
+      try {
+        const res = await getCitationSummary(result.id)
+        setSummary(res.data.summary)
+        setSummaryState('done')
+      } catch {
+        setSummaryState('error')
+      }
+    }
+  }
+
+  const handleView = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!judgmentUrl || opening) return
+    setOpening(true)
+    const ok = await openJudgmentPdf(judgmentUrl)
+    if (!ok) toast('Could not open the judgment PDF.')
+    setOpening(false)
+  }
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!judgmentUrl || downloading) return
+    setDownloading(true)
+    const ok = await downloadJudgmentPdf(judgmentUrl, safeFilename)
+    if (!ok) toast('Could not download the judgment PDF.')
+    setDownloading(false)
+  }
 
   return (
-    <div className="bg-surface-2 border border-border-1 rounded-sm px-[11px] py-[10px] mb-[7px] hover:border-border-2 hover:bg-white transition-all">
-      <div className="text-[12px] font-bold text-text-1 mb-[2px]">{result.case_name}</div>
+    <div
+      className={[
+        'border border-border-1 rounded-sm mb-[6px] transition-all cursor-pointer',
+        expanded ? 'bg-white shadow-sm' : 'bg-surface-2 hover:bg-white hover:border-border-2',
+      ].join(' ')}
+      onClick={handleExpand}
+    >
+      {/* ── Header row ─────────────────────────────────────────────── */}
+      <div className="px-[14px] pt-[12px] pb-[10px]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-[12.5px] font-bold text-text-1 leading-snug mb-[4px]">
+              {result.case_name}
+            </div>
 
-      <div className="flex gap-[7px] text-[10px] text-text-3 mb-[6px] flex-wrap items-center">
-        <span>{normaliseCourt(result.court)}</span>
-        <span>·</span>
-        <span>{result.year}</span>
-        {result.primary_citation && (
-          <><span>·</span><span className="font-mono text-text-2">{result.primary_citation}</span></>
-        )}
-        {outcomeLabel && (
-          <>
-            <span>·</span>
-            <span className={isPositive ? 'text-green font-semibold' : 'text-text-2 font-medium'}>
-              {outcomeLabel}
-            </span>
-          </>
-        )}
-        {result.matter_type && (
-          <>
-            <span>·</span>
-            <span className="bg-surface-3 px-[5px] py-[1px] rounded-full text-text-3 capitalize">
-              {result.matter_type}
-            </span>
-          </>
-        )}
-        {sourceUrl && (
-          <a
-            href={sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            className="text-blue underline"
-            title={sourceUrl === ESCR_HOME ? 'Direct PDF unavailable — opens eSCR homepage' : undefined}
-          >
-            {sourceUrl === ESCR_HOME ? 'eSCR ↗' : 'Source ↗'}
-          </a>
+            <div className="flex items-center gap-[6px] flex-wrap text-[10.5px] text-text-3">
+              <span>{normaliseCourt(result.court)}</span>
+              <span>·</span>
+              <span>{result.year}</span>
+              {result.primary_citation && (
+                <>
+                  <span>·</span>
+                  <span className="font-mono text-text-2">{result.primary_citation}</span>
+                </>
+              )}
+              {outcomeLabel && (
+                <>
+                  <span>·</span>
+                  <span className={isPositive ? 'text-green font-semibold' : 'text-text-2 font-medium'}>
+                    {outcomeLabel}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Right: matter chip + expand chevron */}
+          <div className="flex items-center gap-[6px] flex-shrink-0 pt-[1px]">
+            {result.matter_type && (
+              <span className="text-[9.5px] font-semibold uppercase tracking-[0.4px] bg-surface-3 text-text-3 px-[7px] py-[2px] rounded-full border border-border-1">
+                {result.matter_type}
+              </span>
+            )}
+            <svg
+              className={['w-[14px] h-[14px] text-text-3 transition-transform flex-shrink-0', expanded ? 'rotate-180' : ''].join(' ')}
+              viewBox="0 0 20 20" fill="currentColor"
+            >
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </div>
+        </div>
+
+        {!expanded && (
+          <div className="mt-[6px] text-[10px] text-text-3 italic">
+            Click to read summary and open PDF
+          </div>
         )}
       </div>
 
-      {excerpt && (
-        <div className="text-[11px] text-text-2 leading-[1.5] mb-[6px]">{excerpt}</div>
-      )}
+      {/* ── Expanded panel ─────────────────────────────────────────── */}
+      {expanded && (
+        <div
+          className="border-t border-border-1 px-[14px] pt-[10px] pb-[12px]"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* AI Summary */}
+          <div className="mb-[10px]">
+            <div className="text-[9.5px] font-bold uppercase tracking-[0.5px] text-text-3 mb-[5px]">
+              AI Summary
+            </div>
 
-      <VerifiedBadge
-        status={isVerified ? 'verified' : 'unverified'}
-        source={isVerified ? result.official_source : undefined}
-      />
+            {summaryState === 'loading' && (
+              <div className="flex items-center gap-[6px] text-[11px] text-text-3">
+                <svg className="animate-spin h-[12px] w-[12px]" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Generating summary…
+              </div>
+            )}
+
+            {summaryState !== 'loading' && summary && (
+              <p className="text-[12px] text-text-2 leading-[1.6]">{summary}</p>
+            )}
+
+            {summaryState === 'error' && !summary && (
+              <p className="text-[11px] text-text-3 italic">Summary not available.</p>
+            )}
+
+            {summaryState === 'done' && !summary && (
+              <p className="text-[11px] text-text-3 italic">No text available for this judgment.</p>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-[8px] flex-wrap">
+            {judgmentUrl && (
+              <button
+                onClick={handleView}
+                disabled={opening}
+                className="inline-flex items-center gap-[5px] px-[12px] py-[6px] bg-ink text-white text-[11.5px] font-semibold rounded-sm hover:bg-ink/90 disabled:opacity-50 transition-colors"
+              >
+                <svg className="w-[13px] h-[13px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                {opening ? 'Opening…' : 'View PDF'}
+              </button>
+            )}
+
+            {judgmentUrl && (
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="inline-flex items-center gap-[5px] px-[12px] py-[6px] bg-white border border-border-2 text-text-1 text-[11.5px] font-semibold rounded-sm hover:bg-surface-2 disabled:opacity-50 transition-colors"
+              >
+                <svg className="w-[13px] h-[13px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                {downloading ? 'Downloading…' : 'Download'}
+              </button>
+            )}
+
+            {officialUrl && (
+              <a
+                href={officialUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-[4px] text-[11px] text-text-3 hover:text-text-1 underline transition-colors"
+              >
+                Official source
+                <svg className="w-[10px] h-[10px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            )}
+
+            <div className="ml-auto">
+              <VerifiedBadge
+                status={isVerified ? 'verified' : 'unverified'}
+                source={isVerified ? result.official_source : undefined}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

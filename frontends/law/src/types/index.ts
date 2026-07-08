@@ -52,7 +52,10 @@ export interface PublicJudgmentResult {
   citation_key: string
   primary_citation?: string
   summary?: string
-  source_url?: string
+  judgment_url?: string          // primary — our self-hosted PDF copy (always works)
+  official_source_url?: string   // secondary — official government source
+  link_status?: string           // pending|verified|self_hosted|dead
+  source_url?: string            // deprecated alias of official_source_url
   official_source?: string
   matter_type?: string
   outcome?: string

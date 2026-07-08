@@ -282,8 +282,7 @@ async def extract_from_upload_stream(
             return
 
         service = get_pdf_extractor_service()
-        raw_text = ""
-        stream_done = False
+        document_id = "direct"
 
         try:
             async for event in service.extract_fields_stream(
@@ -291,11 +290,38 @@ async def extract_from_upload_stream(
                 file_ext=ext,
                 firm_id=str(current_user.firm_id),
             ):
-                if event["type"] == "result":
-                    raw_text = event.get("raw_text", "")
-                    stream_done = True
+                if event["type"] == "text_ready":
+                    # Text is extracted — save to DB now so document_id is
+                    # available immediately, before LLM streaming begins.
+                    try:
+                        doc_service = get_document_service()
+                        doc = await doc_service.store_document_in_db(
+                            session=db,
+                            firm_id=str(current_user.firm_id),
+                            matter_id=None,
+                            filename=file.filename or "upload",
+                            file_type=ext,
+                            file_size_bytes=len(file_bytes),
+                            blob_path=f"extractor/{current_user.firm_id}/{file.filename}",
+                            user_id=str(current_user.user_id),
+                        )
+                        await doc_service.update_document_indexed(
+                            session=db,
+                            document_id=str(doc.id),
+                            chunk_count=0,
+                            ocr_text=event.get("raw_text") or "",
+                        )
+                        document_id = str(doc.id)
+                    except Exception as exc:
+                        logger.warning(f"Could not persist streamed doc early: {exc}")
+                    # Emit document_id immediately so frontend can start
+                    # the JSON extraction (Case Snapshot) in parallel.
+                    yield _sse({"type": "document_ready", "document_id": document_id})
+
+                elif event["type"] == "result":
+                    pass  # raw_text already saved above
+
                 else:
-                    # Forward progress + token events immediately to browser
                     yield _sse(event)
 
         except ValueError as exc:
@@ -309,38 +335,6 @@ async def extract_from_upload_stream(
             yield _sse({"type": "done"})
             return
 
-        if not stream_done:
-            yield _sse({"type": "error", "code": "extraction_failed",
-                        "message": "No result received from AI."})
-            yield _sse({"type": "done"})
-            return
-
-        # ── Persist raw text so /extract/chat can answer questions ────────────
-        document_id = "direct"
-        try:
-            doc_service = get_document_service()
-            doc = await doc_service.store_document_in_db(
-                session=db,
-                firm_id=str(current_user.firm_id),
-                matter_id=None,
-                filename=file.filename or "upload",
-                file_type=ext,
-                file_size_bytes=len(file_bytes),
-                blob_path=f"extractor/{current_user.firm_id}/{file.filename}",
-                user_id=str(current_user.user_id),
-            )
-            await doc_service.update_document_indexed(
-                session=db,
-                document_id=str(doc.id),
-                chunk_count=0,
-                ocr_text=raw_text or "",
-            )
-            document_id = str(doc.id)
-        except Exception as exc:
-            logger.warning(f"Could not persist streamed doc for chat: {exc}")
-
-        # The markdown content is already in the token stream.
-        # Only the document_id is needed by the frontend (to enable chat).
         yield _sse({"type": "result", "document_id": document_id})
         yield _sse({"type": "done"})
 

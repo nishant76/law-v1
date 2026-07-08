@@ -1,0 +1,7 @@
+LABEL           CATEGORY        DETECTED_TYPE               JUD SUM ROUTING
+BR_hp           brochure        Product Launch              -   S   OK
+BR_toshiba      brochure        Product Launch              -   S   OK
+BR_camry        brochure        Product Launch              -   S   OK
+BR_tundra       brochure        Product Launch              -   S   OK
+AR_cision       annual_report   Financial Document          -   S   OK
+AR_aquaporin    annual_report   Financial Document          -   S   OK

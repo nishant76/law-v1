@@ -13,6 +13,8 @@ import asyncio
 import argparse
 import logging
 import sys
+from datetime import datetime, timezone
+from calendar import monthrange
 from pathlib import Path
 
 # Add parent directory to path
@@ -34,18 +36,50 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _parse_date_args(args) -> tuple:
+    """Resolve --month/--year shortcut or explicit --from-date/--to-date into datetime bounds."""
+    date_from = date_to = None
+
+    if args.month and args.year:
+        year, month = args.year, args.month
+        last_day = monthrange(year, month)[1]
+        date_from = datetime(year, month, 1, tzinfo=timezone.utc)
+        date_to = datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+    else:
+        if args.from_date:
+            date_from = datetime.strptime(args.from_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        if args.to_date:
+            date_to = datetime.strptime(args.to_date, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+
+    return date_from, date_to
+
+
 async def main():
     parser = argparse.ArgumentParser(description='P&H HC (High Court) Judgment Scraper')
     parser.add_argument('--limit', type=int, default=100,
                         help='Maximum number of judgments to scrape (default: 100)')
     parser.add_argument('--update-only', action='store_true',
                         help='Only add new judgments, skip existing ones')
-    
+    # Date filter options
+    parser.add_argument('--month', type=int, choices=range(1, 13), metavar='MONTH',
+                        help='Month number (1-12) — use with --year to filter by calendar month')
+    parser.add_argument('--year', type=int, default=datetime.now().year,
+                        help='Year (default: current year) — used with --month')
+    parser.add_argument('--from-date', dest='from_date', metavar='YYYY-MM-DD',
+                        help='Only import judgments on or after this date')
+    parser.add_argument('--to-date', dest='to_date', metavar='YYYY-MM-DD',
+                        help='Only import judgments on or before this date')
+
     args = parser.parse_args()
+    date_from, date_to = _parse_date_args(args)
     
     logger.info("Starting P&H HC scraper CLI")
     logger.info(f"Target limit: {args.limit}")
     logger.info(f"Update only: {args.update_only}")
+    if date_from or date_to:
+        logger.info(f"Date filter: {date_from.date() if date_from else '—'} → {date_to.date() if date_to else '—'}")
     
     try:
         # Create async database engine
@@ -67,7 +101,11 @@ async def main():
         # Run scraper
         async with async_session() as session:
             async with PHCScraper(session) as scraper:
-                result = await scraper.scrape_all(limit=args.limit)
+                result = await scraper.scrape_all(
+                    limit=args.limit,
+                    date_from=date_from,
+                    date_to=date_to,
+                )
                 
                 # Print results
                 logger.info("=" * 80)

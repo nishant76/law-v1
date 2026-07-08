@@ -1,6 +1,9 @@
 """
 Filing Service — generates strategic court filings with citation verification and quality scoring
 """
+import io
+import re
+import json
 import uuid
 import asyncio
 from typing import Dict, Any, Optional, List
@@ -12,11 +15,14 @@ from backend.models import Draft, DraftType, DraftStatus, Citation
 from backend.services.llm_service import get_llm_service, ModelType
 from backend.services.citation_verifier_service import get_citation_verifier_service
 from backend.services.draft_quality_service import get_draft_quality_service
-from backend.services.prompts.filing_drafter import filing_drafter_prompt
+from backend.services.prompts.filing_drafter import filing_drafter_prompt, filing_template_prompt
+from backend.services.filing_examples import get_format_example
 from backend.core.logger import get_logger
 from backend.core.sanitiser import sanitise_document_text
 
 logger = get_logger(__name__)
+
+_TOKEN_RE = re.compile(r"\{\{(\w+)\}\}")
 
 
 class FilingService:
@@ -145,6 +151,132 @@ class FilingService:
         except Exception as e:
             logger.error(f"Failed to generate filing: {str(e)}")
             raise
+
+    # ------------------------------------------------------------------
+    # Fill-in-the-blanks TEMPLATE generation (new Draft-a-Filing flow)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    async def extract_text(file_bytes: bytes, ext: str) -> str:
+        """Extract text from an uploaded PDF/DOCX draft."""
+        ft = ext.lower().lstrip(".")
+        if ft == "pdf":
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(file_bytes))
+            return "\n".join((p.extract_text() or "") for p in reader.pages).strip()
+        if ft == "docx":
+            from docx import Document as DocxDocument
+            doc = DocxDocument(io.BytesIO(file_bytes))
+            return "\n".join(p.text for p in doc.paragraphs).strip()
+        raise ValueError("Only PDF and DOCX files are supported.")
+
+    @staticmethod
+    def _parse_json(raw: str) -> Dict[str, Any]:
+        cleaned = (raw or "").strip()
+        if not cleaned:
+            raise ValueError("LLM returned an empty response — check API key quota.")
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```[a-z]*\n?", "", cleaned)
+            cleaned = re.sub(r"\n?```$", "", cleaned.strip()).strip()
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            m = re.search(r"\{[\s\S]*\}", cleaned)
+            if m:
+                return json.loads(m.group())
+            raise ValueError("Could not parse the AI response as JSON.")
+
+    @staticmethod
+    def _reconcile_fields(template: str, fields: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+        """Ensure every {{token}} in the template has exactly one key_field, in
+        order of first appearance — add missing ones, drop unused ones."""
+        used = list(dict.fromkeys(_TOKEN_RE.findall(template)))  # ordered, unique
+        by_key = {f.get("key"): f for f in (fields or []) if f.get("key")}
+        out: List[Dict[str, str]] = []
+        for key in used:
+            f = by_key.get(key) or {}
+            out.append({
+                "key": key,
+                "label": f.get("label") or key.replace("_", " ").title(),
+                "example": f.get("example") or "",
+                # Pre-filled value extracted from the lawyer's input (empty if not stated).
+                "value": str(f.get("value") or "").strip(),
+            })
+        return out
+
+    async def generate_template(
+        self,
+        firm_id: str,
+        court: str,
+        input_text: str,
+        selected_citations: Optional[List[Dict[str, Any]]],
+        is_existing_draft: bool = False,
+    ) -> Dict[str, Any]:
+        """Generate a fill-in-the-blanks template from a rough description or an
+        uploaded draft. Returns title, template_markdown ({{tokens}}), key_fields."""
+        safe_input = sanitise_document_text(input_text or "").strip()
+        if not safe_input:
+            raise ValueError("Please describe the draft or upload a document.")
+
+        cit_lines: List[str] = []
+        for c in (selected_citations or []):
+            name = (c.get("case_name") or "").strip()
+            cit = c.get("citation")
+            if not name:
+                continue
+            cit_lines.append(f"{name} — {cit}" if cit else name)
+        citations_text = "\n".join(f"- {c}" for c in cit_lines) if cit_lines else "No citations provided."
+
+        source_note = (
+            "The input below is an EXISTING draft. Preserve its intent and substance, but fully "
+            "rewrite it into proper, well-formatted legal language and convert every case-specific "
+            "detail into a placeholder token."
+            if is_existing_draft else
+            "Draft a new filing from the lawyer's description below."
+        )
+
+        user_prompt = filing_template_prompt.user_prompt_template.format(
+            source_note=source_note,
+            court=court or "(to be specified)",
+            user_input=safe_input[:12000],
+            verified_citations=citations_text,
+        )
+
+        # Append a real P&H HC format example so the LLM matches the correct structure
+        format_example = get_format_example(safe_input)
+        if format_example:
+            user_prompt = user_prompt.rstrip() + "\n\n" + format_example
+            logger.debug(f"Injected format example ({len(format_example)} chars) into filing prompt")
+
+        try:
+            response_text = await asyncio.wait_for(
+                self.llm_service.call_completion(
+                    system_prompt=filing_template_prompt.system_prompt,
+                    user_prompt=user_prompt,
+                    model=filing_template_prompt.model,
+                    temperature=filing_template_prompt.temperature,
+                    max_tokens=filing_template_prompt.max_tokens,
+                    firm_id=firm_id,
+                ),
+                timeout=120.0,
+            )
+        except asyncio.TimeoutError:
+            raise ValueError("AI request timed out — please try again")
+
+        data = self._parse_json(response_text)
+        template = (data.get("template_markdown") or "").strip()
+        if not template:
+            raise ValueError("Draft generation failed — no template returned.")
+
+        key_fields = self._reconcile_fields(template, data.get("key_fields") or [])
+        logger.info(f"Generated filing template firm={firm_id} fields={len(key_fields)}")
+        return {
+            "title": (data.get("title") or "Draft").strip(),
+            "template_markdown": template,
+            "key_fields": key_fields,
+            "citations_used": data.get("citations_used") or [],
+            "strategy_notes": data.get("strategy_notes") or "",
+        }
 
     async def _fetch_relevant_citations(
         self,

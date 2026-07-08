@@ -1,5 +1,5 @@
-# CLAUDE.md — Nikhar Platform
-# Last Updated: June 2026 (v4 — frontend design system, search timeout fixes, UI patterns)
+# CLAUDE.md — SuperAdvocate Platform
+# Last Updated: July 2026 (v8 — eCourtsIndia REST API validated + one-click import UX built; official gov portals confirmed CAPTCHA-gated; Sonner toast wired app-wide; v7 — active frontend is frontends/law-v2 (TanStack Start + React 19 + shadcn/ui + Tailwind v4); frontends/law is RETIRED — do not edit it; v6 — renamed Nikhar→SuperAdvocate; Draft-a-Filing rebuilt as template/live-fill; Reply-to-Notice perspective; eCourts integration BUILT; PDF extractor section-label + omit-empty; v5 — PDF extractor routing-first prompt + GPT-5.2; v4 — frontend design system)
 # Read this file completely before writing any code.
 
 ## GIT WORKFLOW — READ FIRST
@@ -12,7 +12,7 @@
 
 ## WHAT THIS PROJECT IS
 
-Nikhar is an AI-powered legal workspace for solo lawyers and small firms
+SuperAdvocate is an AI-powered legal workspace for solo lawyers and small firms
 in Punjab, Haryana, and Chandigarh. Phase 1 builds two things simultaneously:
 (1) semantic search over a database of 10,000+ public Indian judgments
 (2) semantic search over a lawyer's own uploaded case files.
@@ -26,6 +26,26 @@ higher ROI than criminal lawyers for search feature.
 
 ---
 
+## LAUNCH QUALITY MANDATE — READ BEFORE SHIPPING ANY FEATURE
+
+This product launches at India scale into a market with established competitors
+(Indian Kanoon's Prism, etc.). Lawyers will test it directly. A single broken
+link, fabricated citation, or wrong extraction destroys trust instantly — a
+lawyer who catches one error stops trusting the whole tool.
+
+Therefore, before any feature is put in front of lawyers:
+- Every user-facing output must be CONCRETE and VERIFIED, never placeholder.
+- Every external link must be validated to resolve — never display an unverified
+  or "landing page" URL in place of the real resource.
+- Never show fabricated, guessed, or unverifiable data. When unsure, show nothing
+  or an explicit "not available", never a plausible-looking fake.
+- Precision over breadth: a small set of features/data that work perfectly beats
+  a large set that is 90% right. 90% right = a lawyer finds the 10% and leaves.
+- If a feature cannot meet this bar yet, gate it (hide it) rather than ship it
+  half-working.
+
+---
+
 ## CURRENT PHASE
 
 Phase 1 only. Do not build anything outside this list.
@@ -35,7 +55,7 @@ Do not suggest Phase 2 features. Do not over-engineer.
 
 ## FOLDER STRUCTURE
 
-nikhar/
+superadvocate/
 ├── backend/
 │   ├── api/              # FastAPI routers — endpoints only, no business logic
 │   ├── services/         # All business logic lives here
@@ -46,9 +66,12 @@ nikhar/
 │   ├── workers/          # Celery tasks — thin wrappers only, logic in services/
 │   └── migrations/       # Alembic migrations
 ├── frontends/
-│   └── law/              # React 18 app — VERTICAL="law" hardcoded
-├── shared/
-│   └── components/       # Shared React components across verticals
+│   ├── law-v2/           # ACTIVE frontend — TanStack Start + React 19 + Tailwind v4
+│   │                     # Routes: frontends/law-v2/src/routes/
+│   │                     # API calls: frontends/law-v2/src/api/
+│   │                     # Types: frontends/law-v2/src/types/
+│   │                     # Run: bun run dev (or npm run dev) from frontends/law-v2/
+│   └── law/              # RETIRED — do not edit. Kept for reference only.
 ├── scripts/
 │   ├── scrapers/         # eSCR, P&H HC, district court scrapers (NO Indian Kanoon)
 │   └── sync_claude_md.py # Syncs ADR changes to this file
@@ -69,14 +92,19 @@ nikhar/
 - Jobs:        Celery + Redis
 - Server:      Uvicorn
 
-### Frontend
-- Framework:   React 18
-- Styling:     TailwindCSS (custom design tokens — see FRONTEND DESIGN SYSTEM below)
-- Server state: TanStack Query v5 (@tanstack/react-query ^5.80.2)
-- UI state:    Zustand
-- Routing:     React Router v6
+### Frontend (frontends/law-v2 — ACTIVE)
+- Framework:   React 19 + TanStack Start (SSR-capable Vite meta-framework)
+- Routing:     TanStack Router v1 (file-based, routes in src/routes/)
+- Styling:     Tailwind CSS v4 + shadcn/ui components (Radix UI primitives)
+- Icons:       lucide-react
+- Server state: TanStack Query v5
+- UI state:    Zustand v5
+- Forms:       react-hook-form + zod
+- HTTP client: axios (src/api/client.ts)
+- Package mgr: bun (bun.lock present) — use bun commands, not npm
+- Build:       Vite 8 via @lovable.dev/vite-tanstack-config
 - Target:      1366x768 optimised
-- Fonts:       Plus Jakarta Sans (body), Fraunces (serif headings)
+- Fonts:       Serif headings (font-serif class), system sans body
 
 ### AI / LLM
 - Drafting:    GPT-4o (Azure OpenAI) — expensive, use only for filing drafts
@@ -100,7 +128,7 @@ nikhar/
 ## FRONTEND DESIGN SYSTEM
 
 ### Design Language
-The Nikhar UI follows a "legal document + modern tool" aesthetic:
+The SuperAdvocate UI follows a "legal document + modern tool" aesthetic:
 - Warm off-white background (`#F8F7F4`) — not clinical white
 - Dark sidebar with gold accents — high contrast, professional
 - Card-less content sections — hairline dividers only, no white card boxes
@@ -314,13 +342,29 @@ Never let a single Azure service call block the entire request indefinitely.
 - Soft delete only — never hard delete documents
 
 ### 2. Public Judgment Search
-- Sources: eSCR (SC official) + P&H HC official website + Punjab district court portals
+- Sources: eSCR / digiSCR (SC official) + P&H HC official website + Punjab district court portals
 - Do NOT use Indian Kanoon — they are now a direct competitor (launched Prism AI)
 - Minimum 10,000 judgments before launch — all from government sources
 - Daily Celery cron updates new judgments
-- Hybrid search: vector + keyword combined
+- Hybrid search: vector + keyword combined (keyword-only acceptable for the
+  curated launch set; pgvector semantic ranking is a fast follow)
 - Works from day one — no upload needed by lawyer
 - Every result shows: case name, court, year, citation, source URL
+
+LINK INTEGRITY — NON-NEGOTIABLE (see LAUNCH QUALITY MANDATE):
+Every citation's link MUST resolve to the actual judgment. The pipeline enforces
+this by construction — a citation with no working link is never shown.
+- Each citation stores: blob_path (our self-hosted copy of the public-domain PDF),
+  source_url (the official government link, shown as secondary "official source"),
+  link_status ('pending'|'verified'|'self_hosted'|'dead'), link_checked_at.
+- Primary "View Judgment" link serves OUR Blob copy → can never break.
+  Judgment text is public domain (Copyright Act §52(1)(q)) — safe to self-host.
+- Ingestion verifies every source_url (HTTP), downloads the PDF to Blob, and only
+  then sets link_status='self_hosted'. Dead/unverified links are flagged, never
+  displayed. Search filters out any citation without a working link.
+- A periodic re-check job re-validates official links and our blob copies.
+- NEVER hand-type a source_url and trust it. NEVER display a generic landing-page
+  URL (e.g. ".../judgments") as if it were the specific judgment.
 
 ### 3. Own Files Search (RAG)
 - Semantic search over lawyer's indexed documents
@@ -347,6 +391,44 @@ Never let a single Azure service call block the entire request indefinitely.
 - Extract structured fields: case number, parties, dates, amounts, next hearing
 - Confidence score per field — amber flag if below 75%
 - Q&A over document: "What conditions did the court impose?"
+- Model: GPT-5.2 for the streaming readable briefing (READABLE_MODEL in
+  prompts/pdf_extractor.py) — same model as the structured extraction pass, for
+  consistent document classification + legal reasoning across both phases.
+- The briefing prompt is ROUTING-FIRST (DOCUMENT ROUTING RULE at the top of
+  READABLE_SYSTEM_PROMPT): it classifies the document first (Court Judgment/Order,
+  Legal Notice, Contract, Government Notification, Business/Financial Document,
+  Product Launch, etc.). ONLY court judgments/orders get the full judgment
+  template (SNAPSHOT + Winning Argument + Court's Reasoning + Authorities +
+  Operative Directions). Every other type gets a generic Executive Summary
+  (Purpose / Key Highlights / Important Dates / Risks / Action Items / Key
+  Takeaways) with NO fabricated legal sections. SNAPSHOT now carries a leading
+  document_type field; for non-judgments all court-case fields are null and the
+  frontend hides empty fields (never renders "Not applicable").
+- Verified 2026-06-15 on a 24-doc corpus (6 judgments, legal notice, SRS,
+  product-launch, handbooks, annual reports, brochures): routing was 100% correct
+  (no legal sections leaked into non-legal docs) and judgment briefings captured
+  full detail — court inference, full judge bench, all authorities/dates — with
+  no hallucination.
+- CAVEAT — GPT-5.2 is on a restricted, limited-quota tier: the verification run
+  hit HTTP 429 insufficient_quota after ~18 docs while GPT-5.4-mini had headroom.
+  Before relying on 5.2 at India scale, confirm the Azure GPT-5.2 deployment has
+  adequate TPM/quota, OR fall back to GPT-5.4-mini (set READABLE_MODEL). On the
+  earlier 2-judgment benchmark 5.4-mini was ~$0.02/call (3x cheaper than 5.2, ~6x
+  cheaper than 5.5) and ~10s vs ~28s (5.2)/~50s (5.5) with equal snapshot accuracy
+  after prompt tuning; 5.2/5.5 extract richer evidentiary detail on complex cases.
+- document_type labels for non-legal docs are approximate (no SRS/Brochure types
+  in the routing list yet — brochures classify as "Product Launch", SRS as
+  "Research Report"); routing is unaffected. Add categories if label accuracy
+  matters for the UI chip.
+- Judgment-brief section refinements: the "Court's Reasoning" bullets use the labels
+  Contention / Evidence / Decision (was Finding/Evidence/Impact); "Authorities Relied
+  Upon" is renamed "Judgements Relied Upon" (rendered as a collapsible list in
+  MarkdownText, with a guard so an item with no sub-detail never opens to an empty panel).
+- OMIT-EMPTY rule: any section/field with no data is omitted entirely — no "Not specified"
+  placeholders. Enforced in the prompt AND by a frontend safety-net (MarkdownText strips
+  any "## " section whose body is blank/placeholder), and the SNAPSHOT card hides empty fields.
+- GPT-5.x models reject temperature/top_p — use max_completion_tokens via
+  extra_body (handled in LLMService).
 
 ### 6. Case Synopsis Generator
 - Upload any judgment or petition
@@ -355,29 +437,45 @@ Never let a single Azure service call block the entire request indefinitely.
 - Export as .docx
 
 ### 7. Smart Reply Generator
-- Upload legal notice PDF
-- Extract each allegation automatically
-- For each allegation show:
-  → Admit / Deny / Partial options
-  → AI suggests 2-3 legal grounds if denied
-  → Verified citations supporting each ground
-- Generate complete reply incorporating lawyer's admit/deny decisions
-- Verified citations only — no unverified citations in final reply
+- Upload legal notice PDF/DOCX → extract EVERY allegation (notices run 15-25 paras; the
+  input is read up to ~30000 chars so the latter-paragraph legal arguments AND the
+  prayer/demands are not dropped — a 12000 cap previously lost the back half).
+- PERSPECTIVE (critical): the reply is drafted for the RECIPIENT / Noticee. Allegations
+  are restated from the recipient's viewpoint — the sender's client is referred to by
+  name (or "the Sender" / he / she), and "my client" ALWAYS means the recipient. Never
+  carry over the notice's own "My Client" (there it means the sender's side). The
+  extraction starts each point with "The Sender alleges that …".
+- Per allegation the lawyer sets Admit / Deny / Partial and types their own facts in a
+  "Your facts / grounds" box; a "Rewrite in legal language" action (grounds_rewrite_prompt,
+  gpt-4o-mini) polishes those notes into formal legal prose WITHOUT adding facts or citations.
+- Generate a complete formal reply letter → review / copy / export .docx.
+  DENY drafting rule (generalised, NOT notice-specific): always state the positive contrary
+  averment ("My client avers that…"); never a double negative ("denies that there was no X");
+  use singular "it/its" for a corporate client; never assert a step was already taken unless
+  the grounds say so.
+- Find-&-add citations was REMOVED from this feature — it moves to the Case Argument
+  Generator (Feature 11). Any citations that do appear must remain verified-only.
 
-### 8. Strategic Filing Drafter
-- Input: filing type + brief form + filing objective
-- Filing objective selector:
-  [ ] Win on merits
-  [ ] Delay proceedings (CPC)
-  [ ] Challenge jurisdiction
-  [ ] Seek settlement
-  [ ] Preserve appeal rights
-- Draft strategy changes completely based on objective
-- Citation verification on every citation before delivery
-- Draft quality score (0-100) shown before lawyer accepts
-- Score dimensions: citation safety 35% / completeness 25% /
-  legal accuracy 20% / brief coverage 15% / language 5%
-- Block draft if citation safety below 50%
+### 8. Strategic Filing Drafter (template + live-fill)
+- Input: a free-text "describe your draft" box (rough/plain language is fine) OR upload an
+  existing draft (PDF/DOCX) to improve, plus a Court field. The old filing-type and
+  objective (Win/Delay/Challenge/Settle/Preserve) selectors have been REMOVED — the model
+  infers the filing type and strategy from the description itself.
+- Generation fully rewrites the input into a properly-formatted Punjab/Haryana filing and
+  returns a TEMPLATE: the legal body is written out, with {{snake_case}} placeholder tokens
+  for every case-specific detail (parties, court, case/FIR no., dates, amounts). Any detail
+  the lawyer already stated is captured into the matching field's pre-filled value (never
+  inlined — the token stays editable).
+  Prompt: filing_template_prompt in prompts/filing_drafter.py (gpt-4o-mini dev / gpt-4o prod).
+  Endpoints: POST /filing/template (describe), /filing/template/upload (improve a file),
+  /filing/template/export (.docx).
+- Live editor (two-pane): left = the draft with highlighted blanks; right = a Key Details
+  panel (one input per blank — typing fills the draft live, client-side) + Find & Add
+  Citations (reuses unified search, verified-only; selected citations are appended and exported).
+- NOTE: the older objective-based generator (/filing/generate) + draft-quality scoring
+  (citation safety 35% / completeness 25% / legal accuracy 20% / brief coverage 15% /
+  language 5%; block if citation safety < 50) still exists in code for back-compat, but is
+  no longer the UI flow.
 
 ### 9. Deadline Tracker
 - Add matter with key dates: hearing, filing deadline, limitation period
@@ -401,6 +499,28 @@ Never let a single Azure service call block the entire request indefinitely.
   Lawyer controls on/off per matter
   This is a major differentiator — no competitor does this
 
+- eCOURTS HEARING SYNC (built — see ECOURTS INTEGRATION below):
+  Lawyer sets their eCourts advocate name → "Sync" pulls their pending cases
+  (and next-hearing dates) from the eCourts data API and maps them to their
+  matters, feeding the deadline tracker automatically.
+
+- LAWYER daily cause list on WhatsApp (PLANNED — competitive idea, added 2026-07-07):
+  Every evening (e.g. 6 PM IST), send the lawyer their own next-day cause list
+  directly on WhatsApp — no login needed to know what's in court tomorrow.
+  → Message lists every matter with a hearing tomorrow, sorted by court/bench:
+    "Kal (tomorrow's date) ki cause list:
+     1. [Case Name] — [Court], [Case No.]
+     2. [Case Name] — [Court], [Case No.]
+     ..."
+  Source: same eCourts sync data already feeding the Deadline Tracker — no new
+  data source needed, just a scheduled Celery job (mirrors send_whatsapp design)
+  querying tomorrow's next_hearing_date across the lawyer's matters.
+  Opt-in per lawyer (WhatsApp number on their profile, not per-matter like the
+  client reminders above).
+  Distinct from CLIENT WhatsApp reminders above: this is internal, for the
+  lawyer/firm only, sent daily regardless of how far out the hearing is (not
+  tied to the 30/7/1-day deadline cadence).
+
 ### 10. Legal Process Guide
 - Confirmed pain: junior lawyers don't know which application to file
 - Moved from Phase 2 to Phase 1 based on lawyer research
@@ -422,6 +542,15 @@ Never let a single Azure service call block the entire request indefinitely.
 - Feedback loop: lawyer can flag incorrect procedure
   → flagged for manual review and correction
 
+### 11. Case Argument Generator (PLANNED — "Test 0", not built yet)
+- This is where the "find / verify / insert citations" capability that was removed from
+  Reply to Notice (Feature 7) now belongs.
+- Intended scope: take a matter/position → find relevant VERIFIED judgments (reusing
+  SearchService, which already returns only self-hosted/verified citations), and build
+  supporting legal arguments with those citations woven in.
+- Next step: define exactly how it works + what it needs, then build a first version.
+  Until then it does not exist in code.
+
 No Punjabi translator
 No judge analytics feature (but DO collect judge data from day one — see below)
 No clause analyser
@@ -430,8 +559,8 @@ No mobile app
 No Redis cache (add Phase 2)
 No Azure Service Bus (Celery Phase 1)
 No Azure AD B2C (simple JWT Phase 1)
-No Nikhar Audit vertical
-No Nikhar Visa vertical
+No SuperAdvocate Audit vertical
+No SuperAdvocate Visa vertical
 No Kubernetes
 No microservices
 No per-seat billing (tiered plans only)
@@ -440,7 +569,8 @@ No client portal
 No time and billing tracker
 No outcome predictor
 No Hindi drafting
-No eCourts API integration (Phase 2)
+eCourts integration — BUILT in Phase 1 via a LICENSED third-party data API (not the
+  official NIC API, not scraping). See ECOURTS INTEGRATION below.
 No LawFinder/LawHerald integration (no public APIs — build own DB from public sources)
 
 ---
@@ -479,13 +609,160 @@ eCourts app is used by lawyers for receiving court orders.
 Do NOT compete with eCourts. Complement it:
 
 "Get your order from eCourts.
- Upload it to Nikhar.
- Nikhar extracts all key info,
+ Upload it to SuperAdvocate.
+ SuperAdvocate extracts all key info,
  adds it to your matter,
  sets deadline reminders automatically."
 
-Phase 2: eCourts official API integration
-(auto-pull next hearing dates directly)
+---
+
+## ECOURTS INTEGRATION (BUILT — Phase 1)
+
+Auto-pull next-hearing dates for the logged-in lawyer's matters.
+
+### DATA SOURCE — non-negotiable
+
+Use the LICENSED eCourtsIndia REST API (`webapi.ecourtsindia.com`, Bearer token
+`eci_live_…`). Validated working July 2026.
+
+**CONFIRMED — all official gov portals are CAPTCHA-gated:**
+- `panchkula.dcourts.gov.in` — advocate search has image CAPTCHA
+- `hcservices.ecourts.gov.in` — enrollment/bar-code search has CAPTCHA
+- `services.ecourts.gov.in` — all search pages CAPTCHA-gated
+There is no official government route that allows automated advocate/case lookups
+without solving a CAPTCHA. Do NOT attempt any official portal automation — it is
+technically fragile, legally risky, and would silently serve wrong hearing dates.
+The official NIC API needs a govt MoU; pursue separately if ever wanted.
+
+**CAPTCHA on eCourtsIndia.com** — the ecourtsindia.com profile/search UI also uses
+CAPTCHA and is NOT a substitute. Only `webapi.ecourtsindia.com` REST API is
+CAPTCHA-free. Use that exclusively.
+
+### REST API REFERENCE (`webapi.ecourtsindia.com`)
+
+```
+GET  /api/partner/search
+  Params: Advocates, CaseStatuses=PENDING, StateCodes (2-letter, e.g. HR/PB/CH),
+          PageSize (max 100), Page, SortBy=nextHearingDate, SortOrder=asc
+  Response: { data: { results: [...], hasNextPage: bool } }
+  Results field names: cnr, petitioners[], respondents[], courtName, courtCode,
+                       caseStatus, nextHearingDate, filingDate,
+                       petitionerAdvocates[], respondentAdvocates[], caseType
+  Pagination: iterate Page 1..50 while hasNextPage=true
+  District filter: StateCodes narrows by state; district is filtered client-side
+                   by matching courtCode prefix (e.g. "HRPK" for Panchkula)
+
+GET  /api/partner/case/{CNR}
+  Response: { data: { courtCaseData: { cnr, petitioners[], respondents[],
+             courtName, caseStatus, nextHearingDate, lastHearingDate,
+             judges[], historyOfCaseHearings[], interimOrders[], ... } } }
+
+POST /api/partner/case/bulk-refresh
+  Body: { cnrs: ["CNR1", "CNR2", ...] }  (max 50 per call, chunk if more)
+  Async — results appear when dateModified advances.
+
+Rate limits: 100 req/min · 3k req/hr · 50k req/day
+```
+
+### CITY → STATE/DISTRICT MAPPING
+
+The API takes StateCodes (HR/PB/CH), not districts. District filtering is done
+client-side by checking the `courtCode` prefix in results.
+
+```python
+# backend/services/ecourts_api_service.py
+CITY_TO_STATE_CODE     = { "panchkula": "HR", "gurugram": "HR", "ludhiana": "PB", ... }
+CITY_TO_DISTRICT_PREFIX = { "panchkula": "HRPK", "gurugram": "HRGR", "ludhiana": "PBLD", ... }
+```
+
+### HOW IT WORKS
+
+1. Lawyer's `ecourts_advocate_name` is stored in `law.users`.
+   No city field in the user model — city is stored client-side in
+   `localStorage('sa-ecourts-city')` to avoid a migration.
+2. `search_pending_cases(advocate_name, state_code, district_prefix)` paginates
+   the REST API and filters client-side by district prefix.
+3. `get_case_by_cnr(cnr)` fetches full detail for a single CNR.
+4. Import endpoint upserts each case as a Matter (keyed by CNR) and sets
+   `next_hearing_date` → feeds the Deadline Tracker automatically.
+5. If ECOURTS_API_TOKEN is not configured the service raises
+   `EcourtsAPINotConfigured` — it NEVER fabricates dates.
+
+### PIECES
+
+```
+Config:
+  ECOURTS_API_BASE      = https://webapi.ecourtsindia.com
+  ECOURTS_API_TOKEN     = eci_live_…  (licensed vendor Bearer token)
+
+Models (DB):
+  law.users.ecourts_advocate_name   — advocate name as registered on eCourts
+  law.users.bar_council_number      — bar council enrolment number (stored, not used for lookup)
+  law.users.ecourts_state_code      — e.g. "HR" (stored, used as default state filter)
+  law.matters.cnr_number            — Case Number Record (unique per case)
+  law.matters.case_status           — PENDING / DISPOSED etc.
+  law.matters.ecourts_synced_at     — last sync timestamp
+  law.matters.ecourts_tracked       — bool, opt-in per matter
+  (Alembic migrations 005_ecourts_integration, 006_ecourts_bar_council)
+
+Services:
+  backend/services/ecourts_api_service.py  — PRIMARY: REST API calls
+    search_pending_cases(advocate_name, state_code, district_prefix)
+    get_case_by_cnr(cnr)
+    bulk_refresh(cnrs)
+    city_to_state_code(city), city_to_district_prefix(city)
+    slug_to_advocate_name(slug)   — "ashish-gupta" → "Ashish Gupta"
+    Exceptions: EcourtsAPIError, EcourtsAPINotConfigured
+
+  backend/services/ecourts_service.py — legacy sync logic (advocate-search sync,
+    CNR refresh for existing matters). Still used by /ecourts/sync and /ecourts/refresh-cnr.
+
+API endpoints (backend/api/ecourts.py):
+  GET  /ecourts/status               — integration status + profile fields
+  PUT  /ecourts/profile              — set advocate name / bar council / state code
+  GET  /ecourts/states               — list state codes for UI dropdown
+  GET  /ecourts/preview-my-cases     — NEW (Jul 2026): zero-input preview for dashboard
+                                        Uses logged-in user's stored name, optional ?city=
+                                        Returns pending cases; raises 400 if no name set
+  GET  /ecourts/lawyer-cases/{slug}  — discovery by profile slug (onboarding wizard)
+  GET  /ecourts/case/{cnr}           — single CNR detail (CNR auto-fill on Add Matter)
+  POST /ecourts/sync                 — advocate-search sync (legacy)
+  POST /ecourts/refresh-cnr          — CNR-based hearing date refresh for existing matters
+  POST /ecourts/import-cnrs          — bulk import cases as Matters
+
+Daily job:
+  backend/workers/ecourts.py — thin Celery wrapper calling refresh-cnr logic
+  Beat schedule: register in celery_app
+```
+
+### DASHBOARD UX — ONE-CLICK IMPORT (BUILT Jul 2026)
+
+When the lawyer has no cases imported yet, the dashboard shows a banner:
+  **"Your eCourts case data is ready to pull"** → "Connect eCourts →" button
+
+Clicking opens `EcourtsQuickImport.tsx` (not the old 4-step `EcourtsOnboarding` wizard):
+- Auto-fetches pending cases on open using the lawyer's stored name — no input needed
+- Optional "Filter by city" collapse (city remembered in `localStorage('sa-ecourts-city')`)
+- All cases pre-selected; lawyer can deselect individual ones
+- "Import N cases" → modal closes immediately → background `POST /ecourts/import-cnrs`
+  → Sonner toast: "Importing N cases…" updates to "N cases imported. Hearing dates sync daily."
+
+Frontend files:
+  frontends/law-v2/src/components/app/EcourtsQuickImport.tsx  — new one-click import modal
+  frontends/law-v2/src/routes/app.index.tsx                   — dashboard, uses above
+  frontends/law-v2/src/routes/app.tsx                         — layout, has <Toaster /> (bottom-right)
+  frontends/law-v2/src/api/ecourts.ts                         — previewMyCases() + updated DiscoveredCase
+
+NOTE: `EcourtsOnboarding.tsx` (the 4-step wizard) still exists in the codebase but is
+no longer wired to the dashboard. It can be used for fallback / settings flows.
+
+### TOAST SYSTEM (BUILT Jul 2026)
+
+Sonner (v2) is wired app-wide:
+- `<Toaster richColors position="bottom-right" />` in `frontends/law-v2/src/routes/app.tsx`
+- Import `toast` from `'sonner'` in any component — it works everywhere under `/app`
+- Use `toast.loading(msg)` → `toast.success(msg, { id })` / `toast.error(msg, { id })`
+  for background-operation feedback (e.g. eCourts import, file processing)
 
 ---
 
@@ -552,8 +829,14 @@ Layer 4: PostgreSQL RLS     — last line of defence
 
 ### Model usage:
 - GPT-4o:       Filing drafts only — expensive
+- GPT-5.2:      PDF Extractor — structured extraction + streaming readable
+                briefing (READABLE_MODEL). Restricted/limited-quota tier; fall
+                back to GPT-5.4-mini if quota is insufficient. See Feature 5.
 - GPT-4o-mini:  Everything else — RAG, extraction, synopsis, reply
 - Ada-002:      All embeddings
+
+Note: GPT-5.x models (5.2, 5.4-mini, 5.5) reject temperature/top_p params.
+LLMService routes them through max_completion_tokens via extra_body.
 
 ### Critical rules:
 - ALL AI calls go through LLMService class
@@ -614,7 +897,7 @@ Response shape:
 Rate limit:     60 requests/minute per firm
 File uploads:   Multipart form data — max 50MB
 Pagination:     Cursor-based — never offset
-CORS:           law.nikhar.ai only
+CORS:           law.superadvocate.ai only
 Compression:    GZipMiddleware enabled
 ```
 
@@ -689,6 +972,9 @@ BLOB_CONNECTION_STRING
 SENDGRID_API_KEY
 WHATSAPP_API_TOKEN
 WHATSAPP_PHONE_NUMBER_ID
+ECOURTS_API_BASE                = https://webapi.ecourtsindia.com
+ECOURTS_API_TOKEN               = eci_live_…   (licensed eCourts data vendor)
+GPT52_DEPLOYMENT                = gpt-5.2
 JWT_SECRET_KEY
 JWT_ALGORITHM                   = RS256
 ACCESS_TOKEN_EXPIRE_MINUTES     = 60
@@ -823,7 +1109,7 @@ Indian Kanoon launched Prism — a direct competitor with similar features.
 They are national and generic. We are regional and deep.
 
 ```
-Prism (Indian Kanoon):          Nikhar:
+Prism (Indian Kanoon):          SuperAdvocate:
 ────────────────────            ──────────────────────────
 All India generic               Punjab/Haryana/Chandigarh
 English only                    Punjab-specific procedures
@@ -839,7 +1125,7 @@ National pricing                Punjab practitioner pricing
 ```
 
 Our moat is depth in one geography — not breadth across India.
-"Prism is for Indian lawyers. Nikhar is for YOUR court."
+"Prism is for Indian lawyers. SuperAdvocate is for YOUR court."
 
 ---
 

@@ -38,10 +38,16 @@ class ESCRScraper(BaseScraper):
         super().__init__(session)
         self.listing_url = f"{self.BASE_URL}/judgments"
 
-    async def get_judgment_urls(self, limit: int = 5000) -> List[str]:
+    async def get_judgment_urls(
+        self,
+        limit: int = 5000,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> List[str]:
         """
         Fetch the judgment listing page and extract individual judgment/PDF URLs.
-        Falls back to year-based pagination if the listing page supports it.
+        date_from/date_to are handled in scrape_all after parse; eSCR listing
+        does not support server-side date filtering.
         """
         urls: List[str] = []
         page = 1

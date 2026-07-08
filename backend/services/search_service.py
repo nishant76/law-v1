@@ -507,8 +507,14 @@ class SearchService:
              so partial / non-English terms still match.
         """
         try:
-            # Base condition — never show soft-deleted rows
-            base = [Citation.deleted_at.is_(None)]
+            # Base condition — never show soft-deleted rows, and never show a
+            # citation whose judgment link does not work (LAUNCH QUALITY MANDATE).
+            # Only 'self_hosted' (our verified Blob copy) is shown; 'pending'/'dead'
+            # are hidden until verify_citation_links.py validates them.
+            base = [
+                Citation.deleted_at.is_(None),
+                Citation.link_status == "self_hosted",
+            ]
 
             # Optional structured filters
             if filters.get("outcome"):
@@ -605,7 +611,12 @@ class SearchService:
             "citation_key": c.citation_key,
             "primary_citation": c.primary_citation,
             "summary": c.summary,
-            "source_url": c.source_url,
+            # Primary link — our self-hosted copy, always works. Served by
+            # GET /api/v1/citations/{id}/pdf (never the raw gov URL).
+            "judgment_url": f"/api/v1/citations/{c.id}/pdf" if c.blob_path else None,
+            "official_source_url": c.source_url,   # secondary "View on official source"
+            "link_status": c.link_status,
+            "source_url": c.source_url,            # retained for backward compat
             "official_source": c.official_source,
             "matter_type": c.matter_type,
             "outcome": c.outcome,

@@ -1,0 +1,7 @@
+PDF           MODEL         #  TTFT   TOTAL   WORDS  SNAPSHOT
+MANIK_KHURANA gpt-5.4-mini  1  1.5    10.4    918    SNAPSHOT:{"outcome":"dismissed","court":"Punjab and Haryana High Court","judge":
+MANIK_KHURANA gpt-5.4-mini  2  0.8    11.7    1019   SNAPSHOT:{"outcome":"dismissed","court":"Punjab and Haryana High Court","judge":
+MANIK_KHURANA gpt-5.4-mini  3  1.4    10.6    984    SNAPSHOT:{"outcome":"dismissed","court":"Punjab and Haryana High Court","judge":
+JASSAR        gpt-5.4-mini  1  1.1    9.3     837    SNAPSHOT:{"outcome":"dismissed","court":"Additional District Judge, Patiala","ju
+JASSAR        gpt-5.4-mini  2  20.1   22.2    906    SNAPSHOT:{"outcome":"dismissed","court":"Additional District Judge, Patiala","ju
+JASSAR        gpt-5.4-mini  3  0.7    9.9     932    SNAPSHOT:{"outcome":"dismissed","court":"Additional District Judge, Patiala","ju

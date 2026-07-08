@@ -25,6 +25,7 @@ class ModelType(str, Enum):
     GPT4O_MINI = "gpt-4o-mini"
     GPT52 = "gpt-5.2"
     GPT5_5 = "gpt-5.5"
+    GPT54_MINI = "gpt-5.4-mini"
     EMBEDDING = "text-embedding-ada-002"
 
 
@@ -182,6 +183,7 @@ class LLMService:
                 "gpt-4o" if model == ModelType.GPT4O
                 else "gpt-5.2" if model == ModelType.GPT52
                 else "gpt-5.5" if model == ModelType.GPT5_5
+                else "gpt-5.4-mini" if model == ModelType.GPT54_MINI
                 else "gpt-4o-mini"
             )
 
@@ -190,7 +192,7 @@ class LLMService:
             {"role": "user",   "content": user_prompt},
         ]
 
-        if model in (ModelType.GPT52, ModelType.GPT5_5):
+        if model in (ModelType.GPT52, ModelType.GPT5_5, ModelType.GPT54_MINI):
             create_kwargs = dict(
                 model=model_name,
                 messages=messages,
@@ -282,6 +284,8 @@ class LLMService:
                 model_name = "gpt-5.2"
             elif model == ModelType.GPT5_5:
                 model_name = "gpt-5.5"
+            elif model == ModelType.GPT54_MINI:
+                model_name = "gpt-5.4-mini"
             else:
                 model_name = "gpt-4o-mini"
         
@@ -293,15 +297,13 @@ class LLMService:
             try:
                 # gpt-5.2 uses max_completion_tokens (via extra_body to support
                 # older SDK versions); all other models use max_tokens directly.
-                if model in (ModelType.GPT52, ModelType.GPT5_5):
+                if model in (ModelType.GPT52, ModelType.GPT5_5, ModelType.GPT54_MINI):
                     create_kwargs = dict(
                         model=model_name,
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt},
                         ],
-                        temperature=temperature,
-                        top_p=1.0,
                         extra_body={"max_completion_tokens": max_tokens} if max_tokens else {},
                     )
                 else:
@@ -435,6 +437,8 @@ class LLMService:
                 model_name = "gpt-4o"
             elif model == ModelType.GPT52:
                 model_name = "gpt-5.2"
+            elif model == ModelType.GPT54_MINI:
+                model_name = "gpt-5.4-mini"
             else:
                 model_name = "gpt-4o-mini"
 
@@ -445,12 +449,10 @@ class LLMService:
 
         for attempt in range(max_retries + 1):
             try:
-                if model == ModelType.GPT52:
+                if model in (ModelType.GPT52, ModelType.GPT5_5, ModelType.GPT54_MINI):
                     create_kwargs = dict(
                         model=model_name,
                         messages=full_messages,
-                        temperature=temperature,
-                        top_p=1.0,
                         extra_body={"max_completion_tokens": max_tokens} if max_tokens else {},
                     )
                 else:
@@ -522,12 +524,13 @@ class LLMService:
                 "gpt-4o" if model == ModelType.GPT4O
                 else "gpt-5.2" if model == ModelType.GPT52
                 else "gpt-5.5" if model == ModelType.GPT5_5
+                else "gpt-5.4-mini" if model == ModelType.GPT54_MINI
                 else "gpt-4o-mini"
             )
 
         full_messages = [{"role": "system", "content": system_prompt}] + messages
 
-        if model in (ModelType.GPT52, ModelType.GPT5_5):
+        if model in (ModelType.GPT52, ModelType.GPT5_5, ModelType.GPT54_MINI):
             create_kwargs = dict(
                 model=model_name,
                 messages=full_messages,
