@@ -16,7 +16,9 @@ from backend.services.llm_service import get_llm_service, ModelType
 from backend.services.citation_verifier_service import get_citation_verifier_service
 from backend.services.draft_quality_service import get_draft_quality_service
 from backend.services.prompts.filing_drafter import filing_drafter_prompt, filing_template_prompt
+from backend.services.prompts.brief_analyzer import brief_analyzer_prompt, DIMENSIONS
 from backend.services.filing_examples import get_format_example
+from backend.services import jurisdiction_service, special_acts_service
 from backend.core.logger import get_logger
 from backend.core.sanitiser import sanitise_document_text
 
@@ -237,7 +239,7 @@ class FilingService:
 
         user_prompt = filing_template_prompt.user_prompt_template.format(
             source_note=source_note,
-            court=court or "(to be specified)",
+            court=court or "NOT SPECIFIED — infer from matter",
             user_input=safe_input[:12000],
             verified_citations=citations_text,
         )
@@ -248,6 +250,36 @@ class FilingService:
             user_prompt = user_prompt.rstrip() + "\n\n" + format_example
             logger.debug(f"Injected format example ({len(format_example)} chars) into filing prompt")
 
+        # Ground the drafter on VERIFIED offence→court data (BNSS First Schedule) so
+        # it never emits a section number/forum from memory. Degrade gracefully:
+        # if the data file is missing the drafter still runs on the prompt's general
+        # rule (never block a draft over the grounding step).
+        try:
+            grounding = jurisdiction_service.grounding_block(safe_input)
+            if grounding:
+                user_prompt = user_prompt.rstrip() + "\n\n" + grounding
+                logger.debug(f"Injected jurisdiction grounding ({len(grounding)} chars)")
+        except jurisdiction_service.JurisdictionDataError as exc:
+            logger.warning(f"Jurisdiction grounding unavailable: {exc}")
+
+        # Ground the drafter on VERIFIED special-act bars (NDPS s.37, PMLA s.45,
+        # UAPA s.43D(5), NI s.138/142, s.12A CCA, s.80 CPC, s.69 Partnership,
+        # s.14 HMA) — the landmine table in docs/drafting_correctness_audit.md.
+        # jurisdiction_service covers the BNS First Schedule only; these are the
+        # bars that make a filing NOT MAINTAINABLE if missed (an NDPS bail draft
+        # was caught omitting s.37, the quantity, and the Special Court).
+        # Same degrade-gracefully rule: never block a draft over grounding.
+        try:
+            bars = special_acts_service.grounding_block(safe_input)
+            if bars:
+                user_prompt = user_prompt.rstrip() + "\n\n" + bars
+                logger.debug(
+                    "Injected special-act bar grounding (%d chars, triggers=%s)",
+                    len(bars), special_acts_service.detect_triggers(safe_input),
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"Special-act grounding unavailable: {exc}")
+
         try:
             response_text = await asyncio.wait_for(
                 self.llm_service.call_completion(
@@ -257,6 +289,10 @@ class FilingService:
                     temperature=filing_template_prompt.temperature,
                     max_tokens=filing_template_prompt.max_tokens,
                     firm_id=firm_id,
+                    # GPT-5.2 generating up to max_tokens=6000 of structured legal text is
+                    # slower than the 30s default (tuned for gpt-4o-mini) — matches the
+                    # PDF Extractor's GPT-5.2 timeout pattern (pdf_extractor_service.py).
+                    timeout=110,
                 ),
                 timeout=120.0,
             )
@@ -272,11 +308,130 @@ class FilingService:
         logger.info(f"Generated filing template firm={firm_id} fields={len(key_fields)}")
         return {
             "title": (data.get("title") or "Draft").strip(),
+            "detected_document_type": (data.get("detected_document_type") or "").strip(),
             "template_markdown": template,
             "key_fields": key_fields,
             "citations_used": data.get("citations_used") or [],
+            # Facts the draft needs but the brief did not supply. The statutory-bar
+            # grounding routes unknowns here (e.g. seized quantity for the NDPS s.37
+            # classification) rather than letting the model invent a figure, so the
+            # UI must surface it — an unflagged gap is worse than a visible one.
+            "missing_facts": [
+                str(f) for f in (data.get("missing_facts") or []) if str(f).strip()
+            ],
             "strategy_notes": data.get("strategy_notes") or "",
         }
+
+    # ------------------------------------------------------------------
+    # Pre-flight BRIEF completeness check (powers the live "Brief strength"
+    # meter + clarifying questions in the drafting UI, BEFORE generation).
+    # ------------------------------------------------------------------
+
+    _DIMENSION_LABELS = dict(DIMENSIONS)
+
+    @staticmethod
+    def _score_band(score: int) -> str:
+        """Human label for the completeness meter."""
+        if score >= 75:
+            return "Strong"
+        if score >= 45:
+            return "Workable"
+        return "Thin"
+
+    def _normalise_analysis(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Coerce the LLM analysis into a stable shape the frontend can render.
+        Always returns all six dimensions in canonical order with a label, so a
+        partial/garbled LLM response never breaks the meter."""
+        try:
+            score = int(round(float(data.get("completeness_score", 0))))
+        except (TypeError, ValueError):
+            score = 0
+        score = max(0, min(100, score))
+
+        by_key = {
+            d.get("key"): d
+            for d in (data.get("dimensions") or [])
+            if isinstance(d, dict) and d.get("key")
+        }
+        dimensions: List[Dict[str, Any]] = []
+        for key, label in DIMENSIONS:
+            d = by_key.get(key) or {}
+            dimensions.append({
+                "key": key,
+                "label": label,
+                "present": bool(d.get("present", False)),
+                "note": str(d.get("note") or "").strip(),
+            })
+
+        questions: List[Dict[str, str]] = []
+        for i, q in enumerate(data.get("questions") or []):
+            if not isinstance(q, dict):
+                continue
+            text = str(q.get("question") or "").strip()
+            if not text:
+                continue
+            questions.append({
+                "id": f"q{i + 1}",
+                "question": text,
+                "why": str(q.get("why") or "").strip(),
+            })
+
+        return {
+            "detected_filing_type": str(data.get("detected_filing_type") or "").strip(),
+            "completeness_score": score,
+            "score_band": self._score_band(score),
+            "dimensions": dimensions,
+            "questions": questions[:4],
+        }
+
+    async def analyze_brief(
+        self,
+        firm_id: str,
+        brief: str,
+        court: str = "",
+        type_hint: str = "",
+    ) -> Dict[str, Any]:
+        """Cheap pre-flight completeness check on the drafting brief.
+
+        Returns the inferred filing type, a 0-100 completeness_score with band,
+        the six-dimension checklist, and up to 4 clarifying questions. Called live
+        (debounced) as the lawyer types — must stay fast and never raise for a
+        short/empty brief (returns a neutral 'thin' shape instead)."""
+        safe_brief = sanitise_document_text(brief or "").strip()
+        # Too little to assess meaningfully — return an honest empty state, no LLM call.
+        if len(safe_brief) < 25:
+            return self._normalise_analysis({})
+
+        user_prompt = brief_analyzer_prompt.user_prompt_template.format(
+            type_hint=(type_hint or "").strip() or "(none)",
+            court=(court or "").strip() or "(none)",
+            brief=safe_brief[:6000],
+        )
+
+        try:
+            response_text = await asyncio.wait_for(
+                self.llm_service.call_completion(
+                    system_prompt=brief_analyzer_prompt.system_prompt,
+                    user_prompt=user_prompt,
+                    model=brief_analyzer_prompt.model,
+                    temperature=brief_analyzer_prompt.temperature,
+                    max_tokens=brief_analyzer_prompt.max_tokens,
+                    firm_id=firm_id,
+                    timeout=20,
+                ),
+                timeout=25.0,
+            )
+        except asyncio.TimeoutError:
+            raise ValueError("Brief check timed out — please try again")
+
+        data = self._parse_json(response_text)
+        result = self._normalise_analysis(data)
+        # Never log brief content (PII / GAP-032) — counts only.
+        logger.info(
+            f"Analyzed brief firm={firm_id} score={result['completeness_score']} "
+            f"questions={len(result['questions'])}"
+        )
+        return result
 
     async def _fetch_relevant_citations(
         self,
@@ -410,6 +565,7 @@ class FilingService:
                     model=filing_drafter_prompt.model,
                     temperature=filing_drafter_prompt.temperature,
                     max_tokens=filing_drafter_prompt.max_tokens,
+                    timeout=80,
                 ),
                 timeout=90.0
             )

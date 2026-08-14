@@ -31,9 +31,12 @@ export interface KeyField {
 export interface FilingTemplateResponse {
   success: boolean
   title: string
+  detected_document_type: string
   template_markdown: string
   key_fields: KeyField[]
   citations_used: string[]
+  /** Facts the draft needs but the brief did not supply — must be shown, never swallowed. */
+  missing_facts: string[]
   strategy_notes: string
 }
 
@@ -41,6 +44,28 @@ export interface TemplateInput {
   court?: string
   input_text: string
   selected_citations?: { case_name: string; citation: string | null }[]
+}
+
+export interface BriefDimension {
+  key: string
+  label: string
+  present: boolean
+  note: string
+}
+
+export interface BriefQuestion {
+  id: string
+  question: string
+  why: string
+}
+
+export interface BriefCheckResponse {
+  success: boolean
+  detected_filing_type: string
+  completeness_score: number
+  score_band: string
+  dimensions: BriefDimension[]
+  questions: BriefQuestion[]
 }
 
 export const generateFiling = (input: FilingInput) =>
@@ -54,6 +79,9 @@ export const exportFiling = (id: string, body: Record<string, unknown>) =>
 
 export const generateFilingTemplate = (input: TemplateInput) =>
   api.post<FilingTemplateResponse>('/filing/template', input, { timeout: 120000 })
+
+export const checkBrief = (input: { brief: string; court?: string; type_hint?: string }) =>
+  api.post<BriefCheckResponse>('/filing/brief-check', input, { timeout: 30000, skipAuthRedirect: true })
 
 export const generateFilingTemplateFromFile = (file: File, meta: { court?: string }) => {
   const form = new FormData()
