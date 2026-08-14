@@ -101,14 +101,23 @@ export interface UnifiedSearchResponse {
 
 export interface Deadline {
   id: string
+  matter_id: string
   matter_title: string
-  court: string
-  case_number?: string
-  deadline_type: 'hearing' | 'filing' | 'limitation'
+  court: string | null
+  case_number: string | null
+  /** Matches law.ReminderType on the backend. */
+  deadline_type: 'hearing' | 'filing_deadline' | 'limitation_period' | 'urgent'
+  title: string
+  description: string | null
+  /** The key date (ISO, UTC). */
   due_date: string
-  status: 'upcoming' | 'urgent' | 'missed'
+  reminder_date: string
+  days_remaining: number
+  /** Derived from the key date — what the UI groups and colours by. */
+  urgency: 'upcoming' | 'urgent' | 'missed'
+  /** Reminder delivery state, NOT urgency. */
+  delivery_status: 'pending' | 'sent' | 'missed'
   whatsapp_enabled: boolean
-  client_phone?: string
 }
 
 export interface Draft {

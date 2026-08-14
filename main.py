@@ -35,6 +35,8 @@ from backend.api.filing import router as filing_router
 from backend.api.legal_process import router as legal_process_router
 from backend.api.ecourts import router as ecourts_router
 from backend.api.matters import router as matters_router
+from backend.api.diary import router as diary_router
+from backend.api.notifications import router as notifications_router
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -44,15 +46,16 @@ ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:4173",
+    "http://localhost:8080",
     "http://localhost:8081",
     "http://localhost:8082",
 ]
 
-# Add production frontend URL from environment
-frontend_url = os.environ.get("FRONTEND_URL", "")
-if frontend_url:
-    ALLOWED_ORIGINS.append(frontend_url)
-    ALLOWED_ORIGINS.append(frontend_url.rstrip("/"))
+# Add production frontend URLs from environment (comma-separated)
+for frontend_url in os.environ.get("FRONTEND_URL", "").split(","):
+    frontend_url = frontend_url.strip().rstrip("/")
+    if frontend_url:
+        ALLOWED_ORIGINS.append(frontend_url)
 
 
 class SelectiveGZipMiddleware:
@@ -122,6 +125,8 @@ app.include_router(filing_router)
 app.include_router(legal_process_router)
 app.include_router(ecourts_router)
 app.include_router(matters_router)
+app.include_router(diary_router)
+app.include_router(notifications_router)
 
 
 @app.on_event("startup")

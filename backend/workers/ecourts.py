@@ -18,6 +18,7 @@ logger = get_task_logger(__name__)
 
 
 @shared_task(
+    name="ecourts.sync_hearings",
     bind=True,
     max_retries=3,
     default_retry_delay=600,

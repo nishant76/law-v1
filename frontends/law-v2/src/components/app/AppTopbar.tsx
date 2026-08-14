@@ -1,5 +1,6 @@
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import type { ReactNode } from "react";
+import { NotificationBell } from "./NotificationBell";
 
 export function AppTopbar({
   title,
@@ -25,10 +26,7 @@ export function AppTopbar({
               className="hairline h-9 w-72 rounded-md bg-card pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
             />
           </div>
-          <button className="hairline relative inline-flex h-9 w-9 items-center justify-center rounded-md bg-card">
-            <Bell className="h-4 w-4" />
-            <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-amber-accent" />
-          </button>
+          <NotificationBell />
           {actions}
         </div>
       </div>

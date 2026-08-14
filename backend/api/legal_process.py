@@ -11,7 +11,7 @@ from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/legal-process", tags=["legal-process"])
+router = APIRouter(prefix="/api/v1/legal-process", tags=["legal-process"])
 legal_process_service = get_legal_process_service()
 
 

@@ -59,7 +59,7 @@ class Settings:
     # whether SSL is required so engines can pass an SSL context via connect_args.
     _db_url_raw: str = os.getenv(
         "DATABASE_URL",
-        "postgresql+asyncpg://nikhar:nikhar@localhost:5432/nikhar"
+        "postgresql+asyncpg://superadvocate:superadvocate@localhost:5432/superadvocate"
     )
     DATABASE_URL, DB_SSL_REQUIRED = _normalize_db_url(_db_url_raw)
     
@@ -106,10 +106,22 @@ class Settings:
 
     # SendGrid
     SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
-    
-    # WhatsApp Business API
+    SENDGRID_FROM_EMAIL: str = os.getenv("SENDGRID_FROM_EMAIL", "reminders@superadvocate.ai")
+    SENDGRID_FROM_NAME: str = os.getenv("SENDGRID_FROM_NAME", "SuperAdvocate")
+
+    # WhatsApp Business API (Meta Cloud API)
     WHATSAPP_API_TOKEN: str = os.getenv("WHATSAPP_API_TOKEN", "")
     WHATSAPP_PHONE_NUMBER_ID: str = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
+    WHATSAPP_API_VERSION: str = os.getenv("WHATSAPP_API_VERSION", "v21.0")
+    # Default country code applied to 10-digit Indian numbers stored without one.
+    WHATSAPP_DEFAULT_COUNTRY_CODE: str = os.getenv("WHATSAPP_DEFAULT_COUNTRY_CODE", "91")
+
+    # Public app URL — used in reminder emails to deep-link back to a matter.
+    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "https://law.superadvocate.ai")
+
+    # Local timezone for diary/cause-list rendering. All storage is UTC (see
+    # CLAUDE.md); this is display/notification only.
+    LOCAL_TIMEZONE: str = os.getenv("LOCAL_TIMEZONE", "Asia/Kolkata")
     
     # JWT
     JWT_SECRET_KEY: str = os.getenv(

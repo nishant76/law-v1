@@ -13,6 +13,7 @@ logger = get_task_logger(__name__)
 
 
 @shared_task(
+    name="deadlines.process_reminders",
     bind=True,
     max_retries=3,
     default_retry_delay=300,  # 5 minutes

@@ -3,18 +3,18 @@ Deadline API endpoints
 Handles deadline creation, listing, marking missed, and condonation drafts
 """
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import get_current_user, get_db
+from backend.api.deps import CurrentUser, get_current_user, get_db
 from backend.models import DeadlineReminder, ReminderType, ReminderStatus, Draft
 from backend.services.deadline_service import get_deadline_service
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1", tags=["deadlines"])
 
 
 @router.post("/deadlines", response_model=dict)
@@ -24,7 +24,7 @@ async def create_deadline(
     deadline_date: datetime,
     description: str,
     client_phone: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -38,14 +38,15 @@ async def create_deadline(
         client_phone: Client phone for WhatsApp (optional)
 
     Returns:
-        Created deadline details
+        The reminder set created for this deadline (30 / 7 / 1 days before,
+        skipping any offset already in the past).
     """
     try:
         service = get_deadline_service()
-        deadline = await service.create_deadline(
+        reminders = await service.create_deadline(
             session=db,
             matter_id=matter_id,
-            firm_id=current_user["firm_id"],
+            firm_id=current_user.firm_id,
             deadline_type=deadline_type,
             deadline_date=deadline_date,
             description=description,
@@ -55,12 +56,18 @@ async def create_deadline(
         return {
             "success": True,
             "data": {
-                "id": str(deadline.id),
-                "reminder_type": deadline.reminder_type.value,
-                "title": deadline.title,
-                "key_date": deadline.key_date.isoformat(),
-                "reminder_date": deadline.reminder_date.isoformat(),
-                "status": deadline.status.value,
+                "key_date": deadline_date.isoformat(),
+                "reminders": [
+                    {
+                        "id": str(r.id),
+                        "reminder_type": r.reminder_type.value,
+                        "title": r.title,
+                        "key_date": r.key_date.isoformat(),
+                        "reminder_date": r.reminder_date.isoformat(),
+                        "status": r.status.value,
+                    }
+                    for r in reminders
+                ],
             },
         }
 
@@ -75,7 +82,7 @@ async def create_deadline(
 @router.get("/deadlines", response_model=dict)
 async def list_upcoming_deadlines(
     days_ahead: int = 30,
-    current_user: dict = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -91,23 +98,40 @@ async def list_upcoming_deadlines(
         service = get_deadline_service()
         deadlines = await service.get_upcoming_deadlines(
             session=db,
-            firm_id=current_user["firm_id"],
+            firm_id=current_user.firm_id,
             days_ahead=days_ahead,
         )
 
-        deadline_list = [
-            {
+        # `deadline_type` / `urgency` are what the UI filters on. `status` here
+        # is the reminder's own delivery state (pending/sent/missed) and is kept
+        # separate from urgency, which is derived from the key date.
+        now = datetime.now(timezone.utc)
+        deadline_list = []
+        for d, matter in deadlines:
+            key_date = d.key_date if d.key_date.tzinfo else d.key_date.replace(tzinfo=timezone.utc)
+            days_remaining = (key_date - now).days
+            if d.status == ReminderStatus.MISSED or days_remaining < 0:
+                urgency = "missed"
+            elif days_remaining <= 3:
+                urgency = "urgent"
+            else:
+                urgency = "upcoming"
+            deadline_list.append({
                 "id": str(d.id),
-                "reminder_type": d.reminder_type.value,
+                "matter_id": str(d.matter_id),
+                "matter_title": matter.case_name if matter else d.title,
+                "court": matter.court if matter else None,
+                "case_number": matter.matter_number if matter else None,
+                "deadline_type": d.reminder_type.value,
                 "title": d.title,
                 "description": d.description,
-                "key_date": d.key_date.isoformat(),
+                "due_date": key_date.isoformat(),
                 "reminder_date": d.reminder_date.isoformat(),
-                "status": d.status.value,
-                "client_phone": d.client_phone,
-            }
-            for d in deadlines
-        ]
+                "days_remaining": days_remaining,
+                "urgency": urgency,
+                "delivery_status": d.status.value,
+                "whatsapp_enabled": bool(matter.whatsapp_reminders_enabled) if matter else False,
+            })
 
         return {
             "success": True,
@@ -125,7 +149,7 @@ async def list_upcoming_deadlines(
 @router.put("/deadlines/{deadline_id}/missed", response_model=dict)
 async def mark_deadline_missed(
     deadline_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -142,7 +166,7 @@ async def mark_deadline_missed(
         success = await service.mark_deadline_missed(
             session=db,
             deadline_id=deadline_id,
-            firm_id=current_user["firm_id"],
+            firm_id=current_user.firm_id,
         )
 
         if not success:
@@ -170,7 +194,7 @@ async def mark_deadline_missed(
 async def generate_condonation_draft(
     deadline_id: str,
     reason_for_delay: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -188,7 +212,7 @@ async def generate_condonation_draft(
         draft = await service.generate_condonation_draft(
             session=db,
             deadline_id=deadline_id,
-            firm_id=current_user["firm_id"],
+            firm_id=current_user.firm_id,
             reason_for_delay=reason_for_delay,
         )
 
@@ -221,7 +245,7 @@ async def generate_condonation_draft(
 @router.delete("/deadlines/{deadline_id}", response_model=dict)
 async def delete_deadline(
     deadline_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -234,16 +258,18 @@ async def delete_deadline(
         Success status
     """
     try:
+        import uuid as _uuid
         from sqlalchemy import update
         from backend.models import DeadlineReminder
 
         stmt = (
             update(DeadlineReminder)
             .where(
-                DeadlineReminder.id == deadline_id,
-                DeadlineReminder.firm_id == current_user["firm_id"],
+                DeadlineReminder.id == _uuid.UUID(deadline_id),
+                DeadlineReminder.firm_id == _uuid.UUID(current_user.firm_id),
+                DeadlineReminder.deleted_at.is_(None),
             )
-            .values(deleted_at=datetime.utcnow())
+            .values(deleted_at=datetime.now(timezone.utc))
         )
 
         result = await db.execute(stmt)
