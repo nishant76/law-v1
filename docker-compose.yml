@@ -6,13 +6,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: nikhar-backend
+    container_name: superadvocate-backend
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@postgres:5432/nikhar
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379/0
       - USE_AZURE_OPENAI=${USE_AZURE_OPENAI:-false}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -39,37 +39,35 @@ services:
     volumes:
       - .:/app
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - nikhar-network
+      - superadvocate-network
 
-  # PostgreSQL database
+  # PostgreSQL database (local dev only — production uses Neon/Cloud SQL)
   postgres:
     image: postgres:16.1-alpine
-    container_name: nikhar-postgres
+    container_name: superadvocate-postgres
     environment:
-      POSTGRES_USER: nikhar
-      POSTGRES_PASSWORD: nikhar
-      POSTGRES_DB: nikhar
+      POSTGRES_USER: superadvocate
+      POSTGRES_PASSWORD: superadvocate
+      POSTGRES_DB: superadvocate
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nikhar -d nikhar"]
+      test: ["CMD-SHELL", "pg_isready -U superadvocate -d superadvocate"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - nikhar-network
+      - superadvocate-network
 
   # Redis cache and Celery broker
   redis:
     image: redis:7.2.1-alpine
-    container_name: nikhar-redis
+    container_name: superadvocate-redis
     ports:
       - "6379:6379"
     volumes:
@@ -80,7 +78,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - nikhar-network
+      - superadvocate-network
 
   # One-shot migration runner — exits after migrations complete
   # Usage: docker-compose run --rm migrate
@@ -91,12 +89,12 @@ services:
     command: python -m alembic -c backend/migrations/alembic.ini upgrade head
     working_dir: /app
     environment:
-      - DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@postgres:5432/nikhar
+      - DATABASE_URL=postgresql+asyncpg://superadvocate:superadvocate@postgres:5432/superadvocate
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - nikhar-network
+      - superadvocate-network
 
   # One-shot dev user seeder — run once after migrate
   # Usage: docker-compose run --rm seed
@@ -108,23 +106,23 @@ services:
     command: python scripts/seed_dev_user.py
     working_dir: /app
     environment:
-      - DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@postgres:5432/nikhar
+      - DATABASE_URL=postgresql+asyncpg://superadvocate:superadvocate@postgres:5432/superadvocate
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - nikhar-network
+      - superadvocate-network
 
   # Celery worker for background jobs
   celery:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: nikhar-celery
+    container_name: superadvocate-celery
     command: celery -A celery_app:celery_app worker --loglevel=info
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@postgres:5432/nikhar
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379/0
       - USE_AZURE_OPENAI=${USE_AZURE_OPENAI:-false}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -150,12 +148,12 @@ services:
       - postgres
       - backend
     networks:
-      - nikhar-network
+      - superadvocate-network
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  nikhar-network:
+  superadvocate-network:
     driver: bridge

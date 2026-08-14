@@ -10,6 +10,11 @@ export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
-    server: { entry: "server" },
+    server: {
+      entry: "server",
+      // Use node-server preset for Cloud Run / any Node.js host.
+      // The default is "cloudflare" which produces a Cloudflare Workers bundle — not runnable on Cloud Run.
+      preset: process.env.NITRO_PRESET ?? "node-server",
+    },
   },
 });

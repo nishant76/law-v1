@@ -29,7 +29,7 @@ class BaseScraper(ABC):
     SOURCE_NAME: str = ""  # e.g., "eSCR" or "P&H HC"
     COURT_NAME: str = ""  # e.g., "Supreme Court" or "Punjab and Haryana High Court"
     RATE_LIMIT_DELAY: float = 3.0  # 1 request per 3 seconds
-    USER_AGENT: str = "NikharBot/1.0 (legal-ai-platform)"
+    USER_AGENT: str = "SuperAdvocateBot/1.0 (legal-ai-platform)"
     SSL_VERIFY: bool = True  # Set False for Indian govt sites with cert issues
     
     def __init__(self, session: AsyncSession):

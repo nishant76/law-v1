@@ -1,4 +1,4 @@
-# NIKHAR_CONTEXT.md
+# SUPERADVOCATE_CONTEXT.md
 # Read this file at the start of every new Claude chat session
 # before asking any product or technical questions.
 # Last updated: April 2026
@@ -7,7 +7,7 @@
 
 ## WHAT WE ARE BUILDING
 
-Nikhar is an AI-powered legal workspace for solo lawyers and small firms
+SuperAdvocate is an AI-powered legal workspace for solo lawyers and small firms
 in Punjab, Haryana, and Chandigarh — specifically district court practitioners.
 
 Tagline: "The AI that makes Indian lawyers unstoppable in court"
@@ -16,8 +16,8 @@ Target user: Solo practitioner, 4-10 years experience, district courts
 Punjab/Haryana. Includes criminal AND civil litigation lawyers.
 
 Holding company (planned): Gramme AI
-Product name: Nikhar (Phase 1 — law vertical)
-Future verticals: Nikhar Audit, Nikhar Visa (Phase 2+)
+Product name: SuperAdvocate (Phase 1 — law vertical)
+Future verticals: SuperAdvocate Audit, SuperAdvocate Visa (Phase 2+)
 
 ---
 
@@ -26,7 +26,7 @@ Future verticals: Nikhar Audit, Nikhar Visa (Phase 2+)
 Lead Software Engineer, 11+ years experience in .NET, Azure PaaS,
 and applied AI systems. Based in Patiala/Ludhiana, Punjab.
 Currently at EPAM Systems.
-Building Nikhar as a startup alongside current employment.
+Building SuperAdvocate as a startup alongside current employment.
 
 ---
 
@@ -92,7 +92,7 @@ Known bugs being fixed:
 Test credentials (local only):
 - API: http://localhost:8000
 - Health: http://localhost:8000/api/v1/health
-- DB: PostgreSQL on localhost:5433 (nikhar/nikhar/nikhar)
+- DB: PostgreSQL on localhost:5433 (superadvocate/superadvocate/superadvocate)
 
 ---
 
@@ -100,13 +100,13 @@ Test credentials (local only):
 
 ### Prototype Files Location
 All UI prototypes are in: ui-prototypes/
-- ui-prototypes/nikhar-demo.html           ← COLOR REFERENCE (use this)
-- ui-prototypes/nikhar-demo-responsive.html ← layout/responsiveness reference
-- ui-prototypes/nikhar-final.html           ← combined prototype (may be revised)
+- ui-prototypes/superadvocate-demo.html           ← COLOR REFERENCE (use this)
+- ui-prototypes/superadvocate-demo-responsive.html ← layout/responsiveness reference
+- ui-prototypes/superadvocate-final.html           ← combined prototype (may be revised)
 
-### ACTIVE COLOR THEME — nikhar-demo.html
+### ACTIVE COLOR THEME — superadvocate-demo.html
 
-The canonical color palette comes from nikhar-demo.html.
+The canonical color palette comes from superadvocate-demo.html.
 Always use these exact values:
 
 ```css
@@ -140,7 +140,7 @@ Always use these exact values:
 }
 ```
 
-### Typography — nikhar-demo.html
+### Typography — superadvocate-demo.html
 
 ```css
 --font-body:  'Sora', sans-serif;         /* all body text, UI elements */
@@ -249,9 +249,9 @@ real usage data from pilot lawyers.
 React frontend: NOT STARTED YET
 
 When starting React build:
-1. Read ui-prototypes/nikhar-demo.html for exact colors
+1. Read ui-prototypes/superadvocate-demo.html for exact colors
 2. Use Sora + DM Serif Display + JetBrains Mono fonts
-3. Use navy/gold color palette from nikhar-demo.html
+3. Use navy/gold color palette from superadvocate-demo.html
 4. Build mobile-first — test at 375px width first
 5. Then expand to 1366px desktop layout
 6. Use shadcn/ui as component library base
@@ -311,7 +311,7 @@ Wrong firm_id returns 404 not 403
 3. Seed citations DB with landmark cases for testing
 4. Test case synopsis with one real P&H HC judgment PDF
 5. Validate AI output quality with one lawyer
-6. Then start React frontend using nikhar-demo.html as color reference
+6. Then start React frontend using superadvocate-demo.html as color reference
 
 ---
 
@@ -319,11 +319,11 @@ Wrong firm_id returns 404 not 403
 
 At the start of every new Claude chat session:
 1. Paste the contents of this file
-2. Say: "This is the Nikhar product context"
+2. Say: "This is the SuperAdvocate product context"
 3. Optionally paste CLAUDE.md for full technical spec
 4. Then ask your question
 
 For Claude Code (VS Code extension):
 CLAUDE.md is read automatically — no need to paste anything
 Just open VS Code and start building
-Reference ui-prototypes/nikhar-demo.html for colors when building UI
+Reference ui-prototypes/superadvocate-demo.html for colors when building UI

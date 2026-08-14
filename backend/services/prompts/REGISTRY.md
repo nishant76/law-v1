@@ -1,5 +1,5 @@
 """
-Prompt Registry — All LLM Prompts in Nikhar
+Prompt Registry — All LLM Prompts in SuperAdvocate
 ============================================
 
 This registry documents every prompt used in the system.

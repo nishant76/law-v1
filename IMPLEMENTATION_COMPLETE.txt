@@ -10,7 +10,7 @@ Time to Integration: ~30 minutes (replace mocks with Azure SDK)
 
 ## EXECUTIVE SUMMARY
 
-Built complete document ingest pipeline for Nikhar Phase 1:
+Built complete document ingest pipeline for SuperAdvocate Phase 1:
 
 1. User uploads PDF/DOCX → FastAPI endpoint returns 202 ACCEPTED
 2. Document queued in Celery (Redis)
@@ -570,5 +570,5 @@ Next: Implement real Azure SDK calls in DocumentService
 
 ---
 April 8, 2026
-Nikhar Phase 1
+SuperAdvocate Phase 1
 """

@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import {
-  X, Loader2, Scale, CheckSquare, Square, Download, MapPin, ChevronDown,
+  X, Loader2, Scale, CheckSquare, Square, Download, MapPin, ChevronDown, Search,
 } from 'lucide-react'
-import { importCnrs, previewMyCases, type DiscoveredCase } from '@/api/ecourts'
+import { importCnrs, previewMyCases, searchCasesByName, getEcourtsStatus, type DiscoveredCase } from '@/api/ecourts'
 import { useAuthStore } from '@/store/authStore'
 
 interface Props {
@@ -19,13 +19,44 @@ export function EcourtsQuickImport({ onClose, onImported }: Props) {
   const [cases, setCases] = useState<DiscoveredCase[]>([])
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // True when a prior visit already checked the name and found nothing — we skip
+  // the (billed) auto-check entirely and go straight to manual search.
+  const [skippedAutoCheck, setSkippedAutoCheck] = useState(false)
 
   const [showCityFilter, setShowCityFilter] = useState(false)
   const [city, setCity] = useState(() => {
     try { return localStorage.getItem('sa-ecourts-city') ?? '' } catch { return '' }
   })
 
-  useEffect(() => { fetchCases(city || undefined) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Manual fallback search — used when the identity-matched preview finds nothing.
+  // Fires only on Enter, never on every keystroke — each call is a billed eCourts API hit.
+  const [manualQuery, setManualQuery] = useState('')
+  const [manualResults, setManualResults] = useState<DiscoveredCase[]>([])
+  const [manualSearching, setManualSearching] = useState(false)
+  const [manualError, setManualError] = useState<string | null>(null)
+  const manualSearchIdRef = useRef(0)
+  const manualLastFiredRef = useRef('')
+
+  // "Check once" rule: after the first-ever name check, if nothing was found we
+  // never re-attempt the (billed) name-based search again — go straight to
+  // manual search every time the modal opens from then on.
+  useEffect(() => {
+    (async () => {
+      setFetching(true)
+      try {
+        const res = await getEcourtsStatus()
+        if (res.data.name_match_found === false) {
+          setSkippedAutoCheck(true)
+          setFetching(false)
+          setCases([])
+          return
+        }
+      } catch {
+        // status check failed — fall through to the normal auto-fetch attempt
+      }
+      fetchCases(city || undefined)
+    })()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCases = async (filterCity?: string) => {
     setFetching(true)
@@ -53,6 +84,42 @@ export function EcourtsQuickImport({ onClose, onImported }: Props) {
     setCity('')
     try { localStorage.removeItem('sa-ecourts-city') } catch {}
     fetchCases(undefined)
+  }
+
+  const runManualSearch = async (raw: string) => {
+    const trimmed = raw.trim()
+    if (trimmed.length < 3 || trimmed === manualLastFiredRef.current) return
+    manualLastFiredRef.current = trimmed
+
+    const thisId = ++manualSearchIdRef.current
+    setManualSearching(true)
+    setManualError(null)
+    try {
+      const res = await searchCasesByName(trimmed)
+      if (thisId !== manualSearchIdRef.current) return // stale response, ignore
+      setManualResults(res.data.cases ?? [])
+    } catch (err: unknown) {
+      if (thisId !== manualSearchIdRef.current) return
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setManualError(detail ?? 'Search failed. Try again.')
+      setManualResults([])
+    } finally {
+      if (thisId === manualSearchIdRef.current) setManualSearching(false)
+    }
+  }
+
+  const handleManualKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      runManualSearch(manualQuery)
+    }
+  }
+
+  const addManualCase = (c: DiscoveredCase) => {
+    setCases((prev) => (prev.some((x) => x.cnr === c.cnr) ? prev : [...prev, c]))
+    setSelected((prev) => new Set(prev).add(c.cnr))
+    setManualQuery('')
+    setManualResults([])
+    manualLastFiredRef.current = ''
   }
 
   const toggleAll = () => {
@@ -153,6 +220,8 @@ export function EcourtsQuickImport({ onClose, onImported }: Props) {
                       <span className="font-semibold text-foreground">{cases.length}</span>
                       <span className="text-muted-foreground"> pending case{cases.length !== 1 ? 's' : ''} found</span>
                     </>
+                  ) : skippedAutoCheck ? (
+                    <span className="text-muted-foreground">Search for your cases below</span>
                   ) : (
                     <span className="text-muted-foreground">No pending cases found</span>
                   )}
@@ -163,16 +232,18 @@ export function EcourtsQuickImport({ onClose, onImported }: Props) {
                       {selected.size === cases.length ? 'Deselect all' : 'Select all'}
                     </button>
                   )}
-                  <button
-                    onClick={() => setShowCityFilter((f) => !f)}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <MapPin className="h-3 w-3" />
-                    Filter by city
-                    <ChevronDown
-                      className={`h-3 w-3 transition-transform ${showCityFilter ? 'rotate-180' : ''}`}
-                    />
-                  </button>
+                  {!skippedAutoCheck && (
+                    <button
+                      onClick={() => setShowCityFilter((f) => !f)}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <MapPin className="h-3 w-3" />
+                      Filter by city
+                      <ChevronDown
+                        className={`h-3 w-3 transition-transform ${showCityFilter ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -201,23 +272,87 @@ export function EcourtsQuickImport({ onClose, onImported }: Props) {
                 </div>
               )}
 
-              {/* Empty state */}
+              {/* Empty state — manual fallback search by case/party name */}
               {cases.length === 0 && (
-                <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+                <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
                   <Scale className="h-8 w-8 text-border" />
                   <div>
-                    <p className="text-sm font-medium text-foreground">No pending cases found</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {skippedAutoCheck ? 'Search for your cases' : 'No pending cases found'}
+                    </p>
                     <p className="mt-1.5 text-xs text-muted-foreground max-w-xs mx-auto">
-                      Your name on eCourts may be spelled differently. Try filtering by city,
-                      or update your advocate name in profile settings.
+                      {skippedAutoCheck
+                        ? "We couldn't find your name on eCourts earlier, so we no longer check automatically. Search by case or party name below."
+                        : 'Your name on eCourts may be spelled differently. Search by case or party name below, or filter by city.'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setShowCityFilter(true)}
-                    className="text-xs font-medium text-amber-accent hover:opacity-80"
-                  >
-                    Filter by city →
-                  </button>
+                  {!skippedAutoCheck && (
+                    <button
+                      onClick={() => setShowCityFilter(true)}
+                      className="text-xs font-medium text-amber-accent hover:opacity-80"
+                    >
+                      Filter by city →
+                    </button>
+                  )}
+
+                  {/* Manual search box */}
+                  <div className="w-full max-w-sm text-left">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        value={manualQuery}
+                        onChange={(e) => setManualQuery(e.target.value)}
+                        onKeyDown={handleManualKeyDown}
+                        placeholder="Type a case or party name…"
+                        className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-accent/40"
+                      />
+                      {manualSearching && (
+                        <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+
+                    {manualError && (
+                      <p className="mt-2 text-xs text-red-600">{manualError}</p>
+                    )}
+
+                    {!manualError && manualResults.length > 0 && (
+                      <ul className="mt-2 max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                        {manualResults.map((c) => (
+                          <li
+                            key={c.cnr}
+                            onClick={() => addManualCase(c)}
+                            className="cursor-pointer px-3 py-2.5 hover:bg-muted/40"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <div className="truncate text-xs font-medium text-foreground">
+                                {c.case_name}
+                              </div>
+                              {c.case_type && (
+                                <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+                                  {c.case_type}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <span className="font-mono">{c.cnr}</span>
+                              {c.court && (
+                                <>
+                                  <span>·</span>
+                                  <span className="truncate">{c.court}</span>
+                                </>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {!manualError && !manualSearching && manualLastFiredRef.current && manualResults.length === 0 && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        No cases matched "{manualLastFiredRef.current}".
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -238,8 +373,15 @@ export function EcourtsQuickImport({ onClose, onImported }: Props) {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-foreground">
-                          {c.case_name}
+                        <div className="flex items-center gap-2">
+                          <div className="truncate text-sm font-medium text-foreground">
+                            {c.case_name}
+                          </div>
+                          {c.case_type && (
+                            <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {c.case_type}
+                            </span>
+                          )}
                         </div>
                         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                           <span className="font-mono">{c.cnr}</span>
@@ -250,6 +392,11 @@ export function EcourtsQuickImport({ onClose, onImported }: Props) {
                             </>
                           )}
                         </div>
+                        {c.judges && c.judges.length > 0 && (
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            {c.judges.join(', ')}
+                          </div>
+                        )}
                       </div>
                       {c.next_hearing_date && (
                         <span className="shrink-0 font-mono text-[11px] text-muted-foreground">

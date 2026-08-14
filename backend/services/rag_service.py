@@ -53,7 +53,7 @@ class RAGService:
 
     def _get_index_name(self, firm_id: str) -> str:
         firm_id = self._validate_firm_id(firm_id)
-        return f"nikhar-law-{firm_id}"
+        return f"superadvocate-law-{firm_id}"
 
     def _get_headers(self) -> Dict[str, str]:
         return {

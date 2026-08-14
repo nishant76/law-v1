@@ -214,7 +214,7 @@ celery_app.conf.beat_schedule = {
 **Rate Limit**: 3 seconds between requests
 - Respectful of government server load
 - HTTP timeout: 30 seconds per request
-- User-Agent: `NikharBot/1.0 (legal-ai-platform)`
+- User-Agent: `SuperAdvocateBot/1.0 (legal-ai-platform)`
 
 **Robots.txt**: Checked before scraping
 - Respects robots.txt disallowances

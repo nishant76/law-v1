@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-All Indian Kanoon scraping code, imports, and documentation have been completely removed from the Nikhar codebase in a single operation. The codebase now contains zero references to Indian Kanoon as a data source.
+All Indian Kanoon scraping code, imports, and documentation have been completely removed from the SuperAdvocate codebase in a single operation. The codebase now contains zero references to Indian Kanoon as a data source.
 
 **Key fact**: The Citation model and database migrations were never tightly coupled to Indian Kanoon — they use generic `official_source` and `source_url` fields that work with any government source (eSCR, P&H HC, district courts). This makes Phase 2 extension to other sources seamless.
 
@@ -397,7 +397,7 @@ Phase 1 judgment data:
 
 ## Conclusion
 
-The **Indian Kanoon integration has been surgically removed** from the Nikhar codebase. The removal is:
+The **Indian Kanoon integration has been surgically removed** from the SuperAdvocate codebase. The removal is:
 
 ✅ **Complete**: All code, imports, and documentation deleted
 ✅ **Clean**: No orphaned references or residual code
@@ -405,6 +405,6 @@ The **Indian Kanoon integration has been surgically removed** from the Nikhar co
 ✅ **Intentional**: Clear deprecation notice in placeholder files
 ✅ **Phase 2 ready**: Generic architecture remains intact for eSCR, P&H HC integration
 
-Nikhar now focuses exclusively on government sources (eSCR, P&H HC, district court portals) — avoiding the Prism AI competitor entirely.
+SuperAdvocate now focuses exclusively on government sources (eSCR, P&H HC, district court portals) — avoiding the Prism AI competitor entirely.
 
 **Status**: Production-ready for immediate deployment with no dependencies on any competitor infrastructure.

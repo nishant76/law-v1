@@ -3,7 +3,7 @@ DATABASE SCHEMA BUILD — COMPLETE
 
 ## Summary
 
-PostgreSQL database schema for Nikhar law vertical has been fully designed 
+PostgreSQL database schema for SuperAdvocate law vertical has been fully designed 
 following all rules from CLAUDE.md exactly. All tables, migrations, and 
 verification tools are ready for deployment.
 
@@ -181,7 +181,7 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 # Edit .env:
-# DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@localhost:5432/nikhar
+# DATABASE_URL=postgresql+asyncpg://superadvocate:superadvocate@localhost:5432/superadvocate
 ```
 
 **Step 3: Run migration**
@@ -343,8 +343,8 @@ Root directory:
 **Issue: Connection refused**
 → Ensure PostgreSQL is running
 
-**Issue: Database 'nikhar' does not exist**
-→ Create: `CREATE DATABASE nikhar;`
+**Issue: Database 'superadvocate' does not exist**
+→ Create: `CREATE DATABASE superadvocate;`
 
 **Issue: Migration already applied**
 → Check: `SELECT * FROM alembic_version;`

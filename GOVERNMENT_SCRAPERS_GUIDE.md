@@ -10,7 +10,7 @@
 
 ## Overview
 
-Nikhar uses two government-only citation scrapers to build a legal judgment database:
+SuperAdvocate uses two government-only citation scrapers to build a legal judgment database:
 
 1. **eSCR Scraper** — Supreme Court Reports from `main.sci.gov.in`
 2. **P&H HC Scraper** — Punjab and Haryana High Court from `highcourtchd.gov.in`
@@ -18,7 +18,7 @@ Nikhar uses two government-only citation scrapers to build a legal judgment data
 Both scrapers:
 - Source data from 100% official government websites (public domain)
 - Respect robots.txt and rate limits (1 request per 3 seconds)
-- Identify as "NikharBot/1.0 (legal-ai-platform)"
+- Identify as "SuperAdvocateBot/1.0 (legal-ai-platform)"
 - Handle errors gracefully (skip bad pages, continue)
 - Deduplicate on source_url
 - Log progress every 100 judgments
@@ -330,13 +330,13 @@ result = {
 - **Delay**: 3.0 seconds between requests
 - **Purpose**: Respectful of government server load
 - **Timeout**: 30 seconds per request (10 second connect)
-- **User-Agent**: `NikharBot/1.0 (legal-ai-platform)`
+- **User-Agent**: `SuperAdvocateBot/1.0 (legal-ai-platform)`
 
 ### Robots.txt Compliance
 
 ```python
 # Before scraping, check robots.txt
-allowed = robot_parser.can_fetch("NikharBot/1.0", BASE_URL)
+allowed = robot_parser.can_fetch("SuperAdvocateBot/1.0", BASE_URL)
 if not allowed:
     logger.warning("robots.txt disallows scraping")
     return {"success": False, "message": "Robots.txt disallows scraping"}

@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +48,9 @@ from backend.services.ecourts_scraper_service import (
 )
 from backend.services.ecourts_api_service import (
     search_pending_cases,
+    search_by_litigant_name,
     get_case_by_cnr as api_get_case_by_cnr,
+    get_order_pdf as api_get_order_pdf,
     bulk_refresh as api_bulk_refresh,
     EcourtsAPIError,
     EcourtsAPINotConfigured,
@@ -122,6 +124,7 @@ async def ecourts_status(
         "ready_to_sync": bool(user.bar_council_number and user.ecourts_state_code),
         "cnr_sync_available": True,
         "matters_with_cnr": matters_with_cnr,
+        "name_match_found": user.ecourts_name_match_found,
         "sync_note": (
             "CNR-based sync is active. Advocate-search sync requires Punjab/Haryana "
             "court establishment data which is not yet available in the eCourts mobile API."
@@ -336,6 +339,37 @@ async def get_case_by_cnr(
     return {"success": True, "cnr": cnr, "case": case}
 
 
+@router.get("/case/{cnr}/order/{filename}")
+async def get_case_order_pdf(
+    cnr: str,
+    filename: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Proxy the signed order PDF from the eCourtsIndia REST API.
+
+    `filename` is the bare filename from a case detail's order `url` field
+    (e.g. "order-1.pdf") — not a standalone link. The vendor API requires our
+    server-side Bearer token, so the frontend fetches this through us rather
+    than linking to eCourts directly.
+    """
+    cnr = cnr.strip().upper()
+    if not cnr or len(cnr) < 10:
+        raise HTTPException(status_code=400, detail="Invalid CNR format.")
+    if not re.match(r'^[A-Za-z0-9_\-\.]+$', filename):
+        raise HTTPException(status_code=400, detail="Invalid order filename.")
+
+    try:
+        content, content_type = await api_get_order_pdf(cnr, filename)
+    except EcourtsAPINotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except EcourtsAPIError as exc:
+        logger.warning("Order fetch failed cnr=%s filename=%s: %s", cnr, filename, exc)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    return Response(content=content, media_type=content_type)
+
+
 # ── preview-my-cases — zero-input case preview for the dashboard CTA ─────────
 
 
@@ -379,6 +413,14 @@ async def preview_my_cases(
         logger.error("preview-my-cases unexpected error: %s", exc)
         raise HTTPException(status_code=500, detail=f"Case preview failed: {exc}")
 
+    # "Check once" rule: the very first unfiltered check permanently records
+    # whether the lawyer's name matched anything on eCourts. Once set, this is
+    # never overwritten — a city-filtered call finding nothing doesn't count
+    # (that could just mean the wrong city), so only gate on the broad search.
+    if user.ecourts_name_match_found is None and not (city and city.strip()):
+        user.ecourts_name_match_found = bool(cases)
+        await db.commit()
+
     return {
         "success": True,
         "advocate_name": advocate_name,
@@ -386,7 +428,41 @@ async def preview_my_cases(
         "district_prefix": district_prefix,
         "cases": cases,
         "total": len(cases),
+        "name_match_found": user.ecourts_name_match_found,
     }
+
+
+@router.get("/search-cases")
+async def search_cases_by_name(
+    q: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Manual fallback: look up PENDING cases by party/litigant name.
+
+    Used in the "Connect eCourts" flow when the lawyer's own advocate-name
+    match (preview-my-cases) finds nothing — they type a case/party name and
+    pick the right one from live results. Narrowed to the lawyer's stored
+    eCourts state code when set, to cut down same-name collisions.
+    """
+    q = q.strip()
+    if len(q) < 3:
+        raise HTTPException(status_code=400, detail="Type at least 3 characters.")
+
+    user = await _load_user(str(current_user.user_id), str(current_user.firm_id), db)
+
+    try:
+        cases = await search_by_litigant_name(q, state_code=user.ecourts_state_code)
+    except EcourtsAPINotConfigured as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    except EcourtsAPIError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+    except Exception as exc:
+        logger.error("search-cases unexpected error: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Case search failed: {exc}")
+
+    return {"success": True, "query": q, "cases": cases, "total": len(cases)}
 
 
 # ── ecourtsindia.com — search + discover + import ────────────────────────────

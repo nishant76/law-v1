@@ -55,6 +55,21 @@ class User(BaseModel):
     ecourts_state_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     ecourts_advocate_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
+    # Tri-state "check once" flag for the Connect eCourts identity match:
+    # NULL = never checked, TRUE = first check found cases, FALSE = first check
+    # found nothing (from then on the UI always shows manual case search instead
+    # of re-attempting the name match). Set once in preview-my-cases, never
+    # overwritten after that.
+    ecourts_name_match_found: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+
+    # Diary — the lawyer's OWN daily cause list on WhatsApp (opt-in, distinct
+    # from the per-matter client reminders on law.matters). Falls back to
+    # `phone` when whatsapp_number is not set.
+    whatsapp_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    daily_cause_list_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
 

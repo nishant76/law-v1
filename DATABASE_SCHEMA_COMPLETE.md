@@ -4,7 +4,7 @@
 
 **Status: READY FOR DEPLOYMENT**
 
-Full PostgreSQL database schema for Nikhar law vertical has been designed and 
+Full PostgreSQL database schema for SuperAdvocate law vertical has been designed and 
 implemented following all CLAUDE.md requirements exactly. Complete with:
 - 11 SQLAlchemy models (2 schemas)
 - Alembic migration infrastructure
@@ -235,7 +235,7 @@ pip install -r requirements.txt
 
 # Step 2: Create .env file
 cp .env.example .env
-# Edit: DATABASE_URL=postgresql+asyncpg://nikhar:nikhar@localhost:5432/nikhar
+# Edit: DATABASE_URL=postgresql+asyncpg://superadvocate:superadvocate@localhost:5432/superadvocate
 
 # Step 3: Run migration
 python run_migrations.py

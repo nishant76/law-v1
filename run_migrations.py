@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Migration runner — execute Alembic migrations for Nikhar database
+Migration runner — execute Alembic migrations for SuperAdvocate database
 Usage: python run_migrations.py
 
 Runs: alembic upgrade head

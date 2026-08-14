@@ -1,4 +1,4 @@
-# Nikhar Government Court Scrapers — Completion Summary
+# SuperAdvocate Government Court Scrapers — Completion Summary
 
 **Date**: April 8, 2026  
 **Status**: ✅ Complete and Production-Ready  
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Built two government-only citation scrapers for Nikhar Phase 1:
+Built two government-only citation scrapers for SuperAdvocate Phase 1:
 
 1. **eSCR Scraper** — Supreme Court Reports from `main.sci.gov.in`
 2. **P&H HC Scraper** — Punjab & Haryana High Court from `highcourtchd.gov.in`
@@ -199,9 +199,9 @@ self.RATE_LIMIT_DELAY = 3.0
 await asyncio.sleep(self.RATE_LIMIT_DELAY)
 ```
 
-✅ **User Agent**: "NikharBot/1.0 (legal-ai-platform)"
+✅ **User Agent**: "SuperAdvocateBot/1.0 (legal-ai-platform)"
 ```python
-USER_AGENT = "NikharBot/1.0 (legal-ai-platform)"
+USER_AGENT = "SuperAdvocateBot/1.0 (legal-ai-platform)"
 ```
 
 ✅ **Robots.txt Respect**:
@@ -490,7 +490,7 @@ No commercial data is scraped.
 - [x] eSCR scraper from main.sci.gov.in built
 - [x] P&H HC scraper from highcourtchd.gov.in built
 - [x] Rate limiting: 1 req/3 sec implemented
-- [x] User Agent string: "NikharBot/1.0" set
+- [x] User Agent string: "SuperAdvocateBot/1.0" set
 - [x] Robots.txt checking implemented
 - [x] Field extraction: case_name, parties, judge, date, citation
 - [x] Deduplication on source_url

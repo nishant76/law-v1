@@ -4,7 +4,7 @@ REM Usage: run_migrations.bat
 
 echo.
 echo ================================================================
-echo Nikhar Database Migration Runner
+echo SuperAdvocate Database Migration Runner
 echo ================================================================
 echo.
 

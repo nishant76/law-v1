@@ -92,43 +92,94 @@ class SearchService:
         top: int = 10,
     ) -> List[PublicJudgmentResult]:
         """
-        Search public judgments (law.citations) using PostgreSQL full-text search.
-        Falls back to per-word ILIKE when FTS returns zero results.
-        Public judgments are NOT filtered by firm_id — they belong to everyone.
-
-        Args:
-            query: Search query text
-            _query_vector: Embedded query vector (unused until Azure AI Search is wired)
-            filters: Optional filters (outcome, court, year_from, year_to, matter_type)
-            firm_id: Used for logging only — never for filtering
-            top: Max results to return
+        Search public judgments: local law.citations DB + live eCourtsIndia API.
+        Both run in parallel. Local results (verified, self-hosted) come first;
+        live API results fill remaining slots, deduped by CNR.
         """
         try:
             search_filters = self._build_search_filters(filters)
 
-            # Debug: log total rows available before filtering
-            count_result = await self.session.execute(
-                select(func.count()).select_from(Citation).where(Citation.deleted_at.is_(None))
+            local_task = self._search_local_citations(query=query, filters=search_filters, top=top)
+            live_task = self._search_ecourts_live(query=query, top=top)
+
+            local_results, live_results = await asyncio.gather(
+                local_task, live_task, return_exceptions=True
             )
-            total = count_result.scalar_one()
+
+            local_results = local_results if isinstance(local_results, list) else []
+            live_results = live_results if isinstance(live_results, list) else []
+
+            # Dedup live results against local by CNR
+            seen_cnrs = {r.get("citation_key") for r in local_results if r.get("citation_key")}
+            new_live = [r for r in live_results if r.get("cnr") not in seen_cnrs]
+
+            combined = (local_results + new_live)[:top]
             logger.info(
-                f"search_public_judgments: query='{query[:80]}' "
-                f"total_citations_in_db={total} firm={firm_id}"
+                f"search_public_judgments: query='{query[:60]}' "
+                f"local={len(local_results)} live={len(new_live)} total={len(combined)}"
             )
-
-            results = await self._search_local_citations(
-                query=query,
-                filters=search_filters,
-                top=top,
-            )
-
-
-            logger.info(f"search_public_judgments: returning {len(results)} results")
-            return results
+            return combined
 
         except Exception as e:
             logger.error(f"Error searching public judgments: {e}", exc_info=True)
             return []
+
+    async def _search_ecourts_live(self, query: str, top: int = 10) -> List[PublicJudgmentResult]:
+        """Live search via eCourtsIndia REST API. Silently skips if token not configured."""
+        try:
+            from backend.services.ecourts_api_service import (
+                search_judgments_live,
+                EcourtsAPINotConfigured,
+                EcourtsAPIError,
+            )
+            cases = await search_judgments_live(query=query, top=top)
+            return [self._format_live_ecourts_result(c) for c in cases]
+        except Exception as e:
+            from backend.services.ecourts_api_service import EcourtsAPINotConfigured, EcourtsAPIError
+            if isinstance(e, EcourtsAPINotConfigured):
+                logger.warning("_search_ecourts_live: API token not configured — skipped")
+            elif isinstance(e, EcourtsAPIError):
+                logger.warning(f"_search_ecourts_live: API error — {e}")
+            else:
+                logger.error(f"_search_ecourts_live: unexpected error — {e}", exc_info=True)
+            return []
+
+    def _format_live_ecourts_result(self, c: Dict[str, Any]) -> PublicJudgmentResult:
+        """Format a live eCourtsIndia case into the same shape as _format_citation_result."""
+        cnr = c.get("cnr", "")
+        return {
+            "id": cnr,
+            "case_name": c.get("case_name", cnr),
+            "petitioner": c.get("petitioner", ""),
+            "respondent": c.get("respondent", ""),
+            "court": c.get("court", ""),
+            "year": c.get("filing_year"),
+            "judgment_date": c.get("decision_date") or c.get("last_hearing_date"),
+            "citation_key": cnr,
+            "primary_citation": cnr,
+            "summary": None,
+            # Links to our CNR proxy — never a raw/unverified external URL
+            "judgment_url": f"/api/v1/ecourts/case/{cnr}" if cnr else None,
+            "official_source_url": None,
+            "link_status": "live",
+            "source_url": None,
+            "official_source": "eCourtsIndia",
+            "matter_type": c.get("case_type", ""),
+            "outcome": (
+                "pending" if c.get("status", "").upper() == "PENDING"
+                else c.get("status", "").lower()
+            ),
+            "subject_tags": " ".join(c.get("acts_and_sections") or []),
+            "relevance_score": 0.80,
+            "result_type": SearchResultType.PUBLIC_JUDGMENT,
+            "enrichment": None,
+            "source": "live",
+            "cnr": cnr,
+            "next_hearing_date": c.get("next_hearing_date"),
+            "filing_date": c.get("filing_date"),
+            "has_orders": c.get("has_orders", False),
+            "has_judgments": c.get("has_judgments", False),
+        }
     
     async def search_own_files(
         self,

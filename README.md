@@ -1,7 +1,7 @@
-# Nikhar — AI-Powered Legal Workspace
+# SuperAdvocate — AI-Powered Legal Workspace
 ## Phase 1: Solo Lawyers in Punjab/Haryana
 
-Nikhar is an AI-powered legal workspace for solo lawyers and small firms in Punjab, Haryana, and Chandigarh. Phase 1 provides semantic search over public Indian judgments and lawyers' own case files, unified in a single interface.
+SuperAdvocate is an AI-powered legal workspace for solo lawyers and small firms in Punjab, Haryana, and Chandigarh. Phase 1 provides semantic search over public Indian judgments and lawyers' own case files, unified in a single interface.
 
 ### Quick Start
 
@@ -31,7 +31,7 @@ curl http://localhost:8000/api/v1/health
 #### 2. Project Structure
 
 ```
-nikhar/
+superadvocate/
 ├── backend/
 │   ├── api/              # FastAPI routers
 │   ├── services/         # Business logic only
@@ -242,7 +242,7 @@ pytest --tb=short
 
 - ✓ GZipMiddleware enabled (compress responses > 1KB)
 - ✓ Request logging with request_id tracking
-- ✓ CORS configured (development: * → production: law.nikhar.ai only)
+- ✓ CORS configured (development: * → production: law.superadvocate.ai only)
 - ✓ JWT validation ready (Phase 1 middleware stub)
 - ✓ Soft deletes on all tables
 - ✓ PostgreSQL Row Level Security (RLS) ready

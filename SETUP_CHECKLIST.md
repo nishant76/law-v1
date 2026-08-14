@@ -1,4 +1,4 @@
-# Nikhar — Full Project Skeleton
+# SuperAdvocate — Full Project Skeleton
 
 ## What's Included
 

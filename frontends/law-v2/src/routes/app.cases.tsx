@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { AppTopbar } from "@/components/app/AppTopbar";
-import { Plus, Search, Scale, CalendarClock, RefreshCw } from "lucide-react";
+import { Plus, Search, Scale, CalendarClock, RefreshCw, Info } from "lucide-react";
 import { listMatters, type Matter } from "@/api/matters";
 
 export const Route = createFileRoute("/app/cases")({
@@ -138,6 +138,7 @@ function Cases() {
                   <th className="py-3 font-medium">Status</th>
                   <th className="py-3 font-medium">Next hearing</th>
                   <th className="px-5 py-3 font-medium">Source</th>
+                  <th className="px-5 py-3 font-medium"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -176,6 +177,16 @@ function Cases() {
                           eCourts
                         </span>
                       ) : "Manual"}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <Link
+                        to="/app/cases/$id"
+                        params={{ id: m.id }}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-amber-accent hover:opacity-80"
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                        Details
+                      </Link>
                     </td>
                   </tr>
                 ))}

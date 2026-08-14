@@ -100,23 +100,25 @@ async def _test_redis() -> str:
 
 
 async def _test_openai() -> str:
-    """Test Azure OpenAI endpoint reachability"""
+    """Test OpenAI API reachability (direct or Azure depending on config)"""
     try:
         import httpx
 
-        # Simple HEAD request to check if endpoint is reachable
+        if settings.USE_AZURE_OPENAI:
+            url = f"{settings.AZURE_OPENAI_ENDPOINT}/openai/deployments/{settings.GPT4O_MINI_DEPLOYMENT}/completions"
+            params = {"api-version": settings.AZURE_OPENAI_API_VERSION}
+            headers = {"api-key": settings.AZURE_OPENAI_API_KEY}
+        else:
+            url = "https://api.openai.com/v1/models"
+            params = {}
+            headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
+
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.head(
-                f"{settings.AZURE_OPENAI_ENDPOINT}/openai/deployments/{settings.GPT4O_MINI_DEPLOYMENT}/completions",
-                params={"api-version": settings.AZURE_OPENAI_API_VERSION},
-                headers={"api-key": settings.AZURE_OPENAI_API_VERSION}  # Will fail auth but test connectivity
-            )
-            # We expect 401 (unauthorized) which means endpoint is reachable
-            if response.status_code in [401, 403]:
+            response = await client.get(url, params=params, headers=headers)
+            if response.status_code in [200, 401, 403]:
                 return "ok"
-            else:
-                logger.warning(f"Unexpected OpenAI response: {response.status_code}")
-                return "error"
+            logger.warning(f"Unexpected OpenAI response: {response.status_code}")
+            return "error"
     except Exception as e:
         logger.error(f"OpenAI health check failed: {str(e)}")
         return "error"

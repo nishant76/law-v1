@@ -9,7 +9,7 @@
 
 ## What Was Built
 
-A **production-ready JWT authentication system** for Nikhar Phase 1 that implements:
+A **production-ready JWT authentication system** for SuperAdvocate Phase 1 that implements:
 
 1. **RS256 JWT tokens** (asymmetric cryptography)
    - 60-minute access tokens
@@ -466,7 +466,7 @@ test_token_expiry_enforced()
 - Rate limiting
 - Persistent token blacklist
 
-This is the **security foundation** that everything else in Nikhar Phase 1 depends on. All other features (documents, search, drafting) will use this auth system and the CurrentUser dependency to ensure multi-tenant isolation.
+This is the **security foundation** that everything else in SuperAdvocate Phase 1 depends on. All other features (documents, search, drafting) will use this auth system and the CurrentUser dependency to ensure multi-tenant isolation.
 
 ---
 

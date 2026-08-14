@@ -27,6 +27,7 @@ import { Route as AppHearingsRouteImport } from './routes/app.hearings'
 import { Route as AppDraftingRouteImport } from './routes/app.drafting'
 import { Route as AppDocumentsRouteImport } from './routes/app.documents'
 import { Route as AppCasesRouteImport } from './routes/app.cases'
+import { Route as AppCasesIdRouteImport } from './routes/app.cases_.$id'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -118,6 +119,11 @@ const AppCasesRoute = AppCasesRouteImport.update({
   path: '/cases',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCasesIdRoute = AppCasesIdRouteImport.update({
+  id: '/cases_/$id',
+  path: '/cases/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/app/subscription': typeof AppSubscriptionRoute
   '/app/summaries': typeof AppSummariesRoute
   '/app/': typeof AppIndexRoute
+  '/app/cases/$id': typeof AppCasesIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/app/subscription': typeof AppSubscriptionRoute
   '/app/summaries': typeof AppSummariesRoute
   '/app': typeof AppIndexRoute
+  '/app/cases/$id': typeof AppCasesIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/app/subscription': typeof AppSubscriptionRoute
   '/app/summaries': typeof AppSummariesRoute
   '/app/': typeof AppIndexRoute
+  '/app/cases_/$id': typeof AppCasesIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/app/subscription'
     | '/app/summaries'
     | '/app/'
+    | '/app/cases/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/app/subscription'
     | '/app/summaries'
     | '/app'
+    | '/app/cases/$id'
   id:
     | '__root__'
     | '/'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/app/subscription'
     | '/app/summaries'
     | '/app/'
+    | '/app/cases_/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -379,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCasesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/cases_/$id': {
+      id: '/app/cases_/$id'
+      path: '/cases/$id'
+      fullPath: '/app/cases/$id'
+      preLoaderRoute: typeof AppCasesIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -394,6 +413,7 @@ interface AppRouteChildren {
   AppSubscriptionRoute: typeof AppSubscriptionRoute
   AppSummariesRoute: typeof AppSummariesRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppCasesIdRoute: typeof AppCasesIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -408,6 +428,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSubscriptionRoute: AppSubscriptionRoute,
   AppSummariesRoute: AppSummariesRoute,
   AppIndexRoute: AppIndexRoute,
+  AppCasesIdRoute: AppCasesIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

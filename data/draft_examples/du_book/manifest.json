@@ -1,0 +1,264 @@
+{
+  "source": "drafting_pleadings_du_law.txt",
+  "source_note": "University of Delhi Faculty of Law LL.B. reader LB-502 (Drafting, Pleadings and Conveyance, July 2020). Public educational material. Pre-BNS/BNSS: use for FORMAT/structure only; current section numbers come from the prompt's BNSS table.",
+  "drafts": [
+    {
+      "slug": "recovery_suit_order37",
+      "label": "Suit for Recovery (CPC Order XXXVII summary suit)",
+      "chars": 6496,
+      "file": "du_book/recovery_suit_order37.txt"
+    },
+    {
+      "slug": "permanent_injunction_suit",
+      "label": "Suit for Permanent Injunction",
+      "chars": 8005,
+      "file": "du_book/permanent_injunction_suit.txt"
+    },
+    {
+      "slug": "temporary_injunction_app",
+      "label": "Application for Temporary Injunction (O.39 R.1 & 2 CPC)",
+      "chars": 2271,
+      "file": "du_book/temporary_injunction_app.txt"
+    },
+    {
+      "slug": "injunction_order39_r2a",
+      "label": "Application under Order XXXIX Rule 2-A CPC (disobedience)",
+      "chars": 2965,
+      "file": "du_book/injunction_order39_r2a.txt"
+    },
+    {
+      "slug": "indigent_person_app",
+      "label": "Application to sue as an Indigent Person (O.33 CPC)",
+      "chars": 1574,
+      "file": "du_book/indigent_person_app.txt"
+    },
+    {
+      "slug": "ejectment_damages_suit",
+      "label": "Suit for Ejectment and Damages for Wrongful Use/Occupation",
+      "chars": 5739,
+      "file": "du_book/ejectment_damages_suit.txt"
+    },
+    {
+      "slug": "specific_performance_suit",
+      "label": "Suit for Specific Performance of Contract",
+      "chars": 4194,
+      "file": "du_book/specific_performance_suit.txt"
+    },
+    {
+      "slug": "written_statement",
+      "label": "Model Draft Written Statement",
+      "chars": 5969,
+      "file": "du_book/written_statement.txt"
+    },
+    {
+      "slug": "caveat_148a",
+      "label": "Caveat under Section 148-A CPC",
+      "chars": 1979,
+      "file": "du_book/caveat_148a.txt"
+    },
+    {
+      "slug": "transfer_petition_s25",
+      "label": "Transfer Petition under Section 25 CPC",
+      "chars": 12663,
+      "file": "du_book/transfer_petition_s25.txt"
+    },
+    {
+      "slug": "execution_application",
+      "label": "Execution Application (O.21 CPC)",
+      "chars": 6916,
+      "file": "du_book/execution_application.txt"
+    },
+    {
+      "slug": "rcr_hma_s9",
+      "label": "Petition for Restitution of Conjugal Rights (S.9 HMA)",
+      "chars": 3631,
+      "file": "du_book/rcr_hma_s9.txt"
+    },
+    {
+      "slug": "judicial_separation_hma_s10",
+      "label": "Petition for Judicial Separation (S.10 HMA)",
+      "chars": 3647,
+      "file": "du_book/judicial_separation_hma_s10.txt"
+    },
+    {
+      "slug": "divorce_hma_s13",
+      "label": "Petition for Divorce (S.13 HMA)",
+      "chars": 4220,
+      "file": "du_book/divorce_hma_s13.txt"
+    },
+    {
+      "slug": "divorce_mutual_consent_s13b",
+      "label": "Petition for Divorce by Mutual Consent (S.13B HMA)",
+      "chars": 3206,
+      "file": "du_book/divorce_mutual_consent_s13b.txt"
+    },
+    {
+      "slug": "probate_petition",
+      "label": "Petition for Grant of Probate",
+      "chars": 5024,
+      "file": "du_book/probate_petition.txt"
+    },
+    {
+      "slug": "letters_of_administration",
+      "label": "Petition for Grant of Letters of Administration",
+      "chars": 5047,
+      "file": "du_book/letters_of_administration.txt"
+    },
+    {
+      "slug": "succession_certificate",
+      "label": "Petition for Grant of Succession Certificate",
+      "chars": 3727,
+      "file": "du_book/succession_certificate.txt"
+    },
+    {
+      "slug": "writ_petition_civil",
+      "label": "Writ Petition (Civil) \u2014 Article 226",
+      "chars": 5013,
+      "file": "du_book/writ_petition_civil.txt"
+    },
+    {
+      "slug": "writ_petition_criminal",
+      "label": "Writ Petition (Criminal) \u2014 enforcement of fundamental rights",
+      "chars": 10922,
+      "file": "du_book/writ_petition_criminal.txt"
+    },
+    {
+      "slug": "slp_civil_a136",
+      "label": "Special Leave Petition (Civil) \u2014 Article 136",
+      "chars": 8970,
+      "file": "du_book/slp_civil_a136.txt"
+    },
+    {
+      "slug": "slp_criminal_a136",
+      "label": "Special Leave Petition (Criminal) \u2014 Article 136",
+      "chars": 8461,
+      "file": "du_book/slp_criminal_a136.txt"
+    },
+    {
+      "slug": "bail_regular",
+      "label": "Application for Grant of (Regular) Bail",
+      "chars": 3389,
+      "file": "du_book/bail_regular.txt"
+    },
+    {
+      "slug": "anticipatory_bail",
+      "label": "Application for Grant of Anticipatory Bail",
+      "chars": 4068,
+      "file": "du_book/anticipatory_bail.txt"
+    },
+    {
+      "slug": "ni_138_complaint",
+      "label": "Complaint under Section 138 NI Act",
+      "chars": 4046,
+      "file": "du_book/ni_138_complaint.txt"
+    },
+    {
+      "slug": "maintenance_125",
+      "label": "Application for Maintenance under Section 125 CrPC",
+      "chars": 4414,
+      "file": "du_book/maintenance_125.txt"
+    },
+    {
+      "slug": "consumer_complaint",
+      "label": "Complaint under the Consumer Protection Act",
+      "chars": 6131,
+      "file": "du_book/consumer_complaint.txt"
+    },
+    {
+      "slug": "contempt_petition",
+      "label": "Contempt Petition (Contempt of Courts Act)",
+      "chars": 5146,
+      "file": "du_book/contempt_petition.txt"
+    },
+    {
+      "slug": "domestic_violence",
+      "label": "Complaint under the Protection of Women from Domestic Violence Act",
+      "chars": 5742,
+      "file": "du_book/domestic_violence.txt"
+    },
+    {
+      "slug": "will",
+      "label": "Will (last will and testament)",
+      "chars": 2769,
+      "file": "du_book/will.txt"
+    },
+    {
+      "slug": "special_poa_sale",
+      "label": "Special Power of Attorney to execute Sale Deed",
+      "chars": 1529,
+      "file": "du_book/special_poa_sale.txt"
+    },
+    {
+      "slug": "agreement_to_sell",
+      "label": "Agreement to Sell (immovable property)",
+      "chars": 4792,
+      "file": "du_book/agreement_to_sell.txt"
+    },
+    {
+      "slug": "sale_deed",
+      "label": "Sale Deed",
+      "chars": 7287,
+      "file": "du_book/sale_deed.txt"
+    },
+    {
+      "slug": "lease_deed",
+      "label": "Lease Deed",
+      "chars": 9543,
+      "file": "du_book/lease_deed.txt"
+    },
+    {
+      "slug": "mortgage_deed",
+      "label": "Mortgage Deed",
+      "chars": 4821,
+      "file": "du_book/mortgage_deed.txt"
+    },
+    {
+      "slug": "partnership_deed",
+      "label": "Partnership Deed",
+      "chars": 5561,
+      "file": "du_book/partnership_deed.txt"
+    },
+    {
+      "slug": "dissolution_partnership_deed",
+      "label": "Deed of Dissolution of Partnership",
+      "chars": 3322,
+      "file": "du_book/dissolution_partnership_deed.txt"
+    },
+    {
+      "slug": "relinquishment_deed",
+      "label": "Relinquishment Deed",
+      "chars": 3459,
+      "file": "du_book/relinquishment_deed.txt"
+    },
+    {
+      "slug": "gift_deed",
+      "label": "Gift Deed",
+      "chars": 4705,
+      "file": "du_book/gift_deed.txt"
+    },
+    {
+      "slug": "notice_106_tpa",
+      "label": "Notice of Ejectment (S.106 Transfer of Property Act)",
+      "chars": 1751,
+      "file": "du_book/notice_106_tpa.txt"
+    },
+    {
+      "slug": "notice_80_cpc",
+      "label": "Notice of Suit under Section 80 CPC",
+      "chars": 1828,
+      "file": "du_book/notice_80_cpc.txt"
+    },
+    {
+      "slug": "notice_138_ni",
+      "label": "Notice under Section 138 NI Act (cheque bounce)",
+      "chars": 2230,
+      "file": "du_book/notice_138_ni.txt"
+    },
+    {
+      "slug": "reply_138_notice",
+      "label": "Reply to Legal Notice (S.138 NI Act)",
+      "chars": 4082,
+      "file": "du_book/reply_138_notice.txt"
+    }
+  ]
+}

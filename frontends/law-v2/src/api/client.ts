@@ -1,6 +1,14 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
 
+// Opt-out flag for background/advisory calls (e.g. the live brief-strength check): on a 401
+// that can't be refreshed, reject silently instead of logging the user out and redirecting.
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean
+  }
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL
     ? `${import.meta.env.VITE_API_URL}/api/v1`
@@ -27,8 +35,10 @@ api.interceptors.response.use(
         original.headers.Authorization = `Bearer ${data.data.access_token}`
         return api(original)
       } catch {
-        useAuthStore.getState().logout()
-        window.location.href = '/auth'
+        if (!original.skipAuthRedirect) {
+          useAuthStore.getState().logout()
+          window.location.href = '/auth'
+        }
       }
     }
     return Promise.reject(error)

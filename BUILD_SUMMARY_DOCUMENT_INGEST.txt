@@ -3,7 +3,7 @@ Document Ingest Pipeline — Build Complete
 ==========================================
 
 COMPLETED: Full production-ready document ingest pipeline with FastAPI + Celery.
-Built for Nikhar Phase 1 (solo lawyers in Punjab/Haryana).
+Built for SuperAdvocate Phase 1 (solo lawyers in Punjab/Haryana).
 
 ## What Was Built
 
@@ -446,5 +446,5 @@ Time to production readiness: ~30 minutes to replace mocks with real Azure clien
 Document Ingest Pipeline — COMPLETE ✅
 
 Build Date: April 8, 2026
-Nikhar Phase 1
+SuperAdvocate Phase 1
 """

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document explains how to run the PostgreSQL migrations for the Nikhar platform.
+This document explains how to run the PostgreSQL migrations for the SuperAdvocate platform.
 
 All tables follow the rules from CLAUDE.md:
 - ✓ UUID primary keys (never integers)
@@ -71,7 +71,7 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 # Edit .env with your PostgreSQL connection string
-# DATABASE_URL=postgresql+asyncpg://username:password@localhost:5432/nikhar
+# DATABASE_URL=postgresql+asyncpg://username:password@localhost:5432/superadvocate
 ```
 
 **Step 3: Run migrations**
@@ -91,7 +91,7 @@ python run_migrations.py
 If you prefer to run SQL directly:
 
 ```bash
-psql -U nikhar -d nikhar -f backend/migrations/versions/001_initial_schema.sql
+psql -U superadvocate -d superadvocate -f backend/migrations/versions/001_initial_schema.sql
 ```
 
 Or from Python:
@@ -199,12 +199,12 @@ docker-compose logs postgres  # Check for errors
 
 ### Database does not exist
 ```
-Error: FATAL:  database "nikhar" does not exist
+Error: FATAL:  database "superadvocate" does not exist
 ```
 
 **Solution:** Create database
 ```bash
-docker-compose exec postgres psql -U nikhar -c "CREATE DATABASE nikhar"
+docker-compose exec postgres psql -U superadvocate -c "CREATE DATABASE superadvocate"
 ```
 
 ### Permission denied
@@ -214,9 +214,9 @@ Error: ERROR:  permission denied for schema law
 
 **Solution:** Grant permissions
 ```sql
-GRANT USAGE ON SCHEMA law TO nikhar;
-GRANT CREATE ON SCHEMA law TO nikhar;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA law TO nikhar;
+GRANT USAGE ON SCHEMA law TO superadvocate;
+GRANT CREATE ON SCHEMA law TO superadvocate;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA law TO superadvocate;
 ```
 
 ## Performance Notes

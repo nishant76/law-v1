@@ -1,4 +1,4 @@
-# Nikhar Project — Complete Navigation Guide
+# SuperAdvocate Project — Complete Navigation Guide
 
 **Last Updated:** April 8, 2026  
 **Project Status:** ✓ READY FOR DEPLOYMENT (Phase 1 Schema Complete)
@@ -35,7 +35,7 @@
 ## 📁 Project Structure Overview
 
 ```
-nikhar/ (root)
+superadvocate/ (root)
 ├── CLAUDE.md                          ← MASTER REQUIREMENTS (Read First!)
 ├── README.md                          ← Quick start guide
 ├── DATABASE_SCHEMA_COMPLETE.md        ← Schema build summary
@@ -288,7 +288,7 @@ Expected: ✓ ALL CHECKS PASSED
 ```python
 # Middleware stack:
 # 1. GZipMiddleware (compress > 1KB)
-# 2. CORSMiddleware (dev: *, prod: law.nikhar.ai)
+# 2. CORSMiddleware (dev: *, prod: law.superadvocate.ai)
 # 3. RequestLoggingMiddleware (log all requests)
 
 # Routers:
