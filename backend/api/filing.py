@@ -134,6 +134,35 @@ class GenerateTemplateRequest(BaseModel):
     selected_citations: Optional[List[TemplateCitationItem]] = None
 
 
+class BriefCheckRequest(BaseModel):
+    brief: str
+    court: str = ""
+    type_hint: str = ""
+
+
+@router.post("/brief-check", response_model=Dict[str, Any])
+@require_permission("create_drafts")
+async def brief_check(
+    body: BriefCheckRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Pre-flight completeness score + clarifying questions for a drafting brief.
+    Cheap (gpt-4o-mini); called live as the lawyer types."""
+    try:
+        result = await filing_service.analyze_brief(
+            firm_id=str(current_user.firm_id),
+            brief=body.brief,
+            court=body.court,
+            type_hint=body.type_hint,
+        )
+        return {"success": True, **result}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to analyze brief: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to check brief")
+
+
 @router.post("/template", response_model=Dict[str, Any])
 @require_permission("create_drafts")
 async def generate_template(

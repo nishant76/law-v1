@@ -1,5 +1,5 @@
 # CLAUDE.md — SuperAdvocate Platform
-# Last Updated: July 2026 (v8 — eCourtsIndia REST API validated + one-click import UX built; official gov portals confirmed CAPTCHA-gated; Sonner toast wired app-wide; v7 — active frontend is frontends/law-v2 (TanStack Start + React 19 + shadcn/ui + Tailwind v4); frontends/law is RETIRED — do not edit it; v6 — renamed Nikhar→SuperAdvocate; Draft-a-Filing rebuilt as template/live-fill; Reply-to-Notice perspective; eCourts integration BUILT; PDF extractor section-label + omit-empty; v5 — PDF extractor routing-first prompt + GPT-5.2; v4 — frontend design system)
+# Last Updated: August 2026 (v12 — Cloud migrated from Azure to GCP; OpenAI API directly (not Azure OpenAI); Azure AI Search replaced by pgvector on Cloud SQL; Azure Blob replaced by GCS; eCourtsIndia API replaces government scraping pipeline for public judgment search; v11 — Drafting now GROUNDS jurisdiction on VERIFIED govt data, not the model's memory: built data/jurisdiction/bnss_first_schedule.json (462 offence rows, BNS 49-357, extracted from the OFFICIAL BNSS First Schedule on indiacode.nic.in via scripts/extract_bnss_schedule.py + build_jurisdiction_json.py) + backend/services/jurisdiction_service.py (lookup_section / court_tier_for_punishment / grounding_block); filing_service.generate_template injects jurisdiction_service.grounding_block(brief) so the drafter uses correct BNS section numbers + trial courts; the prompt's old HAND-CURATED offence→court table (which had WRONG numbers — murder said 101 not 103, dacoity 304 [=snatching!] not 310, robbery 302 not 309) was REMOVED, replaced by the verified-data block + corrected First-Schedule-Part-II fallback (bail sections 482/483/528 BNSS confirmed correct); Document Type dropdown REMOVED from app.drafting.tsx → free-text only, prompt returns detected_document_type shown as an EDITABLE type chip (correct it → prepends + regenerates); docs/drafting_correctness_audit.md = full taxonomy audit of every draft type→verified govt source (P&H HC Rules & Orders, NDPS S.O.1055(E), etc.) + 6-step extraction plan; KNOWN GAP — special acts (NDPS §37+quantity, PMLA §45, UAPA §43D(5)), court fees & limitation are NOT in verified data yet and remain model-memory (an NDPS bail draft was caught missing §37/quantity/Special-Court) — extraction Phase 1 will fix; v10 — Drafting now GROUNDS on real precedents: DU Faculty of Law drafting reader split into 43 model drafts (scripts/extract_du_drafts.py → data/draft_examples/du_book/), filing_examples.py routes EVERY dropdown type to a matching precedent (real P&H HC samples for HC types; DU book drafts for all district/family/consumer/NI/property/deed types, which previously got NO example) injected as a FORMAT REFERENCE block; drafting model switched to GPT-5.2 (was gpt-4o); JURISDICTION INFERENCE added to filing_template_prompt (auto-selects Sessions/Magistrate/HC/Family/Consumer forum from the offence when the Court field is blank — hand-curated from BNSS First Schedule + Ss.21-23, NOT yet line-verified against the official Schedule); markdown-bold KNOWN ISSUE fixed (MarkdownText now used in app.drafting.tsx); v9 — Drafting document-type dropdown expanded to 22 verified types across 7 categories + filing_drafter.py forum-conditional format rules (District/Sessions/Family/Consumer/HC headings, was always P&H HC) + expanded verified BNSS section table; v8 — eCourtsIndia REST API validated + one-click import UX built; official gov portals confirmed CAPTCHA-gated; Sonner toast wired app-wide; v7 — active frontend is frontends/law-v2 (TanStack Start + React 19 + shadcn/ui + Tailwind v4); frontends/law is RETIRED — do not edit it; v6 — renamed Nikhar→SuperAdvocate; Draft-a-Filing rebuilt as template/live-fill; Reply-to-Notice perspective; eCourts integration BUILT; PDF extractor section-label + omit-empty; v5 — PDF extractor routing-first prompt + GPT-5.2; v4 — frontend design system)
 # Read this file completely before writing any code.
 
 ## GIT WORKFLOW — READ FIRST
@@ -107,21 +107,21 @@ superadvocate/
 - Fonts:       Serif headings (font-serif class), system sans body
 
 ### AI / LLM
-- Drafting:    GPT-4o (Azure OpenAI) — expensive, use only for filing drafts
-- RAG/Extract: GPT-4o-mini (Azure OpenAI) — use freely for everything else
+- Drafting:    GPT-4o (OpenAI API) — expensive, use only for filing drafts
+- RAG/Extract: GPT-4o-mini (OpenAI API) — use freely for everything else
 - Embeddings:  text-embedding-ada-002 — 1536 dimensions
-- OCR:         Azure Document Intelligence
+- OCR:         Google Document AI
 
-### Infrastructure (Azure — India Central region)
-- Database:    Azure PostgreSQL Flexible Server
-- Search:      Azure AI Search (hybrid — vector + keyword)
-- Storage:     Azure Blob Storage
-- Compute:     Azure App Service (B2)
-- Secrets:     Azure Key Vault — never hardcode secrets anywhere
+### Infrastructure (GCP — asia-south1 / Mumbai region)
+- Database:    Cloud SQL (PostgreSQL 15) + pgvector extension — vector + keyword hybrid search
+- Storage:     Google Cloud Storage (GCS) — document uploads + exports
+- Compute:     Cloud Run — containerised FastAPI (replaces Azure App Service)
+- Cache/Queue: Cloud Memorystore (Redis) — Celery broker + result backend
+- Secrets:     Google Secret Manager — never hardcode secrets anywhere
 - Email:       SendGrid (free tier — 100/day)
 - WhatsApp:    WhatsApp Business API (Meta official) — client reminders
-- Monitoring:  Azure Application Insights
-- CI/CD:       GitHub Actions → Azure App Service
+- Monitoring:  Google Cloud Logging + Cloud Monitoring
+- CI/CD:       GitHub Actions → Cloud Run (via gcloud CLI)
 
 ---
 
@@ -325,8 +325,8 @@ query_vector = embed_result if isinstance(embed_result, list) else []
 expanded_queries = expand_result if isinstance(expand_result, list) else [query]
 ```
 
-Never call `embed_query` or any Azure OpenAI call without a timeout.
-Never let a single Azure service call block the entire request indefinitely.
+Never call `embed_query` or any OpenAI API call without a timeout.
+Never let a single external service call block the entire request indefinitely.
 
 ---
 
@@ -334,7 +334,7 @@ Never let a single Azure service call block the entire request indefinitely.
 
 ### 1. Document Library
 - Upload PDF, DOCX, images (max 50MB per file)
-- Store originals in Azure Blob Storage
+- Store originals in Google Cloud Storage (GCS)
 - Background indexing via Celery: OCR → chunk → embed → index
 - Status tracking: pending / processing / indexed / failed
 - Retry button on failed documents with plain English error reason
@@ -342,29 +342,30 @@ Never let a single Azure service call block the entire request indefinitely.
 - Soft delete only — never hard delete documents
 
 ### 2. Public Judgment Search
-- Sources: eSCR / digiSCR (SC official) + P&H HC official website + Punjab district court portals
+- DATA SOURCE: eCourtsIndia REST API (`webapi.ecourtsindia.com`) — replaces all
+  government portal scraping. Covers ALL Indian courts (SC, HC, District, Tribunals).
+  Nightly Celery job: GET /search (P&H HC + Punjab/Haryana district filter) →
+  GET /case/{cnr} (grab markdownContent — full order text, 5-40 pages) →
+  chunk → embed (ada-002) → upsert into pgvector on Cloud SQL.
 - Do NOT use Indian Kanoon — they are now a direct competitor (launched Prism AI)
-- Minimum 10,000 judgments before launch — all from government sources
-- Daily Celery cron updates new judgments
-- Hybrid search: vector + keyword combined (keyword-only acceptable for the
-  curated launch set; pgvector semantic ranking is a fast follow)
+- Hybrid search: pgvector cosine similarity + pg_trgm keyword (both on Cloud SQL,
+  no separate search service needed)
 - Works from day one — no upload needed by lawyer
-- Every result shows: case name, court, year, citation, source URL
+- Every result shows: case name, court, year, CNR, parties
 
 LINK INTEGRITY — NON-NEGOTIABLE (see LAUNCH QUALITY MANDATE):
-Every citation's link MUST resolve to the actual judgment. The pipeline enforces
-this by construction — a citation with no working link is never shown.
-- Each citation stores: blob_path (our self-hosted copy of the public-domain PDF),
-  source_url (the official government link, shown as secondary "official source"),
-  link_status ('pending'|'verified'|'self_hosted'|'dead'), link_checked_at.
-- Primary "View Judgment" link serves OUR Blob copy → can never break.
-  Judgment text is public domain (Copyright Act §52(1)(q)) — safe to self-host.
-- Ingestion verifies every source_url (HTTP), downloads the PDF to Blob, and only
-  then sets link_status='self_hosted'. Dead/unverified links are flagged, never
-  displayed. Search filters out any citation without a working link.
-- A periodic re-check job re-validates official links and our blob copies.
-- NEVER hand-type a source_url and trust it. NEVER display a generic landing-page
-  URL (e.g. ".../judgments") as if it were the specific judgment.
+Every citation's "View Judgment" link MUST resolve to the actual judgment PDF.
+- Each citation stores: cnr (Case Number Record), order_filename, link_status
+  ('pending'|'verified'|'dead').
+- "View Judgment" button calls GET /api/partner/case/{cnr}/order/{filename} via
+  eCourtsIndia API → returns a signed pre-fetched URL to a certified true copy PDF
+  (digitally signed, watermarked, served from eCourtsIndia's infrastructure —
+  sourced directly from govt eCourts servers). This link can never go dead as long
+  as the case exists in eCourts.
+- NEVER display a generic or fabricated URL. NEVER show a citation without a
+  resolvable PDF link.
+- Nightly re-check job calls bulk-refresh-status for active cases to ensure
+  data freshness.
 
 ### 3. Own Files Search (RAG)
 - Semantic search over lawyer's indexed documents
@@ -411,7 +412,7 @@ this by construction — a citation with no working link is never shown.
   no hallucination.
 - CAVEAT — GPT-5.2 is on a restricted, limited-quota tier: the verification run
   hit HTTP 429 insufficient_quota after ~18 docs while GPT-5.4-mini had headroom.
-  Before relying on 5.2 at India scale, confirm the Azure GPT-5.2 deployment has
+  Before relying on 5.2 at India scale, confirm the OpenAI GPT-5.2 deployment has
   adequate TPM/quota, OR fall back to GPT-5.4-mini (set READABLE_MODEL). On the
   earlier 2-judgment benchmark 5.4-mini was ~$0.02/call (3x cheaper than 5.2, ~6x
   cheaper than 5.5) and ~10s vs ~28s (5.2)/~50s (5.5) with equal snapshot accuracy
@@ -466,23 +467,212 @@ this by construction — a citation with no working link is never shown.
   for every case-specific detail (parties, court, case/FIR no., dates, amounts). Any detail
   the lawyer already stated is captured into the matching field's pre-filled value (never
   inlined — the token stays editable).
-  Prompt: filing_template_prompt in prompts/filing_drafter.py (gpt-4o-mini dev / gpt-4o prod).
+  Prompt: filing_template_prompt in prompts/filing_drafter.py. MODEL = ModelType.GPT5_2 (same
+  model as the PDF Extractor's READABLE_MODEL — switched from gpt-4o-mini/gpt-4o because 5.2
+  follows the multi-part structural/depth/jurisdiction requirements far more reliably). GPT-5.2
+  is slower (~30-70s), so filing_service.generate_template passes call_completion(timeout=110)
+  under the asyncio.wait_for(timeout=120) outer guard (the 30s default was tuned for 4o-mini and
+  timed out). GPT-5.2 quota caveat applies (see Feature 5) — fall back to GPT54_MINI if needed.
   Endpoints: POST /filing/template (describe), /filing/template/upload (improve a file),
   /filing/template/export (.docx).
+- BOOK/PRECEDENT GROUNDING (built 2026-07-15) — backend/services/filing_examples.py injects a
+  FORMAT REFERENCE excerpt of a REAL precedent into the prompt so the model matches its
+  structure/heading sequence. get_format_example(user_input) keyword-matches the Document Type
+  label the UI prepends to the brief (_ROUTES table, order-sensitive: reply-138 before
+  138-complaint, anticipatory before regular bail, mutual-consent before divorce). Two sources:
+    · Real P&H HIGH COURT filings (data/draft_examples/*.txt) — primary for HC types (writ/CWP,
+      regular+anticipatory bail, quashing, habeas). Actual filed docs, better than any textbook.
+    · DU Faculty of Law LL.B. reader "Drafting, Pleadings and Conveyance" (LB-502, July 2020,
+      public at lawfaculty.du.ac.in) — split into 43 individual model drafts under
+      data/draft_examples/du_book/*.txt by scripts/extract_du_drafts.py (re-runnable; case-
+      sensitive UPPERCASE-heading split + "* * * * *" end-of-draft trim + PART-B boundary).
+      Fills EVERY district/family/consumer/NI-Act/property/deed type — these had NO example before.
+  IMPORTANT — the DU reader is NOT the S R Myneni book (no legit PDF of Myneni exists; physical
+  only). It is pre-BNS/BNSS and Delhi-oriented, so it grounds STRUCTURE ONLY — the correct forum
+  heading + current BNSS section numbers come from the prompt's rules, NOT the example (the
+  injected reference label says exactly this). When a licensed Myneni digital ed. is purchased it
+  drops in as another du_book-style source with no rearchitecting.
+- JURISDICTION INFERENCE (built 2026-07-15; REWIRED to VERIFIED data 2026-07-16) — section in
+  filing_template_prompt. When the Court field is blank the model infers the correct forum from the
+  offence/matter and uses that heading (never leaves it blank or "(to be specified)"; filing_service
+  passes court as "NOT SPECIFIED — infer from matter") + bail hierarchy (regular bail: Sessions
+  first→HC if refused; anticipatory: Sessions first→HC; "rejected by Sessions"/"second bail" → HIGH
+  COURT) + civil/family/consumer/writ routing + district inferred from any city named. On inferring,
+  the model adds "Court inferred as … — verify before filing" to strategy_notes; app.drafting.tsx
+  shows it in an amber "Court auto-selected" banner ABOVE the draft.
+  RESOLVED (was the launch-quality CAVEAT) — the offence→court numbers are NO LONGER hand-curated
+  from memory. filing_service.generate_template now calls jurisdiction_service.grounding_block(brief)
+  (backend/services/jurisdiction_service.py), which scans the brief for BNS section refs + offence
+  nouns, looks them up in the VERIFIED data/jurisdiction/bnss_first_schedule.json (462 offence rows
+  extracted from the official BNSS First Schedule, indiacode.nic.in aid AC_CEN_5_23_00049_202346 —
+  see data/jurisdiction/README.md + manifest), and injects a "VERIFIED JURISDICTION DATA" block the
+  model MUST use verbatim (overrides any recalled number). The prompt's old ~25-offence hand-curated
+  table (WRONG numbers: murder 101 not 103, dacoity 304 [=snatching] not 310, robbery 302 not 309)
+  was REMOVED; only the general punishment→court fallback (First Schedule Part II: death/life/>7yr →
+  Court of Session; 3-7yr → Magistrate of the First Class; <3yr/fine → Any Magistrate) + bail/civil/
+  family/consumer routing remain in-prompt. Bail section numbers (anticipatory 482 BNSS, regular 483,
+  quashing 528) confirmed correct against the statute.
+- SPECIAL-ACT BARS (built 2026-08-14 — was the REMAINING GAP; audit extraction plan step 1 DONE).
+  jurisdiction_service covers only BNS First Schedule offences, so the bars that make a filing
+  NOT MAINTAINABLE were still model-memory — an NDPS bail draft was caught missing §37, the
+  quantity, and the Special Court. Now: data/special_acts/special_acts.json holds 12 VERBATIM
+  provisions sliced out of the official India Code bare-act PDFs by scripts/extract_special_acts.py
+  (re-runnable; literal start/end markers; amendment footnotes stripped; a marker miss writes
+  verified:false + EMPTY text, and the service skips unverified rows so failure degrades to silence,
+  never a guess): NDPS §37/§36A/§2(viia)/§2(xxiiia), PMLA §45, UAPA §43D, NI §138/§142, CCA §12A,
+  CPC §80, Partnership §69, HMA §14.
+  backend/services/special_acts_service.py — detect_triggers(brief) keyword-matches subject-matter
+  AND (where a bar only bites for a particular relief) the relief; grounding_block(brief) emits the
+  verbatim statute + a "THE DRAFT MUST" pleading checklist + "MUST ALSO FLAG" items. Returns "" when
+  no bar applies, so ordinary filings are not padded. filing_service.generate_template appends it
+  next to the jurisdiction grounding (same degrade-gracefully rule — never block a draft).
+  filing_template_prompt gained a MANDATORY STATUTORY BARS section telling the model the block
+  OVERRIDES recalled numbers, and that it must never state a figure the quoted text lacks.
+  DELIBERATE NON-BUILD — the NDPS small/commercial QUANTITY table (S.O.1055(E)) is NOT stored. Its
+  only published copy (cbn.gov.in/pdf/qtynotif.pdf) is a poor scan; OCR drops values (heroin's
+  small-quantity column vanishes entirely). Guessing a threshold would be the single
+  highest-consequence error in NDPS drafting, so instead the drafter is REQUIRED to obtain the
+  quantity from the lawyer, state no threshold, put it in missing_facts, and add a strategy_notes
+  line that the classification must be verified against S.O.1055(E). Replace when a text-layer
+  gazette copy is found. See data/special_acts/README.md.
+  STILL model-memory (audit steps 2-6): CrPC→BNSS procedural map, special-court/tribunal forum map,
+  COURT FEES & LIMITATION, P&H HC Rules & Orders format authority, deed stamp/registration. See
+  docs/drafting_correctness_audit.md; the Legal Process Guide (Feature 10) will read the same data.
+  The DU book is NOT a jurisdiction authority (format-by-example only).
+- missing_facts is now returned by /filing/template and rendered as an amber "Verify before filing"
+  list ABOVE the draft in app.drafting.tsx — an unverifiable statutory input must be visible, never
+  swallowed.
+- key_fields CONSOLIDATION rule applied to filing_template_prompt (was a known TODO): one field per
+  real-world thing the lawyer types; labels must not repeat their own noun or a noun already fixed
+  in the template — kills "District District" / "State of State" / duplicate FIR-number fields.
 - Live editor (two-pane): left = the draft with highlighted blanks; right = a Key Details
   panel (one input per blank — typing fills the draft live, client-side) + Find & Add
   Citations (reuses unified search, verified-only; selected citations are appended and exported).
+- AUTHORITIES PANE (built 2026-08-14 — the "Find & Add Citations" line above described
+  behaviour that was NOT in app.drafting.tsx; the page only listed citations_used).
+  components/app/DraftCitationsPanel.tsx sits in the right aside under Key Details:
+    · SUGGESTED — on draft generation it auto-runs unifiedSearch seeded from the lawyer's own
+      brief + detected_document_type (lib/draftCitations.buildSuggestionQuery, capped 400 chars),
+      showing up to 5 one-click "Add to draft" cards. Suggestions are an ASSIST: a failure leaves
+      the manual search fully usable and never blocks the draft.
+    · SEARCH BOX — a BUTTON, not a live input (a 25s judgment search must not fire on keystrokes).
+      Clicking opens components/app/CitationSearchModal.tsx: full search over public judgments,
+      Enter-to-search, add/remove per result, Esc/backdrop to close.
+  LINK INTEGRITY GATE (lib/draftCitations.isAttachable) — a judgment may only be attached when it
+  has a resolvable judgment_url and link_status != 'dead'. In the modal, unattachable results are
+  still LISTED but the Add button is disabled with "No certified copy available", so the lawyer
+  sees the case exists and why it cannot be cited; in the suggestions list they are filtered out.
+  Attached judgments render as a "## LIST OF JUDGMENTS RELIED UPON" section appended to the draft
+  (authoritiesMarkdown), and composeDraft(mode) builds preview and export from ONE code path so
+  the .docx can never drift from what is on screen. Citation state lives outside `result`, so
+  regenerating (e.g. correcting the filing-type chip) does not silently drop attached authorities.
+  Both search calls use plain async/await + a stale-response guard, never useMutation (GAP-050).
 - NOTE: the older objective-based generator (/filing/generate) + draft-quality scoring
   (citation safety 35% / completeness 25% / legal accuracy 20% / brief coverage 15% /
   language 5%; block if citation safety < 50) still exists in code for back-compat, but is
   no longer the UI flow.
+- Document Type dropdown REMOVED 2026-07-16 (was DOCUMENT_TYPE_GROUPS in app.drafting.tsx). The
+  drafting input is now FREE-TEXT ONLY (brief + optional Court) — the model classifies the filing
+  type itself and returns it as `detected_document_type`, which app.drafting.tsx renders as an
+  EDITABLE amber chip in the result header. Correcting the chip prepends the corrected type to the
+  brief and regenerates (steering both the type hint and the filing_examples precedent routing).
+  This removed the stale-default footgun (the old default "Plaint — Civil Suit" would silently
+  misroute an untouched dropdown, e.g. a bail brief). filing_examples._ROUTES already keyword-matches
+  natural-language briefs (anticipatory bail / cheque bounce / divorce / gift deed…), so precedent
+  routing survives without the dropdown label. (Rationale + DraftBotPro free-text comparison in the
+  session notes.) KNOWN small TODO: the Key Details key_fields can be over-granular ("District
+  District", "State of State") — a prompt consolidation rule (filing_drafter.py ~line 294) is drafted
+  but not yet applied.
+- COURT-SPECIFIC FORMAT RULES in filing_template_prompt (prompts/filing_drafter.py) — fixed
+  2026-07-14: the prompt previously applied the P&H HIGH COURT heading/format unconditionally
+  to every filing type, so a Bail Application or Written Statement would wrongly get "IN THE
+  HIGH COURT OF PUNJAB AND HARYANA AT CHANDIGARH" instead of a district/sessions/family-court
+  heading. Now branches on 5 fora — P&H High Court, District/Civil Court, Sessions/Magistrate
+  Court, Family Court, Consumer Disputes Redressal Commission — each with its own heading
+  convention, inferred from the filing type + Court field. Verified in-browser across all 5
+  (Bail Application → "IN THE COURT OF THE SESSIONS JUDGE, PANCHKULA"; Writ Petition →
+  P&H HC extraordinary-civil-jurisdiction format retained; Maintenance Application → "IN THE
+  COURT OF THE PRINCIPAL JUDGE, FAMILY COURT, PANCHKULA"; Consumer Complaint → "BEFORE THE
+  DISTRICT CONSUMER DISPUTES REDRESSAL COMMISSION, PANCHKULA").
+  Also expanded the BNSS section-mapping table (cross-verified against 2+ independent sources
+  per entry, not just recalled) — was 3 entries (438/439/482 CrPC), now 10: adds 200→223 CrPC to
+  BNSS (complaint), 227→250 (discharge, sessions), 239→262 (discharge, warrant case), 397→438
+  (revision), 167(2)→187(3) (default/statutory bail), 125→144 (maintenance), 451→497 (custody of
+  property). BNSS governs offences on/after 01-Jul-2024 only; CrPC still applies to older
+  offences under the savings clause — the prompt now tells the model to flag the offence date as
+  a missing fact rather than silently assuming either regime.
+- RESOLVED 2026-07-14 (was a KNOWN ISSUE): app.drafting.tsx now renders `template_markdown`
+  through the shared `MarkdownText` component (imported from @/components/ui/MarkdownText —
+  reused from the PDF Extractor, Feature 5), so `**bold**`, GFM tables (Index/List of Dates),
+  and bullet lists render properly instead of showing literal asterisks/pipes.
+- LIVE-FILL SIDE PANE: after generation the Key Details inputs render in a sticky right-hand
+  aside (w-[260px]); typing a value substitutes the matching {{token}} live in the draft via
+  fillTemplate() — preview mode wraps filled/blank tokens as ⟦highlighted chips⟧ (MarkdownText's
+  chip syntax), export mode strips them to plain text so the .docx has no {{token}}/⟦⟧ markup.
 
-### 9. Deadline Tracker
+### 9. Deadline Tracker + Court Diary
 - Add matter with key dates: hearing, filing deadline, limitation period
 - Reminders at 30 days, 7 days, 1 day before each deadline
 - Reminder channels: in-app notification + email (SendGrid)
 - If deadline missed: auto-suggest "Draft condonation of delay application?"
 - One click → draft generated immediately
+
+DELIVERY BUILT 2026-08-14 (it previously did not work at all — three bugs made the whole
+feature dead, all fixed):
+  · DeadlineReminder(client_phone=…) — that column does not exist on the model or in
+    migration 001, so EVERY deadline creation raised TypeError. Client phone now comes from
+    law.matters.client_phone at send time (one number per matter, no drift).
+  · api/deadlines.py used current_user["firm_id"], but CurrentUser is an object with no
+    __getitem__ → every deadline endpoint 500'd. Now attribute access, as everywhere else.
+  · the deadlines router had NO /api/v1 prefix while the frontend calls /api/v1/deadlines →
+    404 regardless. Fixed; the same bug on legal_process was fixed too.
+  · Celery beat contained ONLY scraper-update, so process_deadline_reminders and the eCourts
+    sync never ran. And _send_reminder_notifications was three `# TODO` + logger.info stubs —
+    nothing was ever sent.
+
+- backend/services/notification_service.py — REAL delivery. SendGrid + Meta WhatsApp Cloud API
+  over httpx: bounded timeout (15s), retry on transient status only (408/429/5xx — a rejected
+  number is not retried), recipients MASKED in logs and message bodies never logged (GAP-032),
+  and an unconfigured provider returns NOT_CONFIGURED instead of raising, so one missing key
+  cannot break the daily run for every firm. Also holds record_in_app() (no commit — the caller
+  owns the transaction, so a reminder and its notification commit together).
+- Cadence is really 30/7/1: create_deadline writes one DeadlineReminder row per offset still in
+  the future, and if the deadline is nearer than the smallest offset it creates ONE immediate
+  reminder rather than none. The offset is derived from (key_date − reminder_date), not from
+  "days from now", so a reminder sent late still says the right thing. get_upcoming_deadlines
+  collapses the 30/7/1 rows to one row per (matter, key date, type) — three deliveries of one
+  deadline must not appear three times in the UI.
+- law.notifications (migration 009) + /api/v1/notifications — the in-app channel, the one that
+  always works. user_id NULL = firm-wide. NotificationBell.tsx replaces the topbar's hardcoded
+  always-on dot; it polls 60s and the badge only appears when something is unread.
+
+COURT DIARY (built 2026-08-14) — law.matters.next_hearing_date answers only "when next".
+A diary must also answer "what is listed today, in board order", "what happened on the 14th",
+and "how many adjournments has this had". So:
+- law.hearing_entries (migration 009) — one row per court date per matter: board_number (the
+  cause-list serial), purpose/stage, outcome, adjournment_reason, next_date, action_required,
+  appeared_by, from_ecourts, status (scheduled/held/adjourned/not_taken_up/disposed). Partial
+  unique index on (matter_id, hearing_date) WHERE deleted_at IS NULL so a repeated sync cannot
+  stack duplicates.
+- backend/services/diary_service.py — ensure_scheduled_entries() materialises entries from every
+  matter's next_hearing_date (idempotent; runs on the diary read path AND as a cron), so matters
+  imported before the diary existed still produce a correct cause list. record_outcome() is the
+  central action: it closes the entry, creates the next scheduled entry, rolls
+  matters.next_hearing_date forward, and ARMS A FRESH 30/7/1 REMINDER SET — the diary maintains
+  itself from one form submission.
+- TIMEZONE: storage stays UTC, but a "day" means an IST calendar day converted to a UTC window
+  (local_day_bounds). Without this a 10:30 IST hearing falls on the previous UTC day and the
+  cause list is silently wrong. LOCAL_TIMEZONE env var, default Asia/Kolkata.
+- API: GET /api/v1/diary?day=&days= (day view, or a range — days=7 for the week),
+  GET /diary/matters/{id} (full history), POST /diary, PATCH /diary/{entry_id}.
+- UI: app.hearings.tsx rebuilt as a date-navigable diary (prev/next/date-picker/Today, cause
+  list in board order, filing & limitation dates and missed items in a side column) +
+  RecordOutcomeDialog.tsx.
+
+CELERY BEAT — ordered through the day so reminders never run on stale data:
+  00:30 UTC (06:00 IST) ecourts.sync_hearings → 01:00 diary.materialise_entries →
+  02:00 citations.scraper_update → 03:30 (09:00 IST) deadlines.process_reminders →
+  12:30 (18:00 IST) diary.send_daily_cause_list.
 
 - CLIENT WhatsApp reminders (via WhatsApp Business API):
   Lawyer adds client phone number to matter
@@ -504,7 +694,15 @@ this by construction — a citation with no working link is never shown.
   (and next-hearing dates) from the eCourts data API and maps them to their
   matters, feeding the deadline tracker automatically.
 
-- LAWYER daily cause list on WhatsApp (PLANNED — competitive idea, added 2026-07-07):
+- LAWYER daily cause list on WhatsApp (BUILT 2026-08-14 — was PLANNED, added 2026-07-07):
+  diary_service.send_daily_cause_lists() + workers/diary.py, beat 12:30 UTC = 18:00 IST.
+  Opt-in per lawyer via law.users.daily_cause_list_enabled + whatsapp_number (falls back to
+  users.phone). Sends NOTHING when nothing is listed tomorrow — an "you have nothing on"
+  message every evening trains people to ignore the channel. Caps at 25 items with a
+  "…see the app" pointer. If WhatsApp delivery fails the list is written as an in-app
+  notification instead, so it still reaches the lawyer.
+  KNOWN TODO: no settings UI yet for whatsapp_number / daily_cause_list_enabled — the columns
+  exist and the job reads them, but nothing lets a lawyer turn it on from the app.
   Every evening (e.g. 6 PM IST), send the lawyer their own next-day cause list
   directly on WhatsApp — no login needed to know what's in court tomorrow.
   → Message lists every matter with a hearing tomorrow, sorted by court/bench:
@@ -557,8 +755,8 @@ No clause analyser
 No contract redliner
 No mobile app
 No Redis cache (add Phase 2)
-No Azure Service Bus (Celery Phase 1)
-No Azure AD B2C (simple JWT Phase 1)
+No managed message bus (Celery + Redis is Phase 1)
+No managed identity provider (simple JWT Phase 1)
 No SuperAdvocate Audit vertical
 No SuperAdvocate Visa vertical
 No Kubernetes
@@ -582,7 +780,7 @@ Each judge stays ~3 years then transfers within Punjab — may return.
 Judge behaviour tracking across career is high-value feature.
 
 Start collecting NOW even though feature launches Phase 2:
-- Scrape judge names from every judgment in citations DB
+- Extract judge names from every case ingested via eCourtsIndia API
 - Store: judge_name, court, year, matter_type, outcome
 - Track judge transfers over time
 - The longer we collect — the richer the Phase 2 feature
@@ -830,18 +1028,18 @@ Layer 4: PostgreSQL RLS     — last line of defence
 ### Model usage:
 - GPT-4o:       Filing drafts only — expensive
 - GPT-5.2:      PDF Extractor — structured extraction + streaming readable
-                briefing (READABLE_MODEL). Restricted/limited-quota tier; fall
-                back to GPT-5.4-mini if quota is insufficient. See Feature 5.
+                briefing (READABLE_MODEL). Check OpenAI API quota before using at
+                scale; fall back to GPT-5.4-mini if quota is insufficient. See Feature 5.
 - GPT-4o-mini:  Everything else — RAG, extraction, synopsis, reply
-- Ada-002:      All embeddings
+- Ada-002:      All embeddings (text-embedding-ada-002)
 
 Note: GPT-5.x models (5.2, 5.4-mini, 5.5) reject temperature/top_p params.
 LLMService routes them through max_completion_tokens via extra_body.
 
 ### Critical rules:
 - ALL AI calls go through LLMService class
-- Never instantiate Azure OpenAI client outside LLMService
-- Never call Azure OpenAI directly from endpoints or services
+- Never instantiate OpenAI client outside LLMService
+- Never call OpenAI API directly from endpoints or services
 - Hard token limit per firm per day (GAP-003)
 - Alert when single request exceeds 10,000 tokens
 - Retry on RateLimitError: 3x with backoff (1s, 2s, 4s)
@@ -873,7 +1071,7 @@ LLMService routes them through max_completion_tokens via extra_body.
 ### Never:
 - Never f-strings in SQL queries
 - Never trust firm_id or vertical from request body
-- Never call Azure OpenAI directly from endpoints
+- Never call OpenAI API directly from endpoints
 - Never hard delete any record
 - Never store secrets in code or commit .env to git
 - Never skip JWT validation
@@ -906,10 +1104,10 @@ Compression:    GZipMiddleware enabled
 ## LOGGING RULES
 
 ```
-Application logs:   Azure Application Insights
+Application logs:   Google Cloud Logging
 Request logs:       Every API call — middleware
 Audit logs:         PostgreSQL shared.audit_logs — permanent
-Analytics:          App Insights custom events
+Analytics:          Cloud Monitoring custom metrics
 
 Log these:          action, user_id, firm_id, resource_id,
                     duration_ms, status_code, request_id
@@ -944,13 +1142,15 @@ send_email:         Invites, indexing complete, deadline alerts
 usage_report:       Daily cron — aggregate usage per firm,
                     check limits, send 80% warnings
 
-scraper_update:     Daily cron — new judgments from
-                    eSCR + P&H HC + district court portals
+judgment_ingest:    Daily cron — new judgments via eCourtsIndia API
+                    (P&H HC + Punjab/Haryana district filter)
+                    → GET /search → GET /case/{cnr} (markdownContent)
+                    → chunk → embed → upsert pgvector
                     Never scrape Indian Kanoon (competitor)
 
 Design rule:        All logic in services/ layer
                     Worker = thin wrapper only
-                    Swap to Azure Functions Phase 2
+                    Swap to Cloud Run Jobs Phase 2
                     with zero refactoring
 ```
 
@@ -959,31 +1159,44 @@ Design rule:        All logic in services/ layer
 ## ENVIRONMENT VARIABLES
 
 ```
-AZURE_OPENAI_ENDPOINT
-AZURE_OPENAI_API_VERSION        = 2024-10-21
-GPT4O_DEPLOYMENT                = gpt-4o
-GPT4O_MINI_DEPLOYMENT           = gpt-4o-mini
-EMBEDDING_DEPLOYMENT            = text-embedding-ada-002
-AZURE_SEARCH_ENDPOINT
-AZURE_SEARCH_KEY
-DATABASE_URL
-REDIS_URL
-BLOB_CONNECTION_STRING
+# OpenAI API (direct — not Azure)
+OPENAI_API_KEY                              # from platform.openai.com
+GPT4O_MODEL                 = gpt-4o
+GPT4O_MINI_MODEL            = gpt-4o-mini
+GPT52_MODEL                 = gpt-5.2
+EMBEDDING_MODEL             = text-embedding-ada-002
+
+# Database (Cloud SQL PostgreSQL + pgvector)
+DATABASE_URL                               # postgresql+asyncpg://user:pass@/db?host=/cloudsql/...
+CLOUD_SQL_CONNECTION_NAME                  # project:region:instance (for Cloud SQL proxy)
+
+# Cache / Celery (Cloud Memorystore Redis)
+REDIS_URL                                  # redis://10.x.x.x:6379
+
+# Storage (Google Cloud Storage)
+GCS_BUCKET_NAME                            # e.g. superadvocate-documents
+GCP_PROJECT_ID                             # GCP project ID
+
+# eCourts API
+ECOURTS_API_BASE            = https://webapi.ecourtsindia.com
+ECOURTS_API_TOKEN           = eci_live_…   (licensed eCourts data vendor)
+
+# Messaging
 SENDGRID_API_KEY
 WHATSAPP_API_TOKEN
 WHATSAPP_PHONE_NUMBER_ID
-ECOURTS_API_BASE                = https://webapi.ecourtsindia.com
-ECOURTS_API_TOKEN               = eci_live_…   (licensed eCourts data vendor)
-GPT52_DEPLOYMENT                = gpt-5.2
+
+# Auth
 JWT_SECRET_KEY
-JWT_ALGORITHM                   = RS256
-ACCESS_TOKEN_EXPIRE_MINUTES     = 60
-REFRESH_TOKEN_EXPIRE_DAYS       = 30
-ENVIRONMENT                     = development
-APPLICATIONINSIGHTS_CONNECTION_STRING
+JWT_ALGORITHM               = RS256
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+REFRESH_TOKEN_EXPIRE_DAYS   = 30
+
+# App
+ENVIRONMENT                 = development
 ```
 
-All secrets in Azure Key Vault in staging and production.
+All secrets in Google Secret Manager in staging and production.
 .env file for local development only — never commit to git.
 
 ---
@@ -994,8 +1207,8 @@ These are not optional — build before anything else:
 
 ```
 1. GET /api/v1/health
-   Returns: DB status, search status,
-   OpenAI connectivity — for Azure App Service
+   Returns: DB status, pgvector status,
+   OpenAI connectivity — for Cloud Run
    and UptimeRobot monitoring
 
 2. GZipMiddleware
@@ -1028,7 +1241,7 @@ GAP-040: Verify Razorpay webhook signatures
 GAP-044: Health check endpoint on day one
 GAP-031: Never f-strings in SQL — parameterised only
 GAP-032: Never log PII — actions and IDs only
-GAP-035: Delete from Azure AI Search when document deleted
+GAP-035: Delete from pgvector when document deleted
 GAP-043: Explicit timeouts — RESOLVED for search:
          embed_query: asyncio.wait_for timeout=8s (fallback to keyword)
          search endpoint: asyncio.wait_for timeout=25s → HTTP 504
@@ -1078,11 +1291,14 @@ Payment:     Razorpay
 ## CITATION SOURCES (PRIORITY ORDER)
 
 ```
-1. eSCR       — main.sci.gov.in — official SC reports — GOVERNMENT — safe
-2. P&H HC     — highcourtchd.gov.in — all P&H HC judgments — GOVERNMENT — safe
-3. Punjab District Courts — official portals — GOVERNMENT — safe
-4. LiveLaw    — latest judgment summaries — scrape carefully, summaries only
-5. Law Herald — Punjab/Haryana specific — approach for partnership
+1. eCourtsIndia API — webapi.ecourtsindia.com — ALL Indian courts (SC, HC,
+   District, Tribunals) — 28.3 Cr+ records — LICENSED DATA VENDOR — PRIMARY
+   Replaces all direct government portal scraping. Covers P&H HC + all Punjab/
+   Haryana district courts. markdownContent = full order text for indexing.
+   Certified true copy PDFs served on demand via /order/{filename}.
+
+2. LiveLaw    — latest judgment summaries — scrape carefully, summaries only
+3. Law Herald — Punjab/Haryana specific — approach for partnership
 ```
 
 IMPORTANT — Indian Kanoon is now a COMPETITOR:
