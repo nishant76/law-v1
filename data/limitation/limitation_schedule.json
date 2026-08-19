@@ -1,0 +1,1661 @@
+{
+  "manifest": {
+    "title": "Limitation Act, 1963 — THE SCHEDULE (Periods of Limitation)",
+    "source_url": "https://www.indiacode.nic.in/bitstream/123456789/1565/5/A1963-36.pdf",
+    "source_document": "THE LIMITATION ACT, 1963 (Act 36 of 1963), THE SCHEDULE [See sections 2(j) and 3]",
+    "retrieved_date": "2026-08-19",
+    "built_by": "scripts/extract_limitation_schedule.py",
+    "columns_source": "Description of suit/application | Period of limitation | Time from which period begins to run — read per row at their column x-positions.",
+    "total_records": 137,
+    "verified_records": 137,
+    "unverified_records": 0,
+    "computation_note": "period + starts_from give the raw limitation window ONLY. Sections 4 (court closed), 12 (time for obtaining a copy), 14, 17 and 18 (acknowledgement) can all extend it, and none of them are encoded here. Any computed date must therefore be presented as provisional and verified before filing.",
+    "licence_note": "Public-domain statute text (Copyright Act s.52(1)(q))."
+  },
+  "articles": [
+    {
+      "article": "1",
+      "description": "For the balance due on a mutual, open and current account, where there have been reciprocal demands between the parties.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The close of the year in which the last item admitted or proved is entered in the account; such year to be computed as in the account.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 1",
+      "verified": true
+    },
+    {
+      "article": "2",
+      "description": "Against a factor for an account.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the account is, during the continuance of the agency, demanded and refused or, where no such demand is made, when the agency terminates.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 2",
+      "verified": true
+    },
+    {
+      "article": "3",
+      "description": "By a principal against his agent for movable property received by the latter and not accounted for.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the account is, during the continuance of the agency, demanded and refused or, where no such demand is made, when the agency terminates.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 3",
+      "verified": true
+    },
+    {
+      "article": "4",
+      "description": "Other suits by principals against agents for neglect or misconduct.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the neglect or misconduct becomes known to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 4",
+      "verified": true
+    },
+    {
+      "article": "5",
+      "description": "For an account and a share of the profits of a dissolved partnership.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the dissolution.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 5",
+      "verified": true
+    },
+    {
+      "article": "6",
+      "description": "For a seaman’s wages",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The end of the voyage during which the wages are earned.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 6",
+      "verified": true
+    },
+    {
+      "article": "7",
+      "description": "For wages in the case of any other person.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the wages accrue due.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 7",
+      "verified": true
+    },
+    {
+      "article": "8",
+      "description": "For the price of food or drink sold by the keeper of a hotel, tavern or lodging-house.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the food or drink is delivered.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 8",
+      "verified": true
+    },
+    {
+      "article": "9",
+      "description": "For the price of lodging.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the price becomes payable.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 9",
+      "verified": true
+    },
+    {
+      "article": "10",
+      "description": "Against a carrier for compensation for losing or injuring goods.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the loss or injury occurs.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 10",
+      "verified": true
+    },
+    {
+      "article": "11",
+      "description": "Against a carrier for compensation for non-delivery of, or delay in delivering, goods.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the goods ought to be delivered.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 11",
+      "verified": true
+    },
+    {
+      "article": "12",
+      "description": "For the hire of animals, vehicles, boats or household furniture.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the hire becomes payable.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 12",
+      "verified": true
+    },
+    {
+      "article": "13",
+      "description": "For the balance of money advanced in payment of goods to be delivered.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the goods ought to be delivered.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 13",
+      "verified": true
+    },
+    {
+      "article": "14",
+      "description": "For the price of goods sold and delivered where no fixed period of credit is agreed upon.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the delivery of the goods.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 14",
+      "verified": true
+    },
+    {
+      "article": "15",
+      "description": "For the price of goods sold and delivered to be paid for after the expiry of a fixed period of credit.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the period of credit expires.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 15",
+      "verified": true
+    },
+    {
+      "article": "16",
+      "description": "For the price of goods sold and delivered to be paid for by a bill of exchange, no such bill being given.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the period of the proposed bill elapses.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 16",
+      "verified": true
+    },
+    {
+      "article": "17",
+      "description": "For the price of trees or growing crops sold by the plaintiff to the defendant where no fixed period of credit is agreed upon.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the sale.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 17",
+      "verified": true
+    },
+    {
+      "article": "18",
+      "description": "For the price of work done by the plaintiff for the defendant at his request, where no time has been fixed for payment.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the work is done.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 18",
+      "verified": true
+    },
+    {
+      "article": "19",
+      "description": "For money payable for money lent.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the loan is made.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 19",
+      "verified": true
+    },
+    {
+      "article": "20",
+      "description": "Like suit when the lender has given a cheque for the money.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the cheque is paid.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 20",
+      "verified": true
+    },
+    {
+      "article": "21",
+      "description": "For money lent under an agreement that it shall be payable on demand.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the loan is made.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 21",
+      "verified": true
+    },
+    {
+      "article": "22",
+      "description": "For money deposited under an agreement that it shall be payable on demand, including money of a customer in the hands of his banker so payable.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the demand is made.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 22",
+      "verified": true
+    },
+    {
+      "article": "23",
+      "description": "For money payable to the plaintiff for money paid for the defendant.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the money is paid.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 23",
+      "verified": true
+    },
+    {
+      "article": "24",
+      "description": "For money payable by the defendant to the plaintiff for money received by the defendant, for the plaintiff's use.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the money is received.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 24",
+      "verified": true
+    },
+    {
+      "article": "25",
+      "description": "For money payable for interest upon money due from the defendant to the plaintiff.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the interest becomes due.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 25",
+      "verified": true
+    },
+    {
+      "article": "26",
+      "description": "For money payable to the plaintiff for money found to be due from the defendant to the plaintiff on accounts stated between them.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the accounts are stated in writing signed by the defendant or his agent duly authorised in this behalf, unless where the debt is, by a simultaneous agreement in writing signed as aforesaid, made payable at a future time, and then when that time arrives.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 26",
+      "verified": true
+    },
+    {
+      "article": "27",
+      "description": "For compensation for breach of a promise to do anything at a specified time, or upon the happening of a specified contingency.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the time specified arrives or the contingency happens.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 27",
+      "verified": true
+    },
+    {
+      "article": "28",
+      "description": "On a single bond, where a day is specified for payment.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The day so specified.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 28",
+      "verified": true
+    },
+    {
+      "article": "29",
+      "description": "On a single bond, where no such day is specified.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of executing the bond.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 29",
+      "verified": true
+    },
+    {
+      "article": "30",
+      "description": "On a bond subject to a condition.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the condition is broken.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 30",
+      "verified": true
+    },
+    {
+      "article": "31",
+      "description": "On a bill of exchange or promissory note payable at a fixed time after date.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the bill or note falls due.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 31",
+      "verified": true
+    },
+    {
+      "article": "32",
+      "description": "On a bill of exchange payable at sight, or after sight, but not at a fixed time.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the bill is presented.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 32",
+      "verified": true
+    },
+    {
+      "article": "33",
+      "description": "On a bill of exchange accepted payable at a particular place.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the bill is presented at that place.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 33",
+      "verified": true
+    },
+    {
+      "article": "34",
+      "description": "On a bill of exchange or promissory note payable at a fixed time after sight or after demand.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the fixed time expires.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 34",
+      "verified": true
+    },
+    {
+      "article": "35",
+      "description": "On a bill of exchange or promissory note payable on demand and not accompanied by any writing restraining or postponing the right to sue.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the bill or note.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 35",
+      "verified": true
+    },
+    {
+      "article": "36",
+      "description": "On a promissory note or bond payable by instalments.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The expiration of the first term of payment as to the part then payable; and for the other parts, the expiration of the respective terms of payment.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 36",
+      "verified": true
+    },
+    {
+      "article": "37",
+      "description": "On a promissory note or bond payable by instalments, which provides that, if default be made in payment of one or more instalments, the whole shall be due.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the default is made, unless where the payee or obligee waives the benefit of the provision and then when fresh default is made in respect of which there is no such waiver.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 37",
+      "verified": true
+    },
+    {
+      "article": "38",
+      "description": "On a promissory note given by the maker to a third person to be delivered to the payee after a certain event should happen.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the delivery to the payee.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 38",
+      "verified": true
+    },
+    {
+      "article": "39",
+      "description": "On a dishonoured foreign bill where protest has been made and notice given.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the notice is given.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 39",
+      "verified": true
+    },
+    {
+      "article": "40",
+      "description": "By the payee against the drawer of a bill of exchange, which has been dishonoured bynon- acceptance.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the refusal to accept.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 40",
+      "verified": true
+    },
+    {
+      "article": "41",
+      "description": "By the acceptor of an accommodation-bill against the drawer.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the acceptor pays the amount of the bill.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 41",
+      "verified": true
+    },
+    {
+      "article": "42",
+      "description": "By a surety against the principal debtor.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the surety pays the creditor.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 42",
+      "verified": true
+    },
+    {
+      "article": "43",
+      "description": "By a surety against a co-surety.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the surety pays anything in excess of his own share.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 43",
+      "verified": true
+    },
+    {
+      "article": "44",
+      "description": "(a) On a policy of insurance when the sum insured is payable after proof of the death has been given to or received by the insurers. (b) On a policy of insurance when the sum insured is payable after proof of the loss has been given to or received by the insurers.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the death of the deceased, or where the claim on the policy is denied, either partly or wholly, the date of such denial. The date of the occurrence causing the loss, or where the claim on the policy is denied, either partly or wholly, the date of such denial.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 44",
+      "verified": true
+    },
+    {
+      "article": "45",
+      "description": "By the assured to recover premia paid under a policy voidable at the election of the insurers.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the insurers elect to avoid the policy.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 45",
+      "verified": true
+    },
+    {
+      "article": "46",
+      "description": "Under the Indian Succession Act, 1925 (39 of 1925), section 360 or section 361, to compel a refund by a person to whom an executor or administrator has paid a legacy or distributed assets.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the payment or distribution.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 46",
+      "verified": true
+    },
+    {
+      "article": "47",
+      "description": "For money paid upon an existing consideration which afterwards fails.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the failure.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 47",
+      "verified": true
+    },
+    {
+      "article": "48",
+      "description": "For contribution by a party who has paid the whole or more than his share of the amount due under a joint decree, or by a sharer in a joint estate who has paid the whole or more than his share of the amount of revenue due from himself and his co-sharers.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the payment in excess of the plaintiff’s own share.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 48",
+      "verified": true
+    },
+    {
+      "article": "49",
+      "description": "By a co-trustee to enforce against the estate of a deceased trustee a claim for contribution.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the right to contribution accrues.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 49",
+      "verified": true
+    },
+    {
+      "article": "50",
+      "description": "By the manager of a joint estate of an undivided family for contribution, in respect of a payment made by him on account of the estate.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the payment.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 50",
+      "verified": true
+    },
+    {
+      "article": "51",
+      "description": "For the profits of immovable property belonging to the plaintiff which have been wrongfully received by the defendant.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the profits are received.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 51",
+      "verified": true
+    },
+    {
+      "article": "52",
+      "description": "For arrears of rent.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the arrears become due.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 52",
+      "verified": true
+    },
+    {
+      "article": "53",
+      "description": "By a vendor of immovable property for personal payment of unpaid purchase-money.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The time fixed for completing the sale, or (where the title is accepted after the time fixed for completion) the date of the acceptance.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 53",
+      "verified": true
+    },
+    {
+      "article": "54",
+      "description": "For specific performance of a contract.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date fixed for the performance, or, if no such date is fixed, when the plaintiff has notice that performance is refused.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 54",
+      "verified": true
+    },
+    {
+      "article": "55",
+      "description": "For compensation for the breach of any contract, express or implied not herein specially provided for.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the contract is broken or (where there are successive breaches) when the breach in respect of which the suit is instituted occurs or (where the breach is continuing) when it ceases.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 55",
+      "verified": true
+    },
+    {
+      "article": "56",
+      "description": "To declare the forgery of an instrument issued or registered.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the issue or registration becomes known to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 56",
+      "verified": true
+    },
+    {
+      "article": "57",
+      "description": "To obtain a declaration that an alleged adoption is invalid, or never, in fact, took place.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the alleged adoption becomes known to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 57",
+      "verified": true
+    },
+    {
+      "article": "58",
+      "description": "To obtain any other declaration.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the right to sue first accrues.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 58",
+      "verified": true
+    },
+    {
+      "article": "59",
+      "description": "To cancel or set aside an instrument or decree or for the rescission of a contract.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the facts entitling the plaintiff to have the instrument or decree cancelled or set aside or the contract rescinded first become known to him.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 59",
+      "verified": true
+    },
+    {
+      "article": "60",
+      "description": "To set aside a transfer of property made by the guardian of a ward— (a) by the ward who has attained majority; (b)by the ward’s legal representative— (i) when the ward dies within three years from the date of attaining majority. (ii) when the ward dies before attaining majority.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the ward attains majority. When the ward attains majority. When the ward dies.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 60",
+      "verified": true
+    },
+    {
+      "article": "61",
+      "description": "By a mortgagor— (a)to redeem or recover possession of immovable property mortgaged; (b)to recover possession of immovable property mortgaged and afterwards transferred by the mortgagee for a valuable consideration; (c) to recover surplus collections received by the mortgagee after the mortgage has been satisfied.",
+      "period_text": "Thirty years.",
+      "period": {
+        "value": 30,
+        "unit": "year"
+      },
+      "starts_from": "When the right to redeem or to recover possession accrues. When the transfer becomes known to the plaintiff. When the mortgagor re-enters on the mortgaged property.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 61",
+      "verified": true
+    },
+    {
+      "article": "62",
+      "description": "To enforce payment of money secured by a mortgage or otherwise charged upon immovable property.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the money sued for becomes due.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 62",
+      "verified": true
+    },
+    {
+      "article": "63",
+      "description": "By a mortgagee— (a) for foreclosure; (b) for possession of immovable property mortgaged.",
+      "period_text": "Thirty years.",
+      "period": {
+        "value": 30,
+        "unit": "year"
+      },
+      "starts_from": "When the money secured by the mortgage becomes due. When the mortgagee becomes entitled to possession.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 63",
+      "verified": true
+    },
+    {
+      "article": "64",
+      "description": "For possession of immovable property based on previous possession and not on title, when the plaintiff while in possession of the property has been dispossessed.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "The date of dispossession.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 64",
+      "verified": true
+    },
+    {
+      "article": "65",
+      "description": "For possession of immovable property or any interest therein based on title. Explanation.—For the purposes of this article— (a)where the suit is by a remainderman, a reversioner (other than a landlord) or a devisee, the possession of the defendant shall be deemed to become adverse only when the estate of the remainderman, reversioner or devisee, as the case may be, falls into possession; (b) where the suit is by a Hindu or Muslim entitled to the possession of immovable property on the death of a Hindu or Muslim female, the possession of the defendant shall be deemed to become adverse only when the female dies; (c)where the suit is by a purchaser at a sale in execution of a decree when the judgment- debtor was out of possession at the date of the sale, the purchaser shall be deemed to be a representative of the judgment-debtor who was out of possession.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the possession of the defendant becomes adverse to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 65",
+      "verified": true
+    },
+    {
+      "article": "66",
+      "description": "For possession of immovable property when the plaintiff has become entitled to possession by reason of any forfeiture or breach of condition.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the forfeiture is incurred or the condition is broken.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 66",
+      "verified": true
+    },
+    {
+      "article": "67",
+      "description": "By a landlord to recover possession from a tenant.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the tenancy is determined.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 67",
+      "verified": true
+    },
+    {
+      "article": "68",
+      "description": "For specific movable property lost, or acquired by theft, or dishonest misappropriation or conversion.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the person having the right to the possession of the property first learns in whose possession it is.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 68",
+      "verified": true
+    },
+    {
+      "article": "69",
+      "description": "For other specific movable property.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the property is wrongfully taken.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 69",
+      "verified": true
+    },
+    {
+      "article": "70",
+      "description": "To recover movable property deposited or pawned from a depositary or pawnee.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of refusal after demand.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 70",
+      "verified": true
+    },
+    {
+      "article": "71",
+      "description": "To recover movable property deposited or pawned, and afterwards bought from the depository or pawnee for a valuable consideration.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the sale becomes known to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 71",
+      "verified": true
+    },
+    {
+      "article": "72",
+      "description": "For compensation for doing or for omitting to do an act alleged to be in pursuance of any enactment in force for the time being in the territories to which this Act extends.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "When the act or omission takes place.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 72",
+      "verified": true
+    },
+    {
+      "article": "73",
+      "description": "For compensation for false imprisonment.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "When the imprisonment ends.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 73",
+      "verified": true
+    },
+    {
+      "article": "74",
+      "description": "For compensation for a malicious prosecution.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "When the plaintiff is acquitted or the prosecution is otherwise terminated.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 74",
+      "verified": true
+    },
+    {
+      "article": "75",
+      "description": "For compensation for libel.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "When the libel is published.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 75",
+      "verified": true
+    },
+    {
+      "article": "76",
+      "description": "For compensation for slander.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "When the words are spoken, or, if the words are not actionable in themselves, when the special damage complained of results.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 76",
+      "verified": true
+    },
+    {
+      "article": "77",
+      "description": "For compensation for loss of service occasioned by the seduction of the plaintiff’s servant or daughter.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "When the loss occurs.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 77",
+      "verified": true
+    },
+    {
+      "article": "78",
+      "description": "For compensation for inducing a person to break a contract with the plaintiff.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "The date of the breach.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 78",
+      "verified": true
+    },
+    {
+      "article": "79",
+      "description": "For compensation for an illegal, irregular or excessive distress.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "The date of the distress.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 79",
+      "verified": true
+    },
+    {
+      "article": "80",
+      "description": "For compensation for wrongful seizure of movable property under legal process.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "The date of the seizure.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 80",
+      "verified": true
+    },
+    {
+      "article": "81",
+      "description": "By executors, administrators or representatives under the Legal Representatives’ Suits Act, 1855 (12 of 1855).",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "The date of the death of the person wronged.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 81",
+      "verified": true
+    },
+    {
+      "article": "82",
+      "description": "By executors, administrators or representatives under the Indian Fatal Accidents Act, 1855 (13 of 1855).",
+      "period_text": "Two years.",
+      "period": {
+        "value": 2,
+        "unit": "year"
+      },
+      "starts_from": "The date of the death of the person killed.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 82",
+      "verified": true
+    },
+    {
+      "article": "83",
+      "description": "Under the Legal Representatives’ Suits Act, 1855 (12 of 1855), against an executor, an administrator or any other representative.",
+      "period_text": "Two years.",
+      "period": {
+        "value": 2,
+        "unit": "year"
+      },
+      "starts_from": "When the wrong complained of is done.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 83",
+      "verified": true
+    },
+    {
+      "article": "84",
+      "description": "Against one who, having a right to use property for specific purposes, perverts it to other purposes.",
+      "period_text": "Two years.",
+      "period": {
+        "value": 2,
+        "unit": "year"
+      },
+      "starts_from": "When the perversion first becomes known to the person injured thereby.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 84",
+      "verified": true
+    },
+    {
+      "article": "85",
+      "description": "For compensation for obstructing a way or a water-course.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the obstruction.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 85",
+      "verified": true
+    },
+    {
+      "article": "86",
+      "description": "For compensation for diverting a water-course.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the diversion.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 86",
+      "verified": true
+    },
+    {
+      "article": "87",
+      "description": "For compensation for trespass upon immovable property.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the trespass.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 87",
+      "verified": true
+    },
+    {
+      "article": "88",
+      "description": "For compensation for infringing copyright or any other exclusive privilege.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the infringement.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 88",
+      "verified": true
+    },
+    {
+      "article": "89",
+      "description": "To restrain waste.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the waste begins.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 89",
+      "verified": true
+    },
+    {
+      "article": "90",
+      "description": "For compensation for injury caused by an injunction wrongfully obtained.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the injunction ceases.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 90",
+      "verified": true
+    },
+    {
+      "article": "91",
+      "description": "For compensation,— (a)for wrongfully taking or detaining any specific movable property lost, oracquired by theft, or dishonest misappropriation, or conversion; (b) for wrongfully taking or injuring or wrongfully detaining any other specific movable property.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the person having the right to the possession of the property first learns in whose possession it is. When the property is wrongfully taken or injured, or when the detainer’s possession becomes unlawful.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 91",
+      "verified": true
+    },
+    {
+      "article": "92",
+      "description": "To recover possession of immovable property conveyed or bequeathed in trust and afterwards transferred by the trustee for a valuable consideration.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the transfer becomes known to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 92",
+      "verified": true
+    },
+    {
+      "article": "93",
+      "description": "To recover possession of movable property conveyed or bequeathed in trust and afterwards transferred by the trustee for a valuable consideration.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the transfer becomes known to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 93",
+      "verified": true
+    },
+    {
+      "article": "94",
+      "description": "To set aside a transfer of immovable property comprised in a Hindu, Muslim or Buddhist religious or charitable endowment, made by a manager thereof for a valuable consideration.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the transfer becomes known to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 94",
+      "verified": true
+    },
+    {
+      "article": "95",
+      "description": "To set aside a transfer of movable property comprised in a Hindu, Muslim or Buddhist religious or charitable endowment, made by a manager thereof for a valuable consideration.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the transfer becomes known to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 95",
+      "verified": true
+    },
+    {
+      "article": "96",
+      "description": "By the manager of Hindu, Muslim or Buddhist religious or charitable endowment to recover possession of movable or immovable properly comprised in the endowment which has been transferred by a previous manager for a valuable consideration.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "The date of death, resignation or removal of the transferor or the date of appointment of the plaintiff as manager of the endowment, whichever is later.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 96",
+      "verified": true
+    },
+    {
+      "article": "97",
+      "description": "To enforce a right of pre-emption whether the right is founded on law or general usage or on special contract.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "the purchaser take under the sale sought to be impeached, physical possession of the whole or part of the property sold, or, where the subject matter of the sale does not admit of physical possession of the whole or part of the property, when the instrument of sale is registered.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 97",
+      "verified": true
+    },
+    {
+      "article": "98",
+      "description": "By a person against whom 1[an order referred to in rule 63 or in rule 103] of Order XXI of the Code of Civil Procedure, 1908 (5 of 1908), or an order under section 28 of thePresidency Small Cause Courts Act, 1882 (15 of 1882), has been made, to establish the right which he claims to the property comprised in the order.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "date of the final order.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 98",
+      "verified": true
+    },
+    {
+      "article": "99",
+      "description": "To set aside a sale by a civil or revenue court or a sale for arrears of Government revenue or for any demand recoverable as such arrears.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "the sale is confirmed or would otherwise have become final and conclusive had no such suit been brought.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 99",
+      "verified": true
+    },
+    {
+      "article": "100",
+      "description": "To alter or set aside any decision or order of a civil court in any proceeding other than a suit or any act or order of an officer of Government in his official capacity.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "date of the final decision or order by the court or the date of the act or order of the officer, as the case may be.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 100",
+      "verified": true
+    },
+    {
+      "article": "101",
+      "description": "Upon a judgment, including a foreign judgment, or a recognisance.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the judgment or recognisance.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 101",
+      "verified": true
+    },
+    {
+      "article": "102",
+      "description": "For property which the plaintiff has conveyed while insane.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the plaintiff is restored to sanity and has knowledge of the conveyance.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 102",
+      "verified": true
+    },
+    {
+      "article": "103",
+      "description": "To make good out of the general estate of a deceased trustee the loss occasioned by a breach of trust.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the trustee's death or if the loss has not then resulted, the date of the loss.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 103",
+      "verified": true
+    },
+    {
+      "article": "104",
+      "description": "To establish a periodically recurring right.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the plaintiff is first refused the enjoyment of the right.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 104",
+      "verified": true
+    },
+    {
+      "article": "105",
+      "description": "By a Hindu for arrears of maintenance.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the arrears are payable.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 105",
+      "verified": true
+    },
+    {
+      "article": "106",
+      "description": "For a legacy or for a share of a residur bequeathed by a testator or for a distributive share of the property of an intestate against an executor or an administrator or some other person legally charged with the duty of distributing the estate.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the legacy or share becomes payable or deliverable.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 106",
+      "verified": true
+    },
+    {
+      "article": "107",
+      "description": "For possession of a hereditary office. Explanation.—A hereditary office is possessed when the properties thereof are usually received, or (if there are no properties) when the duties thereof are usually performed.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the defendant takes possession of the office adversely to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 107",
+      "verified": true
+    },
+    {
+      "article": "108",
+      "description": "Suit during the life of a Hindu or Muslim female by a Hindu or Muslim who, if the female died at the date of instituting the suit, would be entitled to the possession of land, to have an alienation of such land made by the female declared to be void except for her life or until her re- marriage.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "The date of the alienation.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 108",
+      "verified": true
+    },
+    {
+      "article": "109",
+      "description": "By a Hindu governed by Mitakshara law to set aside his father’s alienation of ancestral property.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the alienee takes possession of the property.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 109",
+      "verified": true
+    },
+    {
+      "article": "110",
+      "description": "By a person excluded from a joint family property to enforce a right to share therein.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "When the exclusion becomes known to the plaintiff.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 110",
+      "verified": true
+    },
+    {
+      "article": "111",
+      "description": "By or on behalf of any local authority for possession of any public street or road or any part thereof from which it has been dispossessed or of which it has discontinued the possession.",
+      "period_text": "Thirty years.",
+      "period": {
+        "value": 30,
+        "unit": "year"
+      },
+      "starts_from": "The date of the dispossession or discontinuance.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 111",
+      "verified": true
+    },
+    {
+      "article": "112",
+      "description": "Any suit (except a suit before the Supreme Court in the exercise of its original jurisdiction) by or on behalf of the Central Government or any State Government, including the Government of the State of Jammu and Kashmir.",
+      "period_text": "Thirty years.",
+      "period": {
+        "value": 30,
+        "unit": "year"
+      },
+      "starts_from": "When the period of limitation would begin to run under this Act against a like suit by a private person.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 112",
+      "verified": true
+    },
+    {
+      "article": "113",
+      "description": "Any suit for which no period of limitation is provided elsewhere in this Schedule.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the right to sue accrues.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 113",
+      "verified": true
+    },
+    {
+      "article": "114",
+      "description": "Appeal from an order of acquittal,— (a)under sub-section (1) or sub- section (2) of section 417 of the Code of Criminal Procedure, 1898 (5 of 1898); (b)under sub-section (3) of section 417 of that Code.",
+      "period_text": "Ninety days.",
+      "period": {
+        "value": 90,
+        "unit": "day"
+      },
+      "starts_from": "The date of the order appealed from. The date of the grant of special leave.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 114",
+      "verified": true
+    },
+    {
+      "article": "115",
+      "description": "Under the Code of Criminal Procedure, 1898 (5 of 1898)— (a) from a sentence of death passed by a court of session or by a High Court in the exercise of its original criminal jurisdiction; (b) from any other sentence or any order not being an order of acquittal— (i) to the High Court (ii) to any other court",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "The date of the sentence. The date of the sentence or order. The date of the sentence or order.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 115",
+      "verified": true
+    },
+    {
+      "article": "116",
+      "description": "Under the Code of Civil Procedure, 1908 (5 of 1908)— (a) to a High Court from any decree or order. (b) to any other court from any decree or order.",
+      "period_text": "Ninety days.",
+      "period": {
+        "value": 90,
+        "unit": "day"
+      },
+      "starts_from": "The date of the decree or order. The date of the decree or order.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 116",
+      "verified": true
+    },
+    {
+      "article": "117",
+      "description": "From a decree or order of any High Court to the same Court.",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "The date of the decree or order.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 117",
+      "verified": true
+    },
+    {
+      "article": "118",
+      "description": "For leave to appear and defend a suit under summary procedure.",
+      "period_text": "Ten days.",
+      "period": {
+        "value": 10,
+        "unit": "day"
+      },
+      "starts_from": "When the summons is served.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 118",
+      "verified": true
+    },
+    {
+      "article": "119",
+      "description": "Under the Arbitration Act, 1940 (10 of 1940),— (a) for the filing in court of an award; (b) for setting aside an award or getting an award remitted for reconsideration.",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "The date of service of the notice of the making of the award; The date of service of the notice of the filing of the award.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 119",
+      "verified": true
+    },
+    {
+      "article": "120",
+      "description": "Under the Code of Civil Procedure, 1908 (5 of 1908), to have the legalrepresentative of a deceased plaintiff or appellant or of a deceased defendant or respondent, made a party.",
+      "period_text": "Ninety days.",
+      "period": {
+        "value": 90,
+        "unit": "day"
+      },
+      "starts_from": "The date of death of the plaintiff, appellant, defendant or respondent, as the case may be.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 120",
+      "verified": true
+    },
+    {
+      "article": "121",
+      "description": "Under the same Code for an order to set aside an abatement.",
+      "period_text": "Sixty days.",
+      "period": {
+        "value": 60,
+        "unit": "day"
+      },
+      "starts_from": "The date of abatement.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 121",
+      "verified": true
+    },
+    {
+      "article": "122",
+      "description": "To restore a suit or appeal or application for review or revision dismissed for default of appearance or for want of prosecution or for failure to pay costs of service of process or to furnish security for costs.",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "The date of dismissal.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 122",
+      "verified": true
+    },
+    {
+      "article": "123",
+      "description": "To set aside a decree passed ex parte or to rehear an appeal decreed or heard ex parte. Explanation.—For the purpose of this article, substituted service under rule 20 of Order V of the Code of Civil Procedure, 1908 (5 of 1908) shall not be deemed to be due service.",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "The date of the decree or where the summons or notice was not duly served, when the applicant had knowledge of the decree.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 123",
+      "verified": true
+    },
+    {
+      "article": "124",
+      "description": "For a review of judgment by a court other than the Supreme Court.",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "The date of the decree or order.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 124",
+      "verified": true
+    },
+    {
+      "article": "125",
+      "description": "To record an adjustment or satisfaction of a decree.",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "When the payment or adjustment is made.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 125",
+      "verified": true
+    },
+    {
+      "article": "126",
+      "description": "For the payment of the amount of a decree by instalments.",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "The date of the decree.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 126",
+      "verified": true
+    },
+    {
+      "article": "127",
+      "description": "To set aside a sale in execution of a decree, including any such application by a judgment- debtor.",
+      "period_text": "1[Sixty days",
+      "period": {
+        "value": 60,
+        "unit": "day"
+      },
+      "starts_from": "The date of the sale.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 127",
+      "verified": true
+    },
+    {
+      "article": "128",
+      "description": "For possession by one dispossessed of immovable property and disputing the right of the decree-holder or purchaser at a sale in execution of a decree.",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "The date of the dispossession.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 128",
+      "verified": true
+    },
+    {
+      "article": "129",
+      "description": "For possession after removing resistance or obstruction to delivery of possession of immovable property decreed or sold in execution of a decree.",
+      "period_text": "Thirty days.",
+      "period": {
+        "value": 30,
+        "unit": "day"
+      },
+      "starts_from": "The date of resistance or obstruction.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 129",
+      "verified": true
+    },
+    {
+      "article": "130",
+      "description": "For leave to appeal as a pauper— (a) to the High Court; (b) to any other court.",
+      "period_text": "Sixty days.",
+      "period": {
+        "value": 60,
+        "unit": "day"
+      },
+      "starts_from": "The date of decree appealed from. The date of decree appealed from.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 130",
+      "verified": true
+    },
+    {
+      "article": "131",
+      "description": "To any court for the exercise of its powers of revision under the Code of Civil Procedure, 1908 (5 of 1908), or the Code of Criminal Procedure, 1898 (5 of 1898).",
+      "period_text": "Ninety days.",
+      "period": {
+        "value": 90,
+        "unit": "day"
+      },
+      "starts_from": "The date of the decree or order or sentence sought to be revised.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 131",
+      "verified": true
+    },
+    {
+      "article": "132",
+      "description": "To the High Court for a certificate of fitness to appeal to the Supreme Court under clause (1) of article 132, article 133 or sub-clause (c) of clause (1) of article 134 of the Constitution or under any other law for the time being in force.",
+      "period_text": "Sixty days.",
+      "period": {
+        "value": 60,
+        "unit": "day"
+      },
+      "starts_from": "The date of the decree, order or sentence.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 132",
+      "verified": true
+    },
+    {
+      "article": "133",
+      "description": "To the Supreme Court for special leave to appeal,— (a) in a case involving death sentence; (b) in a case where leave to appeal was refused by the High Court; (c) in any other case.",
+      "period_text": "Sixty days.",
+      "period": {
+        "value": 60,
+        "unit": "day"
+      },
+      "starts_from": "The date of the judgment final order or sentence. The date of the order of refusal. The date of the judgment or order.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 133",
+      "verified": true
+    },
+    {
+      "article": "134",
+      "description": "For delivery of possession by a purchaser of immovable property at a sale in execution of a decree.",
+      "period_text": "One year.",
+      "period": {
+        "value": 1,
+        "unit": "year"
+      },
+      "starts_from": "When the sale becomes absolute.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 134",
+      "verified": true
+    },
+    {
+      "article": "135",
+      "description": "For the enforcement of a decree granting a mandatory injunction.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "The date of the decree or where a date is fixed for performance, such date.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 135",
+      "verified": true
+    },
+    {
+      "article": "136",
+      "description": "For the execution of any decree (other than a decree granting a mandatory injunction) or order of any civil court.",
+      "period_text": "Twelve years.",
+      "period": {
+        "value": 12,
+        "unit": "year"
+      },
+      "starts_from": "1[When] the decree or order becomes enforceable or where the decree or any subsequent order directs any payment of money or the delivery of any property to be made at a certain date or at recurring periods, when default in making the payment or delivery in respect of which execution is sought, takes place: Provided that an application for the enforcement or execution of a decree granting a perpetual injunction shall not be subject to any period of limitation.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 136",
+      "verified": true
+    },
+    {
+      "article": "137",
+      "description": "Any other application for which no period of limitation is provided elsewhere in this Division.",
+      "period_text": "Three years.",
+      "period": {
+        "value": 3,
+        "unit": "year"
+      },
+      "starts_from": "When the right to apply accrues.",
+      "source_ref": "Limitation Act 1963, Schedule, Art. 137",
+      "verified": true
+    }
+  ]
+}
