@@ -79,7 +79,7 @@ export interface UpdateMatterRequest {
 }
 
 export const updateMatter = (id: string, body: UpdateMatterRequest) =>
-  api.patch<{ success: boolean; matter: Matter }>(`/matters/${encodeURIComponent(id)}`, body)
+  api.patch<{ success: boolean; matter: MatterDetail }>(`/matters/${encodeURIComponent(id)}`, body)
 
 export interface FeeInstallmentRequest {
   label?: string

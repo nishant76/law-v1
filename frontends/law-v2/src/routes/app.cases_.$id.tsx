@@ -70,6 +70,7 @@ function MatterDetailPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ case_name: "", court: "", client_name: "", client_phone: "" });
 
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [addingFee, setAddingFee] = useState(false);
   const [feeForm, setFeeForm] = useState({ label: "", amount: "", due_date: "" });
   const [savingFee, setSavingFee] = useState(false);
@@ -319,6 +320,52 @@ function MatterDetailPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* The switch that actually gates client messages. Without it the
+                backend flag stayed false forever, so a phone number could be
+                entered but no client ever received a reminder. */}
+            <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-4">
+              <div>
+                <div className="text-sm text-foreground">WhatsApp reminders to client</div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  {matter.client_phone
+                    ? "Sent 7 days and 1 day before each hearing."
+                    : "Add the client's phone number first."}
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={!!matter.whatsapp_reminders_enabled}
+                disabled={!matter.client_phone || savingWhatsapp}
+                onClick={async () => {
+                  setSavingWhatsapp(true);
+                  try {
+                    const res = await updateMatter(matter.id, {
+                      whatsapp_reminders_enabled: !matter.whatsapp_reminders_enabled,
+                    });
+                    setData((prev) => (prev ? { ...prev, matter: res.data.matter } : prev));
+                    toast.success(
+                      res.data.matter.whatsapp_reminders_enabled
+                        ? "Client will receive WhatsApp reminders."
+                        : "Client WhatsApp reminders turned off.",
+                    );
+                  } catch {
+                    toast.error("Could not update. Please try again.");
+                  } finally {
+                    setSavingWhatsapp(false);
+                  }
+                }}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
+                  matter.whatsapp_reminders_enabled ? "bg-amber-accent" : "bg-border"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    matter.whatsapp_reminders_enabled ? "translate-x-[22px]" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
             </div>
           </Section>
 

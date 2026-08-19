@@ -55,6 +55,26 @@ def _matter_summary(m: Matter) -> dict:
     }
 
 
+def _matter_detail(m: Matter) -> dict:
+    """Matter summary plus the fields only the detail page shows.
+
+    PATCH returns this too: a client that toggles e.g. whatsapp_reminders_enabled
+    must be able to update its state from the response, which the summary shape
+    alone does not allow.
+    """
+    return {
+        **_matter_summary(m),
+        "judge_name": m.judge_name,
+        "matter_type": m.matter_type,
+        "description": m.description,
+        "filing_date": m.filing_date.date().isoformat() if m.filing_date else None,
+        "limitation_date": m.limitation_date.date().isoformat() if m.limitation_date else None,
+        "client_name": m.client_name,
+        "client_phone": m.client_phone,
+        "whatsapp_reminders_enabled": m.whatsapp_reminders_enabled,
+    }
+
+
 async def _load_matter(matter_id: str, current_user: CurrentUser, db: AsyncSession) -> Matter:
     try:
         mid = uuid.UUID(matter_id)
@@ -200,17 +220,7 @@ async def get_matter(
 
     return {
         "success": True,
-        "matter": {
-            **_matter_summary(matter),
-            "judge_name": matter.judge_name,
-            "matter_type": matter.matter_type,
-            "description": matter.description,
-            "filing_date": matter.filing_date.date().isoformat() if matter.filing_date else None,
-            "limitation_date": matter.limitation_date.date().isoformat() if matter.limitation_date else None,
-            "client_name": matter.client_name,
-            "client_phone": matter.client_phone,
-            "whatsapp_reminders_enabled": matter.whatsapp_reminders_enabled,
-        },
+        "matter": _matter_detail(matter),
         "fees": {
             "total": total_fees,
             "paid": paid,
@@ -248,7 +258,7 @@ async def update_matter(
 
     await db.commit()
     await db.refresh(matter)
-    return {"success": True, "matter": _matter_summary(matter)}
+    return {"success": True, "matter": _matter_detail(matter)}
 
 
 class FeeInstallmentRequest(BaseModel):

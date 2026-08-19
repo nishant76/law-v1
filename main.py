@@ -37,6 +37,7 @@ from backend.api.ecourts import router as ecourts_router
 from backend.api.matters import router as matters_router
 from backend.api.diary import router as diary_router
 from backend.api.notifications import router as notifications_router
+from backend.api.settings import router as settings_router
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -127,6 +128,7 @@ app.include_router(ecourts_router)
 app.include_router(matters_router)
 app.include_router(diary_router)
 app.include_router(notifications_router)
+app.include_router(settings_router)
 
 
 @app.on_event("startup")
