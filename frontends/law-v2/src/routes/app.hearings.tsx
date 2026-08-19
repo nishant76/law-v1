@@ -9,11 +9,13 @@ import {
   Gavel,
   Loader2,
   MapPin,
+  Plus,
   RefreshCw,
 } from "lucide-react";
 
 import { AppTopbar } from "@/components/app/AppTopbar";
 import { RecordOutcomeDialog } from "@/components/app/RecordOutcomeDialog";
+import { AddHearingDialog } from "@/components/app/AddHearingDialog";
 import { getDiary, type HearingEntry } from "@/api/diary";
 import { listDeadlines } from "@/api/deadlines";
 import { syncEcourtsHearings } from "@/api/ecourts";
@@ -61,13 +63,17 @@ function Diary() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState<HearingEntry | null>(null);
+  const [adding, setAdding] = useState(false);
+  // Day view answers "what is listed now"; week view is what you scan on a
+  // Sunday to plan. The API already supports a range, so this is a read shape.
+  const [range, setRange] = useState<"day" | "week">("day");
 
-  const load = useCallback(async (target: string) => {
+  const load = useCallback(async (target: string, span: "day" | "week" = "day") => {
     setLoading(true);
     setError(null);
     try {
       const [diaryRes, deadlineRes] = await Promise.all([
-        getDiary(target),
+        getDiary(target, span === "week" ? 7 : 1),
         listDeadlines(),
       ]);
       setEntries(diaryRes.data.data?.entries ?? []);
@@ -80,8 +86,8 @@ function Diary() {
   }, []);
 
   useEffect(() => {
-    load(day);
-  }, [day, load]);
+    load(day, range);
+  }, [day, range, load]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -89,7 +95,7 @@ function Diary() {
     const id = toast.loading("Syncing hearing dates from eCourts…");
     try {
       await syncEcourtsHearings();
-      await load(day);
+      await load(day, range);
       toast.success("eCourts sync complete.", { id });
     } catch {
       toast.error("eCourts sync failed. Please try again later.", { id });
@@ -130,22 +136,26 @@ function Diary() {
         {/* Date navigator */}
         <div className="flex flex-wrap items-center gap-3">
           <button
-            aria-label="Previous day"
-            onClick={() => setDay((d) => addDays(d, -1))}
+            aria-label={range === "week" ? "Previous week" : "Previous day"}
+            onClick={() => setDay((d) => addDays(d, range === "week" ? -7 : -1))}
             className="hairline inline-flex h-9 w-9 items-center justify-center rounded-md bg-card"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button
-            aria-label="Next day"
-            onClick={() => setDay((d) => addDays(d, 1))}
+            aria-label={range === "week" ? "Next week" : "Next day"}
+            onClick={() => setDay((d) => addDays(d, range === "week" ? 7 : 1))}
             className="hairline inline-flex h-9 w-9 items-center justify-center rounded-md bg-card"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
 
           <div>
-            <h2 className="font-serif text-xl leading-tight">{prettyDate(day)}</h2>
+            <h2 className="font-serif text-xl leading-tight">
+              {range === "week"
+                ? `${prettyDate(day)} — ${prettyDate(addDays(day, 6))}`
+                : prettyDate(day)}
+            </h2>
             <p className="text-xs text-muted-foreground">
               {day === today
                 ? "Today"
@@ -160,6 +170,27 @@ function Diary() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <div className="hairline inline-flex overflow-hidden rounded-md">
+              {(["day", "week"] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={`h-9 px-3 text-sm capitalize transition-colors ${
+                    range === r
+                      ? "bg-amber-accent text-amber-accent-fg"
+                      : "bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setAdding(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3 text-sm text-background"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add hearing
+            </button>
             <input
               type="date"
               value={day}
@@ -192,7 +223,7 @@ function Diary() {
             {/* ---------------------------------------------- cause list */}
             <div className="hairline rounded-xl bg-card p-6">
               <div className="flex items-baseline justify-between">
-                <h3 className="font-serif text-lg">Cause list</h3>
+                <h3 className="font-serif text-lg">{range === "week" ? "This week" : "Cause list"}</h3>
                 {pending.length > 0 && isPast && (
                   <span className="text-xs text-amber-accent">
                     {pending.length} not yet recorded
@@ -203,7 +234,7 @@ function Diary() {
               {entries.length === 0 ? (
                 <div className="py-12 text-center text-sm text-muted-foreground">
                   <CalendarDays className="mx-auto h-6 w-6 opacity-40" />
-                  <p className="mt-3">Nothing listed on this date.</p>
+                  <p className="mt-3">Nothing listed {range === "week" ? "this week" : "on this date"}.</p>
                   <p className="mt-1 text-xs">
                     Hearing dates arrive automatically from eCourts once your cases are
                     imported.
@@ -214,11 +245,28 @@ function Diary() {
                   {entries.map((e) => (
                     <li key={e.id} className="py-4">
                       <div className="flex items-start gap-4">
-                        <div className="w-12 shrink-0 text-center">
-                          <div className="font-mono text-sm">{e.board_number ?? "—"}</div>
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                            item
-                          </div>
+                        <div className="w-14 shrink-0 text-center">
+                          {range === "week" ? (
+                            <>
+                              <div className="font-mono text-sm">
+                                {new Date(e.hearing_date).toLocaleDateString("en-IN", {
+                                  timeZone: "Asia/Kolkata",
+                                  day: "2-digit",
+                                  month: "short",
+                                })}
+                              </div>
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                {e.board_number ? `item ${e.board_number}` : "date"}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="font-mono text-sm">{e.board_number ?? "—"}</div>
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                item
+                              </div>
+                            </>
+                          )}
                         </div>
 
                         <div className="min-w-0 flex-1">
@@ -348,7 +396,17 @@ function Diary() {
         onClose={() => setRecording(null)}
         onSaved={() => {
           setRecording(null);
-          load(day);
+          load(day, range);
+        }}
+      />
+
+      <AddHearingDialog
+        open={adding}
+        defaultDate={day}
+        onClose={() => setAdding(false)}
+        onSaved={() => {
+          setAdding(false);
+          load(day, range);
         }}
       />
     </>

@@ -1,6 +1,12 @@
 import api from './client'
 import type { CaseDetail } from './ecourts'
 
+export interface MatterFeeSummary {
+  agreed: number
+  paid: number
+  due: number
+}
+
 export interface Matter {
   id: string
   case_name: string
@@ -14,6 +20,10 @@ export interface Matter {
   is_active: boolean
   ecourts_tracked: boolean
   created_at: string
+  client_name: string | null
+  /** Present on the list endpoint; totals computed in SQL so list and detail agree. */
+  fees?: MatterFeeSummary
+
 }
 
 export interface MatterDetail extends Matter {

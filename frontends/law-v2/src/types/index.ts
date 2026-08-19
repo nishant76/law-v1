@@ -114,9 +114,9 @@ export interface Deadline {
   reminder_date: string
   days_remaining: number
   /** Derived from the key date — what the UI groups and colours by. */
-  urgency: 'upcoming' | 'urgent' | 'missed'
+  urgency: 'upcoming' | 'urgent' | 'missed' | 'done'
   /** Reminder delivery state, NOT urgency. */
-  delivery_status: 'pending' | 'sent' | 'missed'
+  delivery_status: 'pending' | 'sent' | 'missed' | 'completed'
   whatsapp_enabled: boolean
 }
 

@@ -1,23 +1,28 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 import {
   recordHearingOutcome,
   type HearingEntry,
   type HearingEntryStatus,
 } from "@/api/diary";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+
+/**
+ * Plain <label>, not components/ui/label — that wraps @radix-ui/react-label, and
+ * no Radix primitive resolves correctly under this project's TanStack Start /
+ * Vite setup (importing one yields a second React instance and an "Invalid hook
+ * call"). Same reason this dialog is hand-rolled instead of using ui/dialog.
+ */
+function Label({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="block text-xs font-medium text-foreground">
+      {children}
+    </label>
+  );
+}
 
 const STATUS_OPTIONS: { value: HearingEntryStatus; label: string; hint: string }[] = [
   { value: "adjourned", label: "Adjourned", hint: "Taken up and put off to a new date" },
@@ -95,11 +100,30 @@ export function RecordOutcomeDialog({
   };
 
   return (
-    <Dialog open={!!entry} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="font-serif">{entry.case_name}</DialogTitle>
-          <DialogDescription>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 lg:p-10"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Record outcome — ${entry.case_name}`}
+        className="hairline max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-card p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-5">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="font-serif text-lg leading-snug">{entry.case_name}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
             {new Date(entry.hearing_date).toLocaleDateString("en-IN", {
               timeZone: "Asia/Kolkata",
               weekday: "short",
@@ -108,8 +132,8 @@ export function RecordOutcomeDialog({
               year: "numeric",
             })}
             {entry.court ? ` · ${entry.court}` : ""}
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
 
         <div className="space-y-4">
           <div className="space-y-2">
@@ -194,7 +218,7 @@ export function RecordOutcomeDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -211,8 +235,8 @@ export function RecordOutcomeDialog({
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Save
           </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 }

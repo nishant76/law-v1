@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import CurrentUser, get_current_user, get_db
+from backend.api.deps import CurrentUser, get_current_user, get_db, parse_uuid_or_404
 from backend.models import DeadlineReminder, ReminderType, ReminderStatus, Draft
 from backend.services.deadline_service import get_deadline_service
 from backend.core.logger import get_logger
@@ -41,6 +41,7 @@ async def create_deadline(
         The reminder set created for this deadline (30 / 7 / 1 days before,
         skipping any offset already in the past).
     """
+    parse_uuid_or_404(matter_id, "Matter")
     try:
         service = get_deadline_service()
         reminders = await service.create_deadline(
@@ -110,7 +111,10 @@ async def list_upcoming_deadlines(
         for d, matter in deadlines:
             key_date = d.key_date if d.key_date.tzinfo else d.key_date.replace(tzinfo=timezone.utc)
             days_remaining = (key_date - now).days
-            if d.status == ReminderStatus.MISSED or days_remaining < 0:
+            if d.status == ReminderStatus.COMPLETED:
+                # The hearing was held and its outcome recorded — done, not late.
+                urgency = "done"
+            elif d.status == ReminderStatus.MISSED or days_remaining < 0:
                 urgency = "missed"
             elif days_remaining <= 3:
                 urgency = "urgent"
@@ -161,6 +165,7 @@ async def mark_deadline_missed(
     Returns:
         Success status
     """
+    parse_uuid_or_404(deadline_id, "Deadline")
     try:
         service = get_deadline_service()
         success = await service.mark_deadline_missed(
@@ -207,6 +212,7 @@ async def generate_condonation_draft(
     Returns:
         Generated draft details
     """
+    parse_uuid_or_404(deadline_id, "Deadline")
     try:
         service = get_deadline_service()
         draft = await service.generate_condonation_draft(
@@ -257,6 +263,7 @@ async def delete_deadline(
     Returns:
         Success status
     """
+    parse_uuid_or_404(deadline_id, "Deadline")
     try:
         import uuid as _uuid
         from sqlalchemy import update

@@ -24,6 +24,9 @@ class ReminderStatus(str, enum.Enum):
     PENDING = "pending"
     SENT = "sent"
     MISSED = "missed"
+    # Terminal: the underlying event was dealt with (e.g. the hearing was held
+    # and its outcome recorded), so this reminder must never show as missed.
+    COMPLETED = "completed"
 
 
 class DeadlineReminder(BaseModel):

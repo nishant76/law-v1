@@ -19,7 +19,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func, case
 
 from backend.api.deps import get_db, get_current_user
 from backend.core.dependencies import CurrentUser
@@ -102,21 +102,68 @@ async def list_matters(
     current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    The cases list.
+
+    Carries client name and the fee balance alongside each matter: a lawyer
+    scanning 100+ rows thinks in terms of "which client" and "who still owes
+    me", not CNR strings. Fee totals come from ONE grouped aggregate joined to
+    the matter query — never a per-row query, which would be 100+ round trips
+    on a real practice.
+    """
+    firm_id = uuid.UUID(current_user.firm_id)
+
+    # agreed = every installment; paid = those marked paid. Balance is the
+    # difference, computed in SQL so the list and the detail page agree.
+    fee_totals = (
+        select(
+            MatterFeeInstallment.matter_id.label("matter_id"),
+            func.coalesce(func.sum(MatterFeeInstallment.amount), 0).label("agreed"),
+            func.coalesce(
+                func.sum(
+                    case((MatterFeeInstallment.is_paid.is_(True), MatterFeeInstallment.amount), else_=0)
+                ),
+                0,
+            ).label("paid"),
+        )
+        .where(
+            MatterFeeInstallment.firm_id == firm_id,
+            MatterFeeInstallment.deleted_at.is_(None),
+        )
+        .group_by(MatterFeeInstallment.matter_id)
+        .subquery()
+    )
+
     result = await db.execute(
-        select(Matter)
+        select(Matter, fee_totals.c.agreed, fee_totals.c.paid)
+        .outerjoin(fee_totals, fee_totals.c.matter_id == Matter.id)
         .where(
             and_(
-                Matter.firm_id == uuid.UUID(current_user.firm_id),
+                Matter.firm_id == firm_id,
                 Matter.deleted_at.is_(None),
             )
         )
         .order_by(Matter.next_hearing_date.asc().nullslast(), Matter.created_at.desc())
     )
-    matters = result.scalars().all()
+    rows = result.all()
+
+    matters = []
+    for m, agreed, paid in rows:
+        agreed_f = float(agreed or 0)
+        paid_f = float(paid or 0)
+        matters.append({
+            **_matter_summary(m),
+            "client_name": m.client_name,
+            "fees": {
+                "agreed": agreed_f,
+                "paid": paid_f,
+                "due": agreed_f - paid_f,
+            },
+        })
 
     return {
         "success": True,
-        "matters": [_matter_summary(m) for m in matters],
+        "matters": matters,
         "total": len(matters),
     }
 

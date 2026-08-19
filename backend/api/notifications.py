@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import CurrentUser, get_current_user, get_db
+from backend.api.deps import CurrentUser, get_current_user, get_db, parse_uuid_or_404
 from backend.core.logger import get_logger
 from backend.models import Notification
 
@@ -92,6 +92,7 @@ async def mark_notification_read(
     db: AsyncSession = Depends(get_db),
 ):
     """Mark one notification as read."""
+    parse_uuid_or_404(notification_id, "Notification")
     try:
         result = await db.execute(
             update(Notification)

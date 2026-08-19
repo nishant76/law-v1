@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import CurrentUser, get_current_user, get_db
+from backend.api.deps import CurrentUser, get_current_user, get_db, parse_uuid_or_404
 from backend.core.logger import get_logger
 from backend.models import HearingStatus
 from backend.services.diary_service import get_diary_service, local_today
@@ -91,10 +91,15 @@ async def get_matter_diary(
     db: AsyncSession = Depends(get_db),
 ):
     """Full hearing history for one matter — every date, most recent first."""
+    # Outside the try: the 404 this raises must not be swallowed by the generic
+    # handler below and re-reported as a 500.
+    parse_uuid_or_404(matter_id, "Matter")
     try:
         service = get_diary_service()
         entries = await service.get_matter_history(db, current_user.firm_id, matter_id)
         return {"success": True, "data": {"entries": entries, "count": len(entries)}}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to load matter diary: {str(e)}")
         raise HTTPException(
@@ -110,6 +115,7 @@ async def create_diary_entry(
     db: AsyncSession = Depends(get_db),
 ):
     """Add a court date to the diary by hand."""
+    parse_uuid_or_404(payload.matter_id, "Matter")
     try:
         service = get_diary_service()
         entry = await service.create_entry(
@@ -153,6 +159,7 @@ async def record_hearing_outcome(
     Supplying `next_date` rolls the matter forward: it creates the next
     scheduled entry, updates the matter, and arms fresh 30/7/1 reminders.
     """
+    parse_uuid_or_404(entry_id, "Diary entry")
     try:
         service = get_diary_service()
         entry = await service.record_outcome(

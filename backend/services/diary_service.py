@@ -24,16 +24,18 @@ from datetime import date as date_cls, datetime, time, timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
 from backend.core.logger import get_logger
 from backend.models import (
+    DeadlineReminder,
     HearingEntry,
     HearingStatus,
     Matter,
     NotificationType,
+    ReminderStatus,
     ReminderType,
     User,
 )
@@ -299,6 +301,12 @@ class DiaryService:
 
         matter = await session.get(Matter, entry.matter_id)
 
+        # The date has now been dealt with, so its reminders are spent. Closing
+        # them is what stops an attended hearing sitting in "Missed" forever
+        # once its key date passes.
+        if status != HearingStatus.SCHEDULED:
+            await self._close_reminders_for(session, entry)
+
         if next_date is not None:
             next_dt = _as_aware(next_date)
             entry.next_date = next_dt
@@ -309,6 +317,33 @@ class DiaryService:
 
         await session.commit()
         return self._serialise(entry, matter)
+
+    async def _close_reminders_for(
+        self, session: AsyncSession, entry: HearingEntry
+    ) -> int:
+        """
+        Mark reminders for this entry's court date as COMPLETED.
+
+        Matches on the local (IST) day rather than an exact timestamp: a
+        reminder's key_date is the hearing datetime, and the diary entry may
+        carry a slightly different time for the same listing.
+        """
+        start, end = local_day_bounds(_as_aware(entry.hearing_date).astimezone(LOCAL_TZ).date())
+        result = await session.execute(
+            update(DeadlineReminder)
+            .where(
+                DeadlineReminder.matter_id == entry.matter_id,
+                DeadlineReminder.deleted_at.is_(None),
+                DeadlineReminder.reminder_type == ReminderType.HEARING,
+                DeadlineReminder.key_date >= start,
+                DeadlineReminder.key_date < end,
+                DeadlineReminder.status.in_(
+                    [ReminderStatus.PENDING, ReminderStatus.SENT, ReminderStatus.MISSED]
+                ),
+            )
+            .values(status=ReminderStatus.COMPLETED)
+        )
+        return result.rowcount or 0
 
     async def _create_follow_up(
         self,
@@ -349,10 +384,27 @@ class DiaryService:
         # Arm the reminder cadence for the new date. Imported here to avoid a
         # circular import (deadline_service does not import diary_service, but
         # keeping it local makes that guarantee obvious).
-        from backend.services.deadline_service import DeadlineService, REMINDER_OFFSETS_DAYS
-        from backend.models import DeadlineReminder
+        from backend.services.deadline_service import REMINDER_OFFSETS_DAYS
 
         now = _utcnow()
+
+        # Recording an outcome twice — correcting a typo, say — must not arm a
+        # second set of reminders, or the lawyer and client get every reminder
+        # twice. Undelivered reminders for this same date are cleared first;
+        # already-sent ones are left alone so the delivery record survives.
+        await session.execute(
+            update(DeadlineReminder)
+            .where(
+                DeadlineReminder.matter_id == entry.matter_id,
+                DeadlineReminder.deleted_at.is_(None),
+                DeadlineReminder.reminder_type == ReminderType.HEARING,
+                DeadlineReminder.key_date >= start,
+                DeadlineReminder.key_date < end,
+                DeadlineReminder.status == ReminderStatus.PENDING,
+            )
+            .values(deleted_at=now)
+        )
+
         title = f"Hearing — {matter.case_name}"
         for offset in REMINDER_OFFSETS_DAYS:
             reminder_date = next_dt - timedelta(days=offset)
