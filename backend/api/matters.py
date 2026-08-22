@@ -51,6 +51,7 @@ def _matter_summary(m: Matter) -> dict:
         ),
         "is_active": m.is_active,
         "ecourts_tracked": m.ecourts_tracked,
+        "agreed_fee": float(m.agreed_fee) if m.agreed_fee is not None else None,
         "created_at": m.created_at.isoformat(),
     }
 
@@ -168,9 +169,11 @@ async def list_matters(
     rows = result.all()
 
     matters = []
-    for m, agreed, paid in rows:
-        agreed_f = float(agreed or 0)
+    for m, installment_total, paid in rows:
         paid_f = float(paid or 0)
+        # agreed_fee on the matter is the lawyer's quoted total; if not set,
+        # fall back to the sum of installments (backwards-compatible).
+        agreed_f = float(m.agreed_fee) if m.agreed_fee is not None else float(installment_total or 0)
         matters.append({
             **_matter_summary(m),
             "client_name": m.client_name,
@@ -204,8 +207,9 @@ async def get_matter(
     matter = await _load_matter(matter_id, current_user, db)
     fees = await _fee_installments(matter.id, matter.firm_id, db)
 
-    total_fees = sum(float(f.amount) for f in fees)
+    installment_total = sum(float(f.amount) for f in fees)
     paid = sum(float(f.amount) for f in fees if f.is_paid)
+    agreed = float(matter.agreed_fee) if matter.agreed_fee is not None else installment_total
 
     ecourts_case = None
     ecourts_error = None
@@ -222,14 +226,51 @@ async def get_matter(
         "success": True,
         "matter": _matter_detail(matter),
         "fees": {
-            "total": total_fees,
+            "total": agreed,
             "paid": paid,
-            "due": total_fees - paid,
+            "due": agreed - paid,
             "installments": [_fee_json(f) for f in fees],
         },
         "ecourts_case": ecourts_case,
         "ecourts_error": ecourts_error,
     }
+
+
+class CreateMatterRequest(BaseModel):
+    case_name: str = Field(..., min_length=1, max_length=500)
+    court: Optional[str] = Field(None, max_length=255)
+    matter_type: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = None
+    client_name: Optional[str] = Field(None, max_length=255)
+    client_phone: Optional[str] = Field(None, max_length=20)
+    cnr_number: Optional[str] = Field(None, max_length=20)
+    next_hearing_date: Optional[str] = Field(None, description="YYYY-MM-DD")
+    agreed_fee: Optional[float] = Field(None, ge=0)
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def create_matter(
+    body: CreateMatterRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    firm_id = uuid.UUID(current_user.firm_id)
+    matter = Matter(
+        firm_id=firm_id,
+        case_name=body.case_name,
+        court=body.court,
+        matter_type=body.matter_type,
+        description=body.description,
+        client_name=body.client_name,
+        client_phone=body.client_phone,
+        cnr_number=body.cnr_number,
+        next_hearing_date=_parse_date(body.next_hearing_date),
+        agreed_fee=body.agreed_fee,
+    )
+    db.add(matter)
+    await db.commit()
+    await db.refresh(matter)
+    return {"success": True, "matter": _matter_detail(matter)}
 
 
 class UpdateMatterRequest(BaseModel):
@@ -241,6 +282,9 @@ class UpdateMatterRequest(BaseModel):
     client_phone: Optional[str] = Field(None, max_length=20)
     is_active: Optional[bool] = None
     whatsapp_reminders_enabled: Optional[bool] = None
+    next_hearing_date: Optional[str] = Field(None, description="YYYY-MM-DD or empty string to clear")
+    case_status: Optional[str] = Field(None, max_length=50)
+    agreed_fee: Optional[float] = Field(None, ge=0)
 
 
 @router.patch("/{matter_id}")
@@ -253,6 +297,8 @@ async def update_matter(
     matter = await _load_matter(matter_id, current_user, db)
 
     updates = body.model_dump(exclude_unset=True)
+    if "next_hearing_date" in updates:
+        updates["next_hearing_date"] = _parse_date(updates["next_hearing_date"] or None)
     for field, value in updates.items():
         setattr(matter, field, value)
 

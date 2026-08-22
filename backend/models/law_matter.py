@@ -4,7 +4,7 @@ Matter model — represents a legal case or matter
 import uuid
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, UUID, ForeignKey, DateTime, Text, Boolean, Index
+from sqlalchemy import String, UUID, ForeignKey, DateTime, Text, Boolean, Index, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from .base import BaseModel
@@ -52,6 +52,10 @@ class Matter(BaseModel):
     # Matter metadata
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+
+    # Fees — the agreed total fee for this matter. Installments track the
+    # payment schedule against this number. Paid = sum of paid installments.
+    agreed_fee: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
 
     # Client information
     client_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

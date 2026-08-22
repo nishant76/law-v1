@@ -1,12 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppTopbar } from "@/components/app/AppTopbar";
 import { useState, useRef, useEffect } from "react";
 import { streamExtractUpload, streamChatWithDocument } from "@/api/extract";
+import { createMatter } from "@/api/matters";
 import {
   Upload, Send, FileText, Sparkles, Loader2,
-  CheckCircle, XCircle, MessageSquare, FileIcon,
+  CheckCircle, XCircle, MessageSquare, FileIcon, Plus,
 } from "lucide-react";
 import MarkdownText from "@/components/ui/MarkdownText";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/documents")({
   head: () => ({ meta: [{ title: "Documents — SuperAdvocate.Ai" }] }),
@@ -51,7 +53,7 @@ function formatDate(raw: string): string {
   return raw;
 }
 
-function CaseSnapshotCard({ snap }: { snap: CaseSnapshot }) {
+function CaseSnapshotCard({ snap, onCreateCase }: { snap: CaseSnapshot; onCreateCase?: () => void }) {
   const outcome = (snap.outcome ?? "").toLowerCase();
   const isAllowed = outcome.includes("allow");
   const isDismissed = outcome.includes("dismiss");
@@ -62,11 +64,21 @@ function CaseSnapshotCard({ snap }: { snap: CaseSnapshot }) {
           {snap.document_type && <div className="eyebrow mb-1">{snap.document_type}</div>}
           {snap.case_no && <div className="font-mono text-xs text-muted-foreground">{snap.case_no}</div>}
         </div>
-        {(isAllowed || isDismissed) && (
-          <div className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${isAllowed ? "bg-emerald-50 text-emerald-700" : "bg-destructive/10 text-destructive"}`}>
-            {isAllowed ? <><CheckCircle className="h-3.5 w-3.5" /> Allowed</> : <><XCircle className="h-3.5 w-3.5" /> Dismissed</>}
-          </div>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {(isAllowed || isDismissed) && (
+            <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${isAllowed ? "bg-emerald-50 text-emerald-700" : "bg-destructive/10 text-destructive"}`}>
+              {isAllowed ? <><CheckCircle className="h-3.5 w-3.5" /> Allowed</> : <><XCircle className="h-3.5 w-3.5" /> Dismissed</>}
+            </div>
+          )}
+          {onCreateCase && (
+            <button
+              onClick={onCreateCase}
+              className="inline-flex items-center gap-1 rounded-md border border-amber-accent/40 px-2.5 py-1 text-xs font-medium text-amber-accent hover:bg-amber-accent hover:text-amber-accent-fg transition-colors"
+            >
+              <Plus className="h-3 w-3" /> Add to cases
+            </button>
+          )}
+        </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
         {snap.court && (
@@ -114,6 +126,7 @@ const QUICK_PROMPTS = [
 ];
 
 function Documents() {
+  const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -131,6 +144,26 @@ function Documents() {
   const [question, setQuestion] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [creatingCase, setCreatingCase] = useState(false);
+
+  const handleCreateCase = async () => {
+    if (!snapshot || creatingCase) return;
+    const caseName = [snapshot.appellant, snapshot.respondent].filter(Boolean).join(" v. ") || fileName || "Untitled matter";
+    setCreatingCase(true);
+    try {
+      const res = await createMatter({
+        case_name: caseName,
+        court: snapshot.court || undefined,
+        client_name: snapshot.appellant || undefined,
+      });
+      toast.success("Case created.");
+      navigate({ to: "/app/cases/$id", params: { id: res.data.matter.id } });
+    } catch {
+      toast.error("Could not create case.");
+    } finally {
+      setCreatingCase(false);
+    }
+  };
 
   // SNAPSHOT streaming refs
   const snapshotParsedRef = useRef(false);
@@ -317,7 +350,7 @@ function Documents() {
                   </button>
                 </div>
 
-                {snapshot && <CaseSnapshotCard snap={snapshot} />}
+                {snapshot && <CaseSnapshotCard snap={snapshot} onCreateCase={handleCreateCase} />}
 
                 {!snapshot && !streamText && uploading && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">

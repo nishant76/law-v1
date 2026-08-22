@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppTopbar } from "@/components/app/AppTopbar";
 import { EcourtsQuickImport } from "@/components/app/EcourtsQuickImport";
 import { useAuthStore } from "@/store/authStore";
-import { useCaseStore } from "@/store/caseStore";
+import { listMatters, type Matter } from "@/api/matters";
 import {
   FileText,
   MessageSquareReply,
@@ -17,6 +17,7 @@ import {
   CalendarClock,
   Briefcase,
   Download,
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/app/")({
@@ -71,22 +72,38 @@ const AI_TOOLS = [
 
 function Dashboard() {
   const user = useAuthStore((s) => s.user);
-  const cases = useCaseStore((s) => s.cases);
   const [showQuickImport, setShowQuickImport] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
+
+  // Real data from the backend — replaces the old useCaseStore (which was
+  // a Zustand localStorage store that was never populated from the API).
+  const [matters, setMatters] = useState<Matter[]>([]);
+  const [mattersLoading, setMattersLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await listMatters();
+        setMatters(res.data.matters);
+      } catch {
+        // Dashboard is non-critical — an empty state is fine on error
+      } finally {
+        setMattersLoading(false);
+      }
+    })();
+  }, [importedCount]);
 
   const firstName = user?.full_name?.split(" ")[0] ?? "Advocate";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-  const activeCases = cases.filter((c) => c.status === "active");
-  const upcomingHearings = cases
-    .flatMap((c) =>
-      c.hearings.map((h) => ({ ...h, caseTitle: c.title, caseNo: c.case_number ?? "", court: c.court }))
-    )
-    .filter((h) => h.date >= new Date().toISOString().slice(0, 10))
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 3);
+  const today = new Date().toISOString().slice(0, 10);
+  const activeCases = matters.filter((m) => m.is_active);
+  const upcomingHearings = matters
+    .filter((m) => m.next_hearing_date && m.next_hearing_date >= today)
+    .sort((a, b) => (a.next_hearing_date ?? "").localeCompare(b.next_hearing_date ?? ""))
+    .slice(0, 5);
+  const todayHearings = matters.filter((m) => m.next_hearing_date === today);
 
   return (
     <>
@@ -113,15 +130,15 @@ function Dashboard() {
       <div className="flex-1 overflow-y-auto px-6 py-8 lg:px-10">
 
         {/* ── eCourts import banner (shown when no cases imported yet) */}
-        {cases.length === 0 && importedCount === 0 && (
+        {!mattersLoading && matters.length === 0 && importedCount === 0 && (
           <div className="mb-7 flex items-start gap-4 rounded-xl border border-amber-accent/30 bg-amber-accent/5 px-5 py-5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-accent/15">
               <Download className="h-5 w-5 text-amber-accent" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">Your eCourts case data is ready to pull</p>
+              <p className="text-sm font-semibold text-foreground">Import your cases from eCourts</p>
               <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                Import your pending cases to track every hearing, get deadline reminders,
+                Pull your pending matters to track hearings, get deadline reminders,
                 and draft filings — no manual data entry needed.
               </p>
             </div>
@@ -192,7 +209,11 @@ function Dashboard() {
               </Link>
             </div>
             <div className="hairline rounded-xl bg-card">
-              {upcomingHearings.length === 0 ? (
+              {mattersLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : upcomingHearings.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-10 text-center">
                   <CalendarClock className="h-8 w-8 text-border" />
                   <p className="text-sm text-muted-foreground">No hearings scheduled yet.</p>
@@ -202,14 +223,20 @@ function Dashboard() {
                 </div>
               ) : (
                 <ul className="divide-y divide-border">
-                  {upcomingHearings.map((h) => (
-                    <li key={h.id} className="flex items-center gap-4 px-5 py-4">
-                      <div className="w-24 font-mono text-sm text-muted-foreground">{h.date}</div>
+                  {upcomingHearings.map((m) => (
+                    <li key={m.id} className="flex items-center gap-4 px-5 py-4">
+                      <div className="w-24 font-mono text-sm text-muted-foreground">{m.next_hearing_date}</div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-foreground">{h.caseTitle}</div>
-                        <div className="text-xs text-muted-foreground">{h.caseNo} · {h.court}</div>
+                        <div className="truncate text-sm font-medium text-foreground">{m.case_name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {m.cnr_number ?? ""}{m.cnr_number && m.court ? " · " : ""}{m.court ?? ""}
+                        </div>
                       </div>
-                      <Link to="/app/cases" className="text-xs text-foreground underline-offset-4 hover:underline">
+                      <Link
+                        to="/app/cases/$id"
+                        params={{ id: m.id }}
+                        className="text-xs text-foreground underline-offset-4 hover:underline"
+                      >
                         Open
                       </Link>
                     </li>
@@ -225,7 +252,7 @@ function Dashboard() {
             {/* Today — compact 2-stat strip */}
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border">
               {[
-                [String(upcomingHearings.length), "hearings today"],
+                [String(todayHearings.length), "hearings today"],
                 [String(activeCases.length), "active matters"],
               ].map(([n, l]) => (
                 <div key={l} className="bg-card px-4 py-4">
@@ -246,7 +273,11 @@ function Dashboard() {
                   <Plus className="h-3 w-3" /> Add
                 </Link>
               </div>
-              {activeCases.length === 0 ? (
+              {mattersLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : activeCases.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-8 text-center">
                   <Briefcase className="h-7 w-7 text-border" />
                   <p className="text-xs text-muted-foreground">No active cases yet.</p>
@@ -256,10 +287,10 @@ function Dashboard() {
                 </div>
               ) : (
                 <ul className="divide-y divide-border text-sm">
-                  {activeCases.slice(0, 5).map((c) => (
-                    <li key={c.id} className="px-4 py-3">
-                      <div className="truncate font-medium">{c.title}</div>
-                      <div className="text-xs text-muted-foreground">{c.court}</div>
+                  {activeCases.slice(0, 5).map((m) => (
+                    <li key={m.id} className="px-4 py-3">
+                      <div className="truncate font-medium">{m.case_name}</div>
+                      <div className="text-xs text-muted-foreground">{m.court}</div>
                     </li>
                   ))}
                 </ul>

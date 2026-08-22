@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppTopbar } from "@/components/app/AppTopbar";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { generateFilingTemplate, generateFilingTemplateFromFile, exportFilingTemplate, checkBrief } from "@/api/filing";
@@ -9,9 +9,20 @@ import { analyzeBriefLocally, type BriefDimensionResult } from "@/lib/briefStren
 import { DraftCitationsPanel } from "@/components/app/DraftCitationsPanel";
 import { authoritiesMarkdown, type AttachedCitation } from "@/lib/draftCitations";
 
+interface DraftingSearch {
+  brief?: string;
+  court?: string;
+  matter?: string;
+}
+
 export const Route = createFileRoute("/app/drafting")({
   head: () => ({ meta: [{ title: "Drafting — SuperAdvocate.Ai" }] }),
   component: Drafting,
+  validateSearch: (search: Record<string, unknown>): DraftingSearch => ({
+    brief: typeof search.brief === "string" ? search.brief : undefined,
+    court: typeof search.court === "string" ? search.court : undefined,
+    matter: typeof search.matter === "string" ? search.matter : undefined,
+  }),
 });
 
 // Substitutes {{key}} tokens with the lawyer's typed value (live-fill). In "preview" mode every
@@ -36,15 +47,14 @@ function fillTemplate(
 }
 
 function Drafting() {
-  // Optional filing-type hint. Empty for the first pass (the model classifies the
-  // type from the brief). Set only when the lawyer corrects the detected-type chip,
-  // in which case it's prepended to the brief on regeneration to steer the type +
-  // precedent routing. Replaces the old mandatory Document Type dropdown.
+  const { brief: initBrief, court: initCourt, matter: initMatter } = Route.useSearch();
+
   const [typeOverride, setTypeOverride] = useState("");
   const [editingType, setEditingType] = useState(false);
   const [typeDraft, setTypeDraft] = useState("");
-  const [brief, setBrief] = useState("");
-  const [court, setCourt] = useState("");
+  const [brief, setBrief] = useState(initBrief ?? "");
+  const [court, setCourt] = useState(initCourt ?? "");
+  const [linkedMatterId] = useState(initMatter ?? "");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FilingTemplateResponse | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -255,7 +265,11 @@ function Drafting() {
   if (!result) {
     return (
       <>
-        <AppTopbar eyebrow="AI · Drafting" title="New court filing draft" />
+        <AppTopbar
+          eyebrow="AI · Drafting"
+          title="New court filing draft"
+          actions={linkedMatterId ? <Link to="/app/cases/$id" params={{ id: linkedMatterId }} className="text-xs text-muted-foreground hover:text-amber-accent transition-colors">← Back to case</Link> : undefined}
+        />
         <div className="flex min-h-0 flex-1 justify-center overflow-y-auto bg-sand/60 p-6 lg:p-10">
           <div className="w-full max-w-2xl">
             {step1Form}

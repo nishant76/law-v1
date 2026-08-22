@@ -153,7 +153,10 @@ async def set_ecourts_profile(
     if body.ecourts_state_code is not None:
         user.ecourts_state_code = body.ecourts_state_code.strip()
     if body.advocate_name is not None:
-        user.ecourts_advocate_name = body.advocate_name.strip()
+        new_name = body.advocate_name.strip()
+        if new_name != (user.ecourts_advocate_name or ""):
+            user.ecourts_name_match_found = None
+        user.ecourts_advocate_name = new_name
     await db.commit()
     return {
         "success": True,

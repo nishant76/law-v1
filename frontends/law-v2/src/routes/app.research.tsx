@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppTopbar } from "@/components/app/AppTopbar";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   unifiedSearch,
   openJudgmentPdf,
@@ -19,9 +19,18 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+interface ResearchSearch {
+  q?: string;
+  matter?: string;
+}
+
 export const Route = createFileRoute("/app/research")({
   head: () => ({ meta: [{ title: "Research — SuperAdvocate.Ai" }] }),
   component: Research,
+  validateSearch: (search: Record<string, unknown>): ResearchSearch => ({
+    q: typeof search.q === "string" ? search.q : undefined,
+    matter: typeof search.matter === "string" ? search.matter : undefined,
+  }),
 });
 
 const PAGE_SIZE = 10;
@@ -45,30 +54,43 @@ function normaliseCourt(court: string): string {
 // ── Research page ─────────────────────────────────────────────────────────────
 
 function Research() {
-  const [query, setQuery] = useState("");
+  const { q: initQuery, matter: linkedMatterId } = Route.useSearch();
+  const [query, setQuery] = useState(initQuery ?? "");
   const [loading, setLoading] = useState(false);
   const [publicResults, setPublicResults] = useState<PublicJudgmentResult[]>([]);
   const [ownResults, setOwnResults] = useState<OwnFileResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const searchIdRef = useRef(0);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  const runSearch = async (q: string) => {
+    if (!q.trim()) return;
+    const thisId = ++searchIdRef.current;
     setLoading(true);
     setError(null);
     setSearched(true);
     setVisibleCount(PAGE_SIZE);
     try {
-      const res = await unifiedSearch(query, 50);
+      const res = await unifiedSearch(q, 50);
+      if (thisId !== searchIdRef.current) return;
       setPublicResults(res.data.from_public_judgments ?? []);
       setOwnResults(res.data.from_your_files ?? []);
     } catch {
+      if (thisId !== searchIdRef.current) return;
       setError("Search failed. Please check your connection and try again.");
     } finally {
-      setLoading(false);
+      if (thisId === searchIdRef.current) setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (initQuery) runSearch(initQuery);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    runSearch(query);
   };
 
   const visiblePublic = publicResults.slice(0, visibleCount);
@@ -76,7 +98,11 @@ function Research() {
 
   return (
     <>
-      <AppTopbar eyebrow="AI · Research" title="Judgments & citations" />
+      <AppTopbar
+        eyebrow="AI · Research"
+        title="Judgments & citations"
+        actions={linkedMatterId ? <Link to="/app/cases/$id" params={{ id: linkedMatterId }} className="text-xs text-muted-foreground hover:text-amber-accent transition-colors">← Back to case</Link> : undefined}
+      />
       <div className="flex-1 overflow-y-auto px-6 py-8 lg:px-10">
         {/* Search box */}
         <form

@@ -19,11 +19,11 @@ export interface Matter {
   next_hearing_date: string | null
   is_active: boolean
   ecourts_tracked: boolean
+  agreed_fee: number | null
   created_at: string
   client_name: string | null
   /** Present on the list endpoint; totals computed in SQL so list and detail agree. */
   fees?: MatterFeeSummary
-
 }
 
 export interface MatterDetail extends Matter {
@@ -61,6 +61,18 @@ export interface MatterDetailResponse {
   ecourts_error: string | null
 }
 
+export interface CreateMatterRequest {
+  case_name: string
+  court?: string
+  matter_type?: string
+  client_name?: string
+  next_hearing_date?: string
+  agreed_fee?: number
+}
+
+export const createMatter = (body: CreateMatterRequest) =>
+  api.post<{ success: boolean; matter: MatterDetail }>('/matters', body)
+
 export const listMatters = () =>
   api.get<{ success: boolean; matters: Matter[]; total: number }>('/matters')
 
@@ -76,6 +88,9 @@ export interface UpdateMatterRequest {
   client_phone?: string
   is_active?: boolean
   whatsapp_reminders_enabled?: boolean
+  next_hearing_date?: string
+  case_status?: string
+  agreed_fee?: number | null
 }
 
 export const updateMatter = (id: string, body: UpdateMatterRequest) =>

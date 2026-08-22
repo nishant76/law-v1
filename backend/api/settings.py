@@ -131,6 +131,8 @@ async def update_profile(
         "ecourts_state_code", "whatsapp_number", "daily_cause_list_enabled",
     ):
         if field in data:
+            if field == "ecourts_advocate_name" and data[field] != (user.ecourts_advocate_name or ""):
+                user.ecourts_name_match_found = None
             setattr(user, field, data[field])
 
     # Chamber details are firm-wide, so only an admin may change them.

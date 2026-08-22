@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Logo } from "@/components/brand/Logo";
 import { z } from "zod";
 import { useState } from "react";
-import { login } from "@/api/auth";
+import { login, register } from "@/api/auth";
 import { useAuthStore } from "@/store/authStore";
 
 const search = z.object({
@@ -26,24 +26,41 @@ function AuthPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
 
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [registered, setRegistered] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
     try {
-      const res = await login(email, password);
-      const { access_token, user } = res.data.data;
-      setAuth(user, access_token);
-      navigate({ to: "/app" });
+      if (isSignup) {
+        const name = fullName.trim() || email.split("@")[0];
+        await register(name, email, password);
+        // Registration doesn't return a token — auto-login after signup
+        const loginRes = await login(email, password);
+        const { access_token, user } = loginRes.data.data;
+        setAuth(user, access_token);
+        setRegistered(true);
+        navigate({ to: "/app" });
+      } else {
+        const res = await login(email, password);
+        const { access_token, user } = res.data.data;
+        setAuth(user, access_token);
+        navigate({ to: "/app" });
+      }
     } catch (err: unknown) {
+      const resp = err as { response?: { data?: { detail?: string; message?: string; error?: { message?: string } } } };
       const msg =
-        (err as { response?: { data?: { error?: { message?: string } } } })
-          ?.response?.data?.error?.message ?? "Invalid email or password.";
+        resp?.response?.data?.detail ??
+        resp?.response?.data?.message ??
+        resp?.response?.data?.error?.message ??
+        (isSignup ? "Registration failed. Please try again." : "Invalid email or password.");
       setError(msg);
     } finally {
       setLoading(false);
@@ -86,11 +103,18 @@ function AuthPage() {
                 : "Use the email associated with your practice."}
             </p>
 
-            <form className="mt-10 space-y-5" onSubmit={handleLogin}>
+            <form className="mt-10 space-y-5" onSubmit={handleSubmit}>
               {isSignup && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Full name" placeholder="Ananya Rao" />
-                  <Field label="Bar Council No." placeholder="KAR/2847/2018" />
+                <div>
+                  <label className="eyebrow mb-2 block">Full name</label>
+                  <input
+                    type="text"
+                    placeholder="Ananya Rao"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    className="hairline h-11 w-full rounded-md bg-card px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  />
                 </div>
               )}
               <div>
@@ -112,16 +136,23 @@ function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  minLength={8}
                   className="hairline h-11 w-full rounded-md bg-card px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
                 />
+                {isSignup && (
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">At least 8 characters.</p>
+                )}
               </div>
-              {isSignup && (
-                <Field label="Mobile (for WhatsApp)" placeholder="+91 98000 00000" />
-              )}
 
               {error && (
                 <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
                   {error}
+                </p>
+              )}
+
+              {registered && (
+                <p className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
+                  Account created. Signing you in…
                 </p>
               )}
 
@@ -130,7 +161,9 @@ function AuthPage() {
                 disabled={loading}
                 className="inline-flex h-11 w-full items-center justify-center rounded-md bg-amber-accent text-sm font-medium text-amber-accent-fg hover:opacity-90 disabled:opacity-50"
               >
-                {loading ? "Signing in…" : isSignup ? "Create account" : "Sign in"}
+                {loading
+                  ? (isSignup ? "Creating account…" : "Signing in…")
+                  : (isSignup ? "Create account" : "Sign in")}
               </button>
 
               <div className="relative py-2 text-center text-xs text-muted-foreground">
@@ -139,9 +172,10 @@ function AuthPage() {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <button type="button" className="hairline h-11 rounded-md bg-card text-sm">Google</button>
-                <button type="button" className="hairline h-11 rounded-md bg-card text-sm">Mobile OTP</button>
+                <button type="button" disabled className="hairline h-11 rounded-md bg-card text-sm text-muted-foreground">Google</button>
+                <button type="button" disabled className="hairline h-11 rounded-md bg-card text-sm text-muted-foreground">Mobile OTP</button>
               </div>
+              <p className="text-center text-[11px] text-muted-foreground">Google and OTP sign-in coming soon.</p>
             </form>
 
             <div className="mt-8 flex items-center justify-between text-sm">
@@ -153,7 +187,9 @@ function AuthPage() {
                 {isSignup ? "I already have an account" : "Create an account"}
               </Link>
               {!isSignup && (
-                <a href="#" className="text-muted-foreground hover:text-foreground">Forgot password?</a>
+                <span className="text-muted-foreground text-xs">
+                  Forgot password? Contact support.
+                </span>
               )}
             </div>
 
@@ -163,19 +199,6 @@ function AuthPage() {
           </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-function Field({ label, type = "text", placeholder }: { label: string; type?: string; placeholder?: string }) {
-  return (
-    <div>
-      <label className="eyebrow mb-2 block">{label}</label>
-      <input
-        type={type}
-        placeholder={placeholder}
-        className="hairline h-11 w-full rounded-md bg-card px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
-      />
     </div>
   );
 }
